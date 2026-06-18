@@ -1,0 +1,35 @@
+# ============================================================
+# AGAI - ANAC Gabon
+# public/.htaccess   (C:\xampp\htdocs\AGAI\public\.htaccess)
+# ------------------------------------------------------------
+# Front controller : tout ce qui n'est pas un fichier reel
+# (css, js, images, uploads) est route vers index.php.
+# ============================================================
+
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /AGAI/public/
+
+    # Servir directement les fichiers / dossiers reels
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Sinon : front controller (la route est passee en parametre)
+    RewriteRule ^(.*)$ index.php?route=$1 [QSA,L]
+</IfModule>
+
+# ============================================================
+# EN-TETES DE SECURITE
+# ============================================================
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://fonts.googleapis.com https://cdn.datatables.net; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://code.jquery.com https://cdn.datatables.net; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
+</IfModule>

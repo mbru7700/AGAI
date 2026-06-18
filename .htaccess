@@ -1,0 +1,40 @@
+# ============================================================
+# AGAI - ANAC Gabon
+# .htaccess RACINE   (C:\xampp\htdocs\AGAI\.htaccess)
+# ------------------------------------------------------------
+# Redirige TOUT le trafic vers /public (seul dossier expose).
+# Les dossiers sensibles (config, classes, app, logs...) ne
+# sont jamais servis directement.
+# ============================================================
+
+Options -Indexes -MultiViews
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /AGAI/
+
+    # --- Forcer HTTPS en production (ignore en local) ---
+    RewriteCond %{HTTP_HOST} !^localhost$    [NC]
+    RewriteCond %{HTTP_HOST} !^127\.0\.0\.1  [NC]
+    RewriteCond %{HTTP_HOST} !^192\.168\.    [NC]
+    RewriteCond %{HTTP_HOST} !^10\.          [NC]
+    RewriteCond %{HTTPS} off
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+    # --- Ce qui cible deja /public est gere par public/.htaccess ---
+    RewriteRule ^public/ - [L]
+
+    # --- Tout le reste passe par le front controller ---
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# ============================================================
+# DEFENSE EN PROFONDEUR
+# Interdire l'acces direct aux fichiers et dossiers internes.
+# ============================================================
+<FilesMatch "(^\.|\.(env|sql|log|ini|md|json|yml|yaml|lock|bak|old|sample|dist|conf)$)">
+    Require all denied
+</FilesMatch>
+
+# Bloquer toute requete HTTP vers les dossiers serveur uniquement
+RedirectMatch 403 "(?i)^/AGAI/(config|classes|includes|logs|mail|vendor|app)(/|$)"
