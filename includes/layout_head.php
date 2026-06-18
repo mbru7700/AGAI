@@ -16,7 +16,8 @@ $initials  = strtoupper(mb_substr($me['prenom'] ?? '', 0, 1) . mb_substr($me['no
 $menu = [
     ['dashboard',  'Tableau de bord',          'bi-speedometer2',        'dashboard',      'dashboard',      true],
     ['programme',  'Programme de surveillance', 'bi-calendar3',           'programme',      'programme',      false],
-    ['audits',     'Audits et inspections',     'bi-clipboard-check',     'audits',         'audits',         false],
+    ['audits',     'Audits et inspections',     'bi-clipboard-check',     'audits',         'audits',         true],
+    ['inspecteurs','Inspecteurs',               'bi-person-badge',        'inspecteurs',    'inspecteurs',    true],
     ['ncs',        'Non-conformites',           'bi-exclamation-triangle','nonconformites', 'nonconformites', false],
     ['actions',    'Actions correctives',       'bi-check2-square',       'actions',        'actions',        false],
     ['docs',       'Gestion documentaire',      'bi-folder2-open',        'documents',      'documents',      false],

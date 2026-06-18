@@ -14,8 +14,8 @@ class Rbac
 {
     /** Modules accessibles par rôle (visibilité menu + accès page/API). */
     private const MATRIX = [
-        'admin'           => ['dashboard','programme','audits','nonconformites','actions','documents','rapports','domaines','users','parametres'],
-        'chef_inspecteur' => ['dashboard','programme','audits','nonconformites','actions','documents','rapports','domaines'],
+        'admin'           => ['dashboard','programme','audits','inspecteurs','nonconformites','actions','documents','rapports','domaines','users','parametres'],
+        'chef_inspecteur' => ['dashboard','programme','audits','inspecteurs','nonconformites','actions','documents','rapports','domaines'],
         'inspecteur'      => ['dashboard','programme','audits','nonconformites','actions','documents','rapports','domaines'],
         'operateur'       => ['dashboard','audits','nonconformites','actions','documents','rapports'],
         'consultant'      => ['dashboard','rapports','domaines'],

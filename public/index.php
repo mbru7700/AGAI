@@ -59,7 +59,7 @@ switch ($route) {
 // 3bis) Endpoints AJAX des modules : /api/<nom>
 if (strpos($route, 'api/') === 0) {
     $name       = substr($route, 4);
-    $allowedApi = ['users', 'organisme', 'personnel', 'profile'];
+    $allowedApi = ['users', 'organisme', 'personnel', 'profile', 'audits', 'inspecteurs'];
     if (in_array($name, $allowedApi, true)) {
         require dirname(__DIR__) . '/app/endpoints/' . $name . '.php';
         exit;
@@ -77,6 +77,8 @@ $pages = [
     'dashboard'    => 'dashboard.php',
     'users'        => 'users.php',
     'profile'      => 'profile.php',
+    'audits'       => 'audits.php',
+    'inspecteurs'  => 'inspecteurs.php',
 ];
 
 if (isset($pages[$route])) {

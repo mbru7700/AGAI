@@ -32,3 +32,6 @@ Stack trace:
 #0 C:\xampp\htdocs\AGAI\public\index.php(84): require()
 #1 {main}
   thrown in C:\xampp\htdocs\AGAI\app\pages\dashboard.php on line 14
+[18-Jun-2026 22:12:01 Europe/Berlin] inspecteur save : SQLSTATE[23000]: Integrity constraint violation: 1452 Cannot add or update a child row: a foreign key constraint fails (`siganac`.`habilitation`, CONSTRAINT `habilitation_ibfk_2` FOREIGN KEY (`iddomaine`) REFERENCES `domaine` (`iddomaine`) ON DELETE CASCADE)
+[18-Jun-2026 22:17:19 Europe/Berlin] inspecteur save : SQLSTATE[23000]: Integrity constraint violation: 1452 Cannot add or update a child row: a foreign key constraint fails (`siganac`.`habilitation`, CONSTRAINT `habilitation_ibfk_2` FOREIGN KEY (`iddomaine`) REFERENCES `domaine` (`iddomaine`) ON DELETE CASCADE)
+[18-Jun-2026 22:33:22 Europe/Berlin] inspecteur save : SQLSTATE[23000]: Integrity constraint violation: 1452 Cannot add or update a child row: a foreign key constraint fails (`siganac`.`habilitation`, CONSTRAINT `habilitation_ibfk_2` FOREIGN KEY (`iddomaine`) REFERENCES `domaine` (`iddomaine`) ON DELETE CASCADE)
