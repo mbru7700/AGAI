@@ -12,19 +12,55 @@ $pageIcon  = $pageIcon ?? 'bi-grid';
 $me        = $_SESSION['user'] ?? ['prenom' => '', 'nom' => '', 'role' => ''];
 $initials  = strtoupper(mb_substr($me['prenom'] ?? '', 0, 1) . mb_substr($me['nom'] ?? '', 0, 1));
 
-/* Menu : cle, libelle, icone, route, module RBAC, construit(true/false) */
+/* Menu : [key, label, icone, route, module, built] ou GROUP avec [6]=enfants */
+$role_now = Rbac::role();
+
 $menu = [
-    ['dashboard',  'Tableau de bord',          'bi-speedometer2',        'dashboard',      'dashboard',      true],
-    ['programme',  'Programme de surveillance', 'bi-calendar3',           'programme',      'programme',      false],
-    ['audits',     'Audits et inspections',     'bi-clipboard-check',     'audits',         'audits',         true],
-    ['inspecteurs','Inspecteurs',               'bi-person-badge',        'inspecteurs',    'inspecteurs',    true],
-    ['ncs',        'Non-conformites',           'bi-exclamation-triangle','nonconformites', 'nonconformites', false],
-    ['actions',    'Actions correctives',       'bi-check2-square',       'actions',        'actions',        false],
-    ['docs',       'Gestion documentaire',      'bi-folder2-open',        'documents',      'documents',      false],
-    ['rapports',   'Rapports et statistiques',  'bi-graph-up',            'rapports',       'rapports',       false],
-    ['domaines',   'Domaines critiques OACI',   'bi-shield-shaded',       'domaines',       'domaines',       false],
-    ['users',      'Gestion des utilisateurs',  'bi-people',              'users',          'users',          true],
-    ['parametres', 'Parametres',                'bi-gear',                'parametres',     'parametres',     false],
+    // 1. Tableau de bord
+    ['dashboard', 'Tableau de bord', 'bi-speedometer2', 'dashboard', 'dashboard', true],
+
+    // 2. Donnees de structures (groupe)
+    ['structures', 'Donnees de structures', 'bi-diagram-3', 'GROUP', 'inspecteurs', true, [
+        ['inspecteurs',    'Inspecteurs',          'bi-person-badge',   'inspecteurs',    'inspecteurs',    true],
+        ['exploitants',    'Exploitants',          'bi-buildings',      'exploitants',    'exploitants',    true],
+        ['domaines',       'Domaines',             'bi-grid-3x3-gap',   'domaines',       'domaines',       true],
+        ['sousdomaines',   'Sous-domaines',        'bi-diagram-2',      'sousdomaines',   'sousdomaines',   true],
+        ['typesorganisme', 'Types d\'activite',    'bi-tags',           'typesorganisme', 'typesorganisme', true],
+        ['reglements',     'Reglements',           'bi-journal-text',   'reglements',     'reglements',     true],
+        ['sites',          'Sites d\'inspection',  'bi-geo-alt',        'sites',          'sites',          true],
+    ]],
+
+    // 3. Gestion des audits (groupe)
+    ['audits_group', 'Gestion des audits', 'bi-clipboard-check', 'GROUP', 'audits', true, [
+        ['audits',   'Audits et inspections', 'bi-clipboard-check', 'audits',    'audits',    true],
+        ['revue',    'Revue documentaire',    'bi-file-text',       'mes-audits','revue_doc', true],
+        ['actes',    'Mes actes de superv.',  'bi-eye',             'actes',     'actes',     false],
+    ]],
+
+    // 4. Non-conformites (groupe)
+    ['nc_group', 'Non-conformites', 'bi-exclamation-triangle', 'GROUP', 'nonconformites', true, [
+        ['fnc', 'Suivi FNC', 'bi-list-check', 'fnc', 'nonconformites', false],
+    ]],
+
+    // 5. Analyse des donnees (groupe)
+    ['analyse_group', 'Analyse des donnees', 'bi-graph-up', 'GROUP', 'analyse_psc', true, [
+        ['analyse_psc', 'Analyse PSC',                'bi-bar-chart',    'analyse-psc', 'analyse_psc', false],
+        ['analyse_fnc', 'Analyse FNC',                'bi-pie-chart',    'analyse-fnc', 'analyse_fnc', false],
+        ['mise_oeuvre', 'Mise en oeuvre reglementaire','bi-shield-check','mise-oeuvre', 'mise_oeuvre', false],
+    ]],
+
+    // 6. Gestion des utilisateurs (admin + chef_inspecteur)
+    ['users', 'Gestion des utilisateurs', 'bi-people', 'users', 'users', true],
+
+    // 7. Cybersecurite AGAI (groupe - admin seulement)
+    ['cybersecu', 'Cybersecurite AGAI', 'bi-shield-lock', 'GROUP', 'cybersecurite', true, [
+        ['parametres',     'Parametres',              'bi-gear',                   'parametres',    'cybersecurite', true],
+        ['login_attempts', 'Tentatives de connexion', 'bi-shield-exclamation',     'login-attempts','cybersecurite', true],
+        ['audit_logs',     'Journal des evenements',  'bi-journal-text',           'audit-logs',    'cybersecurite', true],
+    ]],
+
+    // 8. Parametres seul (non plus dans le menu principal)
+    // ['parametres', 'Parametres', 'bi-gear', 'parametres', 'parametres', false],
 ];
 ?>
 <!DOCTYPE html>
@@ -61,6 +97,19 @@ body{font-family:'Candara','Segoe UI',system-ui,sans-serif;background:var(--anac
 .sidebar .menu a:hover{background:rgba(255,255,255,.08);color:#fff;}
 .sidebar .menu a.active{background:rgba(255,255,255,.12);color:#fff;border-left-color:var(--anac-gold);font-weight:600;}
 .sidebar .menu a .soon{margin-left:auto;font-size:.6rem;background:rgba(255,255,255,.15);padding:2px 7px;border-radius:10px;color:#cdd7ea;}
+/* Groupe deroulant (Donnees de structures) */
+.sidebar .menu .group-toggle{display:flex;align-items:center;gap:13px;padding:11px 22px;color:rgba(255,255,255,.82);text-decoration:none;font-size:.93rem;border-left:3px solid transparent;cursor:pointer;transition:all .18s;}
+.sidebar .menu .group-toggle i:first-child{font-size:1.1rem;width:20px;text-align:center;}
+.sidebar .menu .group-toggle:hover{background:rgba(255,255,255,.08);color:#fff;}
+.sidebar .menu .group-toggle .caret{margin-left:auto;font-size:.8rem;transition:transform .2s;}
+.sidebar .menu .group-toggle[aria-expanded="true"]{color:#fff;background:rgba(255,255,255,.05);}
+.sidebar .menu .group-toggle[aria-expanded="true"] .caret{transform:rotate(180deg);}
+.sidebar .menu .group-toggle.has-active{border-left-color:var(--anac-gold);font-weight:600;}
+.sidebar .menu .submenu{background:rgba(0,0,0,.16);}
+.sidebar .menu .submenu a{padding:9px 22px 9px 40px;font-size:.875rem;color:rgba(255,255,255,.72);border-left:3px solid transparent;}
+.sidebar .menu .submenu a i{font-size:.95rem;width:18px;}
+.sidebar .menu .submenu a:hover{background:rgba(255,255,255,.07);color:#fff;}
+.sidebar .menu .submenu a.active{background:rgba(243,195,0,.14);color:#fff;border-left-color:var(--anac-gold);font-weight:600;}
 .sidebar .foot{padding:14px 22px;border-top:1px solid rgba(255,255,255,.12);font-size:.72rem;color:rgba(255,255,255,.5);}
 .topbar{position:fixed;top:0;left:var(--sidebar-w);right:0;height:72px;background:#fff;border-bottom:1px solid #e7ecf3;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:1030;box-shadow:0 2px 10px rgba(35,64,143,.04);}
 .topbar::after{content:"";position:absolute;left:0;bottom:-1px;height:3px;width:100%;background:linear-gradient(90deg,var(--anac-primary) 0%,var(--anac-secondary) 50%,var(--anac-gold) 100%);}
@@ -120,9 +169,54 @@ table.dataTable thead th{background:#f4f7fb;color:var(--anac-text);font-size:.82
     <span><span class="t">AGAI</span><br><span class="s">ANAC Gabon</span></span>
   </div>
   <nav class="menu">
-    <?php foreach ($menu as [$key, $label, $icon, $route, $module, $built]):
-        if (!Rbac::canAccess($module)) continue;
-        $isActive = ($active === $key) ? ' active' : '';
+    <?php foreach ($menu as $item):
+        $key = $item[0]; $label = $item[1]; $icon = $item[2]; $route = $item[3]; $module = $item[4]; $built = $item[5];
+
+        // Pour les GROUPEs : ne pas filtrer au niveau du groupe parent,
+        // on filtre enfant par enfant plus bas (visibleChildren).
+        // Pour les items simples : garde RBAC classique.
+        if ($route !== 'GROUP' && !Rbac::canAccess($module)) continue;
+
+        // Groupe deroulant (sous-menu)
+        if ($route === 'GROUP'):
+            $children = $item[6] ?? [];
+            // Filtrer les enfants selon les droits RBAC de l'utilisateur
+            $visibleChildren = [];
+            foreach ($children as $c) {
+                if (Rbac::canAccess($c[4])) { $visibleChildren[] = $c; }
+            }
+            if (empty($visibleChildren)) { continue; }
+            $hasActive = false;
+            foreach ($visibleChildren as $c) {
+                if ($active === $c[0] || $active === $c[3]) { $hasActive = true; break; }
+            }
+            if ($key === 'audits_group' && in_array($active, ['mes-audits','revue','audits'], true)) $hasActive = true;
+    ?>
+        <a class="group-toggle<?php echo $hasActive ? ' has-active' : ''; ?>" data-bs-toggle="collapse" href="#grp_<?php echo $key; ?>" role="button" aria-expanded="<?php echo $hasActive ? 'true' : 'false'; ?>">
+          <i class="bi <?php echo $icon; ?>"></i><span><?php echo $label; ?></span><i class="bi bi-chevron-down caret"></i>
+        </a>
+        <div class="submenu collapse<?php echo $hasActive ? ' show' : ''; ?>" id="grp_<?php echo $key; ?>">
+          <?php foreach ($visibleChildren as [$ck, $cl, $ci, $cr, $cm, $cb]):
+              $isChildActive = ($active === $ck || $active === $cr) ? ' active' : '';
+              if ($ck === 'revue' && $active === 'mes-audits') $isChildActive = ' active';
+          ?>
+            <?php if ($cb): ?>
+              <a class="<?php echo trim($isChildActive); ?>" href="<?php echo SITE_URL . '/' . $cr; ?>">
+                <i class="bi <?php echo $ci; ?>"></i><span><?php echo $cl; ?></span>
+              </a>
+            <?php else: ?>
+              <a class="nav-soon<?php echo $isChildActive; ?>" href="#" data-module="<?php echo Security::escape($cl); ?>">
+                <i class="bi <?php echo $ci; ?>"></i><span><?php echo $cl; ?></span><span class="soon">bientot</span>
+              </a>
+            <?php endif; ?>
+          <?php endforeach; ?>
+        </div>
+    <?php
+            continue;
+        endif;
+
+        // Item simple
+        $isActive = ($active === $key || $active === $route) ? ' active' : '';
     ?>
       <?php if ($built): ?>
         <a class="<?php echo trim($isActive); ?>" href="<?php echo SITE_URL . '/' . $route; ?>">
@@ -134,6 +228,13 @@ table.dataTable thead th{background:#f4f7fb;color:var(--anac-text);font-size:.82
         </a>
       <?php endif; ?>
     <?php endforeach; ?>
+
+    <!-- Deconnexion en bas du menu -->
+    <div style="margin-top:auto;padding:6px 0;border-top:1px solid rgba(255,255,255,.1)">
+      <a href="<?php echo SITE_URL; ?>/logout" style="color:rgba(255,150,150,.85);" title="Se deconnecter">
+        <i class="bi bi-box-arrow-right"></i><span>Se deconnecter</span>
+      </a>
+    </div>
   </nav>
   <div class="foot">AGAI v<?php echo defined('APP_VERSION') ? APP_VERSION : '1.0.0'; ?> &middot; &copy; <?php echo date('Y'); ?></div>
 </aside>

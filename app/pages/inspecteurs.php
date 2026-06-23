@@ -31,7 +31,8 @@ require_once INCLUDES_PATH . '/layout_head.php';
 
 <style>
   .filter-bar{background:#fff;border:1px solid #eef1f6;border-radius:14px;padding:14px 16px;box-shadow:0 1px 2px rgba(16,30,54,.04);}
-  .insp-avatar{width:40px;height:40px;border-radius:50%;background:rgba(35,64,143,.10);color:#23408F;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex:0 0 auto;}
+  .insp-avatar{width:40px;height:40px;border-radius:50%;background:rgba(35,64,143,.10);color:#23408F;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex:0 0 auto;overflow:hidden;}
+  .insp-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover;}
   .badge-soft{display:inline-block;padding:.25rem .6rem;border-radius:20px;font-size:.74rem;font-weight:600;white-space:nowrap;}
   .b-green{background:rgba(30,156,75,.12);color:#1E9C4B;}
   .b-gold{background:rgba(243,195,0,.18);color:#b58a00;}
@@ -154,6 +155,19 @@ require_once INCLUDES_PATH . '/layout_head.php';
 
         <hr class="my-3">
 
+        <div class="mb-1" id="photoWrap">
+          <label class="form-label"><i class="bi bi-image me-1"></i>Photo de l'inspecteur</label>
+          <div class="d-flex align-items-center gap-3">
+            <span class="insp-avatar" id="photoPreview" style="width:64px;height:64px;font-size:1.2rem;">IN</span>
+            <div class="flex-grow-1">
+              <input type="file" class="form-control form-control-sm" id="i_photo" accept="image/jpeg,image/png,image/webp">
+              <div class="form-text" id="photoNote">JPEG, PNG ou WEBP, 2 Mo maximum. La photo est enregistree avec l'inspecteur.</div>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-3">
+
         <div class="row g-3">
           <div class="col-md-4">
             <label class="form-label">Categorie <span class="text-danger">*</span></label>
@@ -261,6 +275,25 @@ require_once INCLUDES_PATH . '/layout_head.php';
   </div>
 </div>
 
+<!-- ===== LECTEUR PDF REUTILISABLE (voir / imprimer / telecharger) ===== -->
+<div class="modal fade" id="pdfModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="pdfModalTitle"><i class="bi bi-file-earmark-pdf me-2" style="color:#D32F2F"></i>Document</h5>
+        <div class="d-flex gap-2 ms-auto align-items-center">
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="pdfPrint"><i class="bi bi-printer me-1"></i>Imprimer</button>
+          <a class="btn btn-sm btn-outline-primary" id="pdfDownload" href="#" target="_blank"><i class="bi bi-download me-1"></i>Telecharger</a>
+          <button type="button" class="btn-close ms-1" data-bs-dismiss="modal"></button>
+        </div>
+      </div>
+      <div class="modal-body p-0" style="height:78vh;background:#525659;">
+        <iframe id="pdfFrame" src="" title="Document PDF" style="width:100%;height:100%;border:0;"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+
 <?php require_once INCLUDES_PATH . '/layout_foot.php'; ?>
 
 <script>
@@ -305,6 +338,9 @@ function loadFilters(){
 
 /* ---------- Liste ---------- */
 function avatar(insp){
+  if(insp.photoinspecter){
+    return '<span class="insp-avatar"><img src="'+esc(AGAI_BASE+'/api/inspecteurs?serve=photo&idinspecteur='+insp.idinspecteur)+'" alt=""></span>';
+  }
   const ini = (String(insp.preninspect||'').charAt(0) + String(insp.nominspecteur||'').charAt(0)).toUpperCase();
   return '<span class="insp-avatar">'+esc(ini || 'IN')+'</span>';
 }
@@ -377,6 +413,9 @@ function addHabRow(h){
     +   '<div class="col-md-2 hab-formal"><label class="form-label mb-1 small">Expiration</label><input type="date" class="form-control form-control-sm hab-fin" value="'+esc((h.date_expiration||'').substring(0,10))+'"></div>'
     +   '<div class="col-md-1 d-grid"><button type="button" class="btn btn-sm btn-outline-danger hab-del" title="Retirer"><i class="bi bi-x-lg"></i></button></div>'
     +   '<div class="col-12"><input type="text" class="form-control form-control-sm hab-obs" placeholder="Observation (facultatif)" value="'+esc(h.observation||'')+'"></div>'
+    +   '<div class="col-12 hab-formal"><label class="form-label mb-1 small">Decision (PDF)</label><div class="d-flex gap-2 align-items-center"><input type="file" class="form-control form-control-sm hab-decision" accept="application/pdf">'
+    +     ((h.idhabilitation && h.decision) ? '<button type="button" class="btn btn-sm btn-outline-primary hab-viewdec" data-idh="'+esc(h.idhabilitation)+'" title="Voir la decision jointe"><i class="bi bi-eye me-1"></i>Voir</button>' : '')
+    +   '</div><div class="form-text">'+(h.decision ? 'Une decision est deja jointe. Choisir un fichier la remplace.' : 'PDF, 10 Mo maximum. Facultatif.')+'</div></div>'
     + '</div></div>'
   );
   $('#habRows').append(row);
@@ -429,6 +468,7 @@ $('#btnNew').on('click', function(){
     $('#i_nom,#i_prenom,#i_matricule,#i_email,#i_trigr,#i_tele').val('');
     $('#i_categorie').val('titulaire');
     $('#i_datenomine').val('');
+    $('#i_photo').val(''); $('#photoPreview').text('IN');
     fillDirectionSelect('');
     if($('#i_codedirec').hasClass('select2-hidden-accessible')) $('#i_codedirec').select2('destroy');
     $('#i_codedirec').select2({theme:'bootstrap-5', dropdownParent:$('#inspModal'), placeholder:'Choisir une direction', width:'100%'});
@@ -461,6 +501,9 @@ $(document).on('click', '.act-edit', function(){
     $('#i_trigr').val(i.trigr_inspecteur);
     $('#i_datenomine').val((i.datenomine||'').substring(0,10));
     $('#i_tele').val(i.teleinspecter);
+    $('#i_photo').val('');
+    if(i.photoinspecter){ $('#photoPreview').html('<img src="'+esc(AGAI_BASE+'/api/inspecteurs?serve=photo&idinspecteur='+i.idinspecteur)+'" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">'); }
+    else { $('#photoPreview').text(((String(i.preninspect||'').charAt(0))+(String(i.nominspecteur||'').charAt(0))).toUpperCase() || 'IN'); }
     fillDirectionSelect(i.codedirec);
     if($('#i_codedirec').hasClass('select2-hidden-accessible')) $('#i_codedirec').select2('destroy');
     $('#i_codedirec').select2({theme:'bootstrap-5', dropdownParent:$('#inspModal'), placeholder:'Choisir une direction', width:'100%'});
@@ -490,8 +533,8 @@ $(document).on('click', '.act-del', function(){
 $('#inspForm').on('submit', function(e){
   e.preventDefault();
   const isUpdate = $('#i_idinspecteur').val() !== '';
-  // Collecte des habilitations (tableaux paralleles, meme ordre)
-  const hab_domaine=[], hab_numero=[], hab_debut=[], hab_fin=[], hab_obs=[];
+  // Collecte des habilitations (tableaux paralleles, meme ordre) + fichiers de decision alignes
+  const hab_domaine=[], hab_numero=[], hab_debut=[], hab_fin=[], hab_obs=[], decFiles=[];
   $('#habRows .hab-row').each(function(){
     const d = $(this).find('.hab-dom').val();
     if(!d) return;
@@ -500,6 +543,8 @@ $('#inspForm').on('submit', function(e){
     hab_debut.push($(this).find('.hab-deb').val()||'');
     hab_fin.push($(this).find('.hab-fin').val()||'');
     hab_obs.push($(this).find('.hab-obs').val()||'');
+    const f = $(this).find('.hab-decision')[0];
+    decFiles.push((f && f.files[0]) ? f.files[0] : null);
   });
   if(hab_domaine.length === 0){ Swal.fire({icon:'warning',title:'Domaine',text:'Ajoutez au moins un domaine.',confirmButtonColor:'#23408F'}); return; }
 
@@ -517,12 +562,53 @@ $('#inspForm').on('submit', function(e){
   const btn = $('#inspSubmit'); const html = btn.html();
   btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>...');
   apiPost(API_INSP, data).done(res => {
-    btn.prop('disabled', false).html(html);
-    if(res.success){
+    if(!res.success){ btn.prop('disabled', false).html(html); Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); return; }
+    // Televersements SEQUENTIELS (photo puis decisions) : on evite tout conflit de session
+    // entre deux requetes simultanees, et on remonte la moindre erreur.
+    const uploads = [];
+    const photoFile = document.getElementById('i_photo').files[0];
+    if(photoFile && res.idinspecteur){
+      uploads.push({ label:'la photo', build:function(){
+        const fd = new FormData();
+        fd.append('csrf_token', CSRF); fd.append('action','upload_photo');
+        fd.append('idinspecteur', res.idinspecteur); fd.append('photo', photoFile);
+        return fd;
+      }});
+    }
+    const habs = res.habilitations || [];
+    decFiles.forEach(function(file, i){
+      if(file && habs[i]){
+        uploads.push({ label:'une decision', build:function(){
+          const fd = new FormData();
+          fd.append('csrf_token', CSRF); fd.append('action','upload_decision');
+          fd.append('idhabilitation', habs[i].idhabilitation); fd.append('decision', file);
+          return fd;
+        }});
+      }
+    });
+
+    const errors = [];
+    function finish(){
+      btn.prop('disabled', false).html(html);
       bootstrap.Modal.getInstance(document.getElementById('inspModal')).hide();
-      Swal.fire({icon:'success',title:'Enregistre',text:res.message,timer:1800,showConfirmButton:false,timerProgressBar:true});
+      if(errors.length){
+        Swal.fire({icon:'warning', title:'Enregistre, avec un souci',
+          html: esc(res.message) + '<br><br>Echec du televersement de : <b>' + esc(errors.join(', ')) + '</b>.<br><small>Vous pouvez rouvrir l\'inspecteur en modification pour reessayer le fichier.</small>',
+          confirmButtonColor:'#23408F'});
+      } else {
+        Swal.fire({icon:'success',title:'Enregistre',text:res.message,timer:1800,showConfirmButton:false,timerProgressBar:true});
+      }
       loadList(); loadFilters();
-    } else { Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); }
+    }
+    function runNext(k){
+      if(k >= uploads.length){ return finish(); }
+      const step = uploads[k];
+      $.ajax({url:API_INSP, method:'POST', data:step.build(), processData:false, contentType:false, dataType:'json'})
+        .done(function(r){ if(!r || !r.success){ errors.push(step.label + (r && r.message ? ' ('+r.message+')' : '')); } })
+        .fail(function(){ errors.push(step.label + ' (erreur reseau)'); })
+        .always(function(){ runNext(k+1); });
+    }
+    runNext(0);
   }).fail(()=>{ btn.prop('disabled', false).html(html); Swal.fire({icon:'error',title:'Erreur',text:'Echec de la requete.',confirmButtonColor:'#23408F'}); });
 });
 
@@ -652,6 +738,35 @@ $('#newUserForm').on('submit', function(e){
       refreshUserSelect(email);
     } else { Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); }
   }).fail(()=>{ btn.prop('disabled', false).html(html); Swal.fire({icon:'error',title:'Erreur',text:'Creation impossible (action reservee aux administrateurs ?).',confirmButtonColor:'#23408F'}); });
+});
+
+/* ---------- Apercu de la photo au choix du fichier ---------- */
+$('#i_photo').on('change', function(){
+  const f = this.files && this.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = function(ev){ $('#photoPreview').html('<img src="'+ev.target.result+'" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">'); };
+  r.readAsDataURL(f);
+});
+
+/* ---------- Lecteur PDF reutilisable (voir / imprimer / telecharger) ---------- */
+function openPdf(url, title){
+  $('#pdfModalTitle').html('<i class="bi bi-file-earmark-pdf me-2" style="color:#D32F2F"></i>'+esc(title||'Document'));
+  $('#pdfFrame').attr('src', url);
+  $('#pdfDownload').attr('href', url + (url.indexOf('?')>=0 ? '&' : '?') + 'dl=1');
+  new bootstrap.Modal('#pdfModal').show();
+}
+$('#pdfPrint').on('click', function(){
+  const f = document.getElementById('pdfFrame');
+  try { f.contentWindow.focus(); f.contentWindow.print(); }
+  catch(e){ window.open($('#pdfFrame').attr('src'), '_blank'); }
+});
+$('#pdfModal').on('hidden.bs.modal', function(){ $('#pdfFrame').attr('src',''); });
+/* Bouton Voir d'une decision deja jointe (en edition) */
+$(document).on('click', '.hab-viewdec', function(){
+  const idh = $(this).data('idh');
+  if(!idh) return;
+  openPdf(AGAI_BASE + '/api/inspecteurs?serve=decision&idhabilitation=' + idh, 'Decision d\'habilitation');
 });
 
 /* ---------- Demarrage ---------- */

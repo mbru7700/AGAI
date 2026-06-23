@@ -198,6 +198,19 @@ require_once INCLUDES_PATH . '/layout_head.php';
                 <label class="form-check-label" for="send_no">Ne pas envoyer - <strong>afficher le mot de passe</strong> (copiable)</label>
               </div>
             </div>
+            <!-- HABILITATIONS : modules accessibles avec sous-menus -->
+            <div id="blockHabilitations" style="display:none;margin-top:16px">
+              <hr class="my-2">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div style="font-size:.73rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:#23408F"><i class="bi bi-key me-1"></i>Habilitations - Modules et sous-menus</div>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-xs btn-outline-primary btn-all-mods" data-val="1" style="font-size:.75rem;padding:2px 8px">Tout cocher</button>
+                  <button type="button" class="btn btn-xs btn-outline-secondary btn-all-mods" data-val="0" style="font-size:.75rem;padding:2px 8px">Tout decocher</button>
+                </div>
+              </div>
+              <div class="small text-muted mb-2">Le Tableau de bord est toujours accorde. Cochez les modules et sous-menus souhaites.</div>
+              <div id="modulesTree"></div>
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -260,6 +273,151 @@ const API_ORG   = AGAI_BASE + '/api/organisme';
 const API_PERS  = AGAI_BASE + '/api/personnel';
 const ROLE_LABELS = <?php echo json_encode($roles, JSON_UNESCAPED_UNICODE); ?>;
 const ANAC_ORGA = 1282;
+
+// Arbre des modules (depuis Rbac::MODULES, structure hierarchique)
+const MODULES_TREE = <?php
+    $tree = [];
+    foreach (Rbac::MODULES as $key => $m) {
+        $node = ['key'=>$key,'label'=>$m['label'],'icon'=>$m['icon'],'desc'=>$m['desc'],'is_group'=>!empty($m['is_group']),'children'=>[]];
+        if (!empty($m['is_group'])) {
+            foreach ($m['children'] as $ck=>$cm) {
+                $node['children'][] = ['key'=>$ck,'label'=>$cm['label'],'icon'=>$cm['icon'],'desc'=>$cm['desc']];
+            }
+        }
+        $tree[] = $node;
+    }
+    echo json_encode($tree, JSON_UNESCAPED_UNICODE);
+?>;
+
+// Modules par role : PLUS DE SUGGESTION AUTOMATIQUE
+// Les modules sont vides par defaut - l'admin doit tout cocher explicitement
+
+function loadAndShowModules(iduser){
+  $('#blockHabilitations').show();
+  if(iduser){
+    // Modification : charger les modules reellement attribues en BDD
+    apiPost(API_USERS,{action:'get_modules',iduser:iduser}).then(function(r){
+      const mods = (r.success && Array.isArray(r.modules)) ? r.modules : [];
+      renderModulesTree(mods);
+    }).fail(function(){ renderModulesTree([]); });
+  } else {
+    // Creation : rien de coche sauf dashboard (oblige)
+    renderModulesTree(['dashboard']);
+  }
+}
+
+// Suppression de suggestModulesByRole : les modules ne sont JAMAIS suggeres automatiquement
+function renderModulesTree(checkedModules){
+  if(!Array.isArray(checkedModules)) checkedModules=[];
+  let html='';
+  MODULES_TREE.forEach(function(node){
+    if(node.is_group){
+      // Compter combien d'enfants sont coches
+      const totalChildren=node.children.length;
+      const nbChecked=node.children.filter(function(c){return checkedModules.includes(c.key);}).length;
+      const allChk=nbChecked===totalChildren;
+      const someChk=nbChecked>0&&!allChk;
+      html+='<div class="hab-group mb-2" style="border:1px solid #dde4f0;border-radius:12px;overflow:hidden">';
+      // En-tete du groupe (cliquable)
+      html+='<div class="hab-group-head d-flex align-items-center gap-2 p-2 ps-3" style="background:#f0f4fb;cursor:pointer" onclick="toggleGroup(this)">'
+        +'<input type="checkbox" class="form-check-input grp-chk mt-0 flex-shrink-0" data-group="'+esc(node.key)+'" '+(allChk?'checked':'')+(someChk?' class="indeterminate"':'')+'>'
+        +'<i class="bi '+esc(node.icon)+'" style="color:#23408F;width:18px"></i>'
+        +'<div style="flex:1"><span style="font-weight:700;font-size:.9rem;color:#23408F">'+esc(node.label)+'</span>'
+        +' <span class="badge" style="background:#23408F;color:#fff;font-size:.7rem">'+nbChecked+'/'+totalChildren+'</span>'
+        +'<div style="font-size:.74rem;color:#7b8aa0">'+esc(node.desc)+'</div></div>'
+        +'<i class="bi bi-chevron-down caret-icon" style="font-size:.85rem;color:#7b8aa0;transition:transform .2s"></i>'
+        +'</div>';
+      // Corps du groupe (sous-items)
+      html+='<div class="hab-group-body" style="display:none;padding:8px 10px;background:#fafcff">';
+      html+='<div class="row g-2">';
+      node.children.forEach(function(child){
+        const isCk=checkedModules.includes(child.key);
+        html+='<div class="col-12 col-md-6">'
+          +'<label class="hab-item d-flex align-items-start gap-2 p-2" style="border:1px solid '+(isCk?'#23408F':'#e8edf5')+';border-radius:8px;background:'+(isCk?'rgba(35,64,143,.05)':'#fff')+';cursor:pointer">'
+          +'<input type="checkbox" class="form-check-input leaf-chk mt-0 flex-shrink-0" value="'+esc(child.key)+'" data-group="'+esc(node.key)+'" '+(isCk?'checked':'')+'>'
+          +'<div><div style="font-size:.85rem;font-weight:600;color:#2C3E50"><i class="bi '+esc(child.icon)+' me-1"></i>'+esc(child.label)+'</div>'
+          +'<div style="font-size:.74rem;color:#7b8aa0">'+esc(child.desc)+'</div></div>'
+          +'</label></div>';
+      });
+      html+='</div></div>';
+      html+='</div>';
+    } else {
+      // Module simple (pas de groupe)
+      const isCk=checkedModules.includes(node.key);
+      const isDash=(node.key==='dashboard');
+      html+='<div class="hab-group mb-2" style="border:1px solid '+(isCk?'#23408F':'#dde4f0')+';border-radius:12px;background:'+(isCk?'rgba(35,64,143,.05)':'#fff')+';padding:10px 14px">';
+      html+='<label class="d-flex align-items-center gap-2 m-0" style="cursor:'+(isDash?'default':'pointer')+'">'
+        +'<input type="checkbox" class="form-check-input leaf-chk mt-0 flex-shrink-0" value="'+esc(node.key)+'" '+(isCk?'checked':'')+(isDash?' disabled':'')+'>'
+        +'<i class="bi '+esc(node.icon)+'" style="color:#23408F;width:18px"></i>'
+        +'<div><div style="font-size:.88rem;font-weight:700;color:#2C3E50">'+esc(node.label)+'</div>'
+        +'<div style="font-size:.74rem;color:#7b8aa0">'+esc(node.desc)+(isDash?' (toujours accorde)':'')+'</div></div>'
+        +'</label>';
+      html+='</div>';
+    }
+  });
+  $('#modulesTree').html(html);
+  bindHabEvents();
+}
+
+function toggleGroup(head){
+  const body=$(head).next('.hab-group-body');
+  const caret=$(head).find('.caret-icon');
+  if(body.is(':visible')){ body.slideUp(180); caret.css('transform','rotate(0deg)'); }
+  else { body.slideDown(180); caret.css('transform','rotate(180deg)'); }
+}
+
+function updateGroupCheckbox(groupKey){
+  const grpChk=$('.grp-chk[data-group="'+groupKey+'"]');
+  const leaves=$('.leaf-chk[data-group="'+groupKey+'"]');
+  const total=leaves.length;
+  const checked=leaves.filter(':checked').length;
+  const el=grpChk[0];
+  if(el){ el.checked=(checked===total); el.indeterminate=(checked>0&&checked<total); }
+  // Mettre a jour le badge
+  const badge=grpChk.closest('.hab-group-head').find('.badge');
+  badge.text(checked+'/'+total);
+}
+
+function bindHabEvents(){
+  // Clic sur une case enfant -> met a jour le groupe + bordure
+  $(document).off('change.hab').on('change.hab','.leaf-chk',function(){
+    const lbl=$(this).closest('label.hab-item, label');
+    if($(this).is(':checked')){ lbl.css({'border-color':'#23408F','background':'rgba(35,64,143,.05)'}); }
+    else { lbl.css({'border-color':'#e8edf5','background':'#fff'}); }
+    const gk=$(this).data('group');
+    if(gk) updateGroupCheckbox(gk);
+  });
+  // Clic sur la case de groupe -> coche/decoche tous les enfants
+  $(document).off('change.habgrp').on('change.habgrp','.grp-chk',function(){
+    const gk=$(this).data('group');
+    const checked=$(this).is(':checked');
+    $('.leaf-chk[data-group="'+gk+'"]').each(function(){
+      $(this).prop('checked',checked).trigger('change.hab');
+    });
+  });
+  // Initialiser les indeterminate
+  MODULES_TREE.forEach(function(node){ if(node.is_group) updateGroupCheckbox(node.key); });
+  // Ouvrir le premier groupe par defaut
+  const first=$('.hab-group-head').first();
+  if(first.length) toggleGroup(first[0]);
+}
+
+// Tout cocher / Tout decocher
+$(document).on('click','.btn-all-mods',function(){
+  const val=$(this).data('val');
+  $('.leaf-chk:not(:disabled)').prop('checked',!!val).each(function(){
+    const lbl=$(this).closest('label.hab-item,label');
+    if(val){ lbl.css({'border-color':'#23408F','background':'rgba(35,64,143,.05)'}); }
+    else { lbl.css({'border-color':'#e8edf5','background':'#fff'}); }
+  });
+  MODULES_TREE.forEach(function(node){ if(node.is_group) updateGroupCheckbox(node.key); });
+});
+
+function getCheckedModules(){
+  const mods=['dashboard'];
+  $('.leaf-chk:not(:disabled):checked').each(function(){ const v=$(this).val(); if(!mods.includes(v)) mods.push(v); });
+  return mods;
+}
 
 /* Traduction francaise de DataTables (integree, sans appel reseau) */
 const DT_FR = {
@@ -345,7 +503,11 @@ function applyRoleUI(role){
   }
 }
 
-$('#u_role').on('change', function(){ applyRoleUI(this.value); });
+$('#u_role').on('change', function(){
+  applyRoleUI(this.value);
+  // Aucune suggestion automatique de modules selon le role
+  // L'admin doit choisir explicitement les modules a attribuer
+});
 
 /* Selection d'un agent ANAC -> remplir identite */
 $('#u_personnel').on('change', function(){
@@ -429,6 +591,7 @@ $('#btnNew').on('click', function(){
   $('#pwdWrap').show(); $('#sendWrap').show(); $('#activeWrap').hide();
   $('#pwd_auto').prop('checked', true); $('#manualPwdBox').hide(); $('#u_password').val('');
   $('#u_2fa, #u_notif').prop('checked', true);
+  loadAndShowModules(null);
   initSelect2();
   new bootstrap.Modal('#userModal').show();
 });
@@ -457,8 +620,14 @@ $(document).on('click', '.act-edit', function(){
     $('#u_active').prop('checked', u.is_active==1);
     $('#pwdWrap').hide(); $('#sendWrap').hide(); $('#activeWrap').show();
     $('#grpOrga').show();
-    loadOrganismes(u.idorga).then(()=> $('#u_idorga').prop('disabled', false).trigger('change.select2'))
-      .then(()=> new bootstrap.Modal('#userModal').show());
+    loadOrganismes(u.idorga).then(function(){ $('#u_idorga').prop('disabled', false).trigger('change.select2'); });
+    const modal = new bootstrap.Modal('#userModal');
+    modal.show();
+    // Charger les habilitations APRES l'ouverture de la modale (DOM visible)
+    document.getElementById('userModal').addEventListener('shown.bs.modal', function handler(){
+      this.removeEventListener('shown.bs.modal', handler);
+      loadAndShowModules(u.iduser);
+    });
   });
 });
 
@@ -487,10 +656,15 @@ $('#userForm').on('submit', function(e){
   apiPost(API_USERS, data).then(res => {
     btn.prop('disabled', false).html(html);
     if(res.success){
-      bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
-      if(res.password){ showPassword('Utilisateur cree', res.password); }
-      else { Swal.fire({icon:'success',title:'Enregistre',text:res.message,timer:1800,showConfirmButton:false,timerProgressBar:true}); }
-      loadTable();
+      // Sauvegarder les habilitations apres creation/modification
+      const iduser = res.iduser || $('#u_iduser').val();
+      const mods   = getCheckedModules();
+      apiPost(API_USERS, {action:'set_modules', iduser:iduser, 'modules[]':mods}).always(function(){
+        bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+        if(res.password){ showPassword('Utilisateur cree', res.password); }
+        else { Swal.fire({icon:'success',title:'Enregistre',text:res.message,timer:1800,showConfirmButton:false,timerProgressBar:true}); }
+        loadTable();
+      });
     } else { Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); }
   }).fail(()=> { btn.prop('disabled', false).html(html); Swal.fire({icon:'error',title:'Erreur',text:'Echec de la requete.',confirmButtonColor:'#23408F'}); });
 });

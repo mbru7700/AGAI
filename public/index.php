@@ -59,7 +59,7 @@ switch ($route) {
 // 3bis) Endpoints AJAX des modules : /api/<nom>
 if (strpos($route, 'api/') === 0) {
     $name       = substr($route, 4);
-    $allowedApi = ['users', 'organisme', 'personnel', 'profile', 'audits', 'inspecteurs'];
+    $allowedApi = ['users', 'organisme', 'personnel', 'profile', 'audits', 'inspecteurs', 'domaines', 'typesorganisme', 'sousdomaines', 'reglements', 'exploitants', 'sites', 'revue', 'parametres', 'login-attempts', 'audit-logs'];
     if (in_array($name, $allowedApi, true)) {
         require dirname(__DIR__) . '/app/endpoints/' . $name . '.php';
         exit;
@@ -78,7 +78,20 @@ $pages = [
     'users'        => 'users.php',
     'profile'      => 'profile.php',
     'audits'       => 'audits.php',
+    'declenchement' => 'declenchement.php',
+    'mes-audits'   => 'mes_audits.php',
+    'revue'        => 'revue.php',
     'inspecteurs'  => 'inspecteurs.php',
+    'domaines'     => 'domaines.php',
+    'typesorganisme' => 'typesorganisme.php',
+    'sousdomaines' => 'sousdomaines.php',
+    'reglements'   => 'reglements.php',
+    'exploitants'  => 'exploitants.php',
+    'sites'        => 'sites.php',
+    'parametres'   => 'parametres.php',
+    'login-attempts' => 'login_attempts.php',
+    'audit-logs'   => 'audit_logs.php',
+    'modifier-audit' => 'modifier_audit.php',
 ];
 
 if (isset($pages[$route])) {

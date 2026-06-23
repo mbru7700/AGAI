@@ -50,10 +50,48 @@ require_once INCLUDES_PATH . '/layout_head.php';
 <div class="page-head">
   <div>
     <h1><i class="bi bi-speedometer2 me-2" style="color:var(--anac-primary)"></i>Tableau de bord</h1>
-    <div class="sub">Surveillance continue de la sécurité aérienne - vue d'ensemble.</div>
+    <div class="sub">Surveillance continue de la securite aerienne - vue d'ensemble.</div>
   </div>
   <span class="badge-soft b-blue"><i class="bi bi-clock me-1"></i><?php echo date('d/m/Y H:i'); ?></span>
 </div>
+
+<?php if (in_array(Rbac::role(), ['admin', 'chef_inspecteur'], true)): ?>
+<!-- ===== LANCEUR : programmer un acte de supervision (admin / chef inspecteur) ===== -->
+<style>
+  .launcher{background:linear-gradient(135deg,#23408F 0%,#1b3576 100%);border-radius:16px;padding:20px 22px;margin-bottom:20px;box-shadow:0 6px 20px rgba(35,64,143,.18);}
+  .launcher .lh{display:flex;align-items:center;gap:10px;color:#fff;margin-bottom:14px;}
+  .launcher .lh i{font-size:1.3rem;color:var(--anac-gold);}
+  .launcher .lh .lt{font-weight:700;font-size:1.05rem;}
+  .launcher .lh .ls{font-size:.82rem;color:#c7d2ec;}
+  .nat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
+  .nat-tile{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:16px 12px;text-align:center;cursor:pointer;color:#fff;transition:all .18s;}
+  .nat-tile:hover{background:#fff;color:var(--anac-primary);transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.18);}
+  .nat-tile i{font-size:1.7rem;display:block;margin-bottom:8px;color:var(--anac-gold);}
+  .nat-tile:hover i{color:var(--anac-primary);}
+  .nat-tile .nt{font-size:.84rem;font-weight:600;line-height:1.2;}
+  .cadre-opt{display:block;border:1px solid #e8edf5;border-radius:10px;padding:11px 14px;margin-bottom:8px;cursor:pointer;transition:all .15s;}
+  .cadre-opt:hover{border-color:var(--anac-primary);background:#f7f9fc;}
+  .cadre-opt input{margin-right:9px;}
+  .cadre-opt.sel{border-color:var(--anac-primary);background:rgba(35,64,143,.06);}
+</style>
+<div class="launcher">
+  <div class="lh">
+    <i class="bi bi-plus-circle-fill"></i>
+    <div>
+      <div class="lt">Programmer un acte de supervision</div>
+      <div class="ls">Choisissez la nature de la supervision pour demarrer la planification.</div>
+    </div>
+  </div>
+  <div class="nat-grid">
+    <div class="nat-tile" data-type="audit"><i class="bi bi-clipboard-check"></i><div class="nt">Audit</div></div>
+    <div class="nat-tile" data-type="inspection_programmee"><i class="bi bi-calendar-check"></i><div class="nt">Inspection programmee</div></div>
+    <div class="nat-tile" data-type="inspection_non_programmee"><i class="bi bi-calendar-x"></i><div class="nt">Inspection non programmee</div></div>
+    <div class="nat-tile" data-type="demonstration"><i class="bi bi-easel"></i><div class="nt">Demonstration</div></div>
+    <div class="nat-tile" data-type="test"><i class="bi bi-bullseye"></i><div class="nt">Test</div></div>
+    <div class="nat-tile" data-type="investigation"><i class="bi bi-search"></i><div class="nt">Investigation</div></div>
+  </div>
+</div>
+<?php endif; ?>
 
 <!-- KPI -->
 <div class="row g-3 mb-3">
@@ -158,4 +196,70 @@ require_once INCLUDES_PATH . '/layout_head.php';
   </div>
 </div>
 
+<?php if (in_array(Rbac::role(), ['admin', 'chef_inspecteur'], true)): ?>
+<!-- ===== MODALE : Dans le cadre ? ===== -->
+<div class="modal fade" id="cadreModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-question-circle me-2" style="color:var(--anac-primary)"></i>Dans quel cadre ?</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">Nature choisie : <b id="cadreNature" style="color:var(--anac-primary)"></b>. Selectionnez le cadre de la supervision.</p>
+        <div id="cadreList">
+          <label class="cadre-opt"><input type="radio" name="cadre" value="certification">Certification</label>
+          <label class="cadre-opt"><input type="radio" name="cadre" value="homologation">Homologation</label>
+          <label class="cadre-opt"><input type="radio" name="cadre" value="reconnaissance">Reconnaissance</label>
+          <label class="cadre-opt"><input type="radio" name="cadre" value="renouvellement">Renouvellement</label>
+          <label class="cadre-opt"><input type="radio" name="cadre" value="surveillance_continue">Surveillance continue</label>
+          <label class="cadre-opt"><input type="radio" name="cadre" value="traitement_evenement">Traitement d'un evenement</label>
+          <label class="cadre-opt"><input type="radio" name="cadre" value="fermeture_provisoire">Fermeture provisoire</label>
+          <label class="cadre-opt"><input type="radio" name="cadre" value="fermeture_definitive">Fermeture definitive</label>
+          <label class="cadre-opt"><input type="radio" name="cadre" value="delivrance_autorisation">Delivrance d'une autorisation</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+        <button type="button" class="btn btn-anac" id="cadreContinue" disabled><i class="bi bi-arrow-right-circle me-1"></i>Continuer</button>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <?php require_once INCLUDES_PATH . '/layout_foot.php'; ?>
+
+<?php if (in_array(Rbac::role(), ['admin', 'chef_inspecteur'], true)): ?>
+<script>
+(function(){
+  const NAT = {
+    audit:'Audit', inspection_programmee:'Inspection programmee', inspection_non_programmee:'Inspection non programmee',
+    demonstration:'Demonstration', test:'Test', investigation:'Investigation'
+  };
+  let selType = '';
+  const modal = new bootstrap.Modal('#cadreModal');
+
+  $('.nat-tile').on('click', function(){
+    selType = $(this).data('type');
+    $('#cadreNature').text(NAT[selType] || selType);
+    $('input[name="cadre"]').prop('checked', false);
+    $('.cadre-opt').removeClass('sel');
+    $('#cadreContinue').prop('disabled', true);
+    modal.show();
+  });
+
+  $(document).on('change', 'input[name="cadre"]', function(){
+    $('.cadre-opt').removeClass('sel');
+    $(this).closest('.cadre-opt').addClass('sel');
+    $('#cadreContinue').prop('disabled', false);
+  });
+
+  $('#cadreContinue').on('click', function(){
+    const cadre = $('input[name="cadre"]:checked').val();
+    if(!selType || !cadre) return;
+    window.location = AGAI_BASE + '/declenchement?type=' + encodeURIComponent(selType) + '&cadre=' + encodeURIComponent(cadre);
+  });
+})();
+</script>
+<?php endif; ?>

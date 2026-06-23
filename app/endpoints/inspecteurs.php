@@ -9,6 +9,47 @@
  */
 if (!defined('SITE_URL')) { require_once dirname(__DIR__, 2) . '/config/config.php'; }
 
+/*
+ * Service de fichiers prives (photo, decision) en GET.
+ * Lecture seule, protege par session + role (pas de CSRF car affichage img/iframe).
+ * basename() empeche tout parcours de repertoire (directory traversal).
+ */
+$serve = $_GET['serve'] ?? '';
+if ($serve === 'photo' || $serve === 'decision') {
+    if (!Auth::checkLogin() || !Rbac::canAccess('inspecteurs')) { http_response_code(403); exit('Acces refuse'); }
+    $db = Database::getInstance();
+    if ($serve === 'photo') {
+        $id = (int) ($_GET['idinspecteur'] ?? 0);
+        $st = $db->prepare("SELECT photoinspecter FROM inspecteur WHERE idinspecteur = ?");
+        $st->execute([$id]);
+        $f    = (string) ($st->fetchColumn() ?: '');
+        $path = dir_photos() . '/' . basename($f);
+        if ($f === '' || !is_file($path)) { http_response_code(404); exit('Introuvable'); }
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime  = $finfo->file($path) ?: 'application/octet-stream';
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . filesize($path));
+        header('X-Content-Type-Options: nosniff');
+        header('Cache-Control: private, max-age=300');
+        readfile($path);
+        exit;
+    }
+    // decision (PDF)
+    $idh = (int) ($_GET['idhabilitation'] ?? 0);
+    $dl  = isset($_GET['dl']);
+    $st  = $db->prepare("SELECT decision FROM habilitation WHERE idhabilitation = ?");
+    $st->execute([$idh]);
+    $f    = (string) ($st->fetchColumn() ?: '');
+    $path = dir_decisions() . '/' . basename($f);
+    if ($f === '' || !is_file($path)) { http_response_code(404); exit('Introuvable'); }
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: ' . ($dl ? 'attachment' : 'inline') . '; filename="decision.pdf"');
+    header('Content-Length: ' . filesize($path));
+    header('X-Content-Type-Options: nosniff');
+    readfile($path);
+    exit;
+}
+
 Rbac::guardApi('inspecteurs');
 
 if (!Security::validateCSRF($_POST['csrf_token'] ?? '')) {
@@ -264,7 +305,7 @@ try {
             $i = $st->fetch();
             if (!$i) { $fail('Inspecteur introuvable.'); break; }
             $hb = $db->prepare(
-                "SELECT idhabilitation, iddomaine, numero_habilitation, date_habilitation, date_expiration, observation
+                "SELECT idhabilitation, iddomaine, numero_habilitation, date_habilitation, date_expiration, decision, observation
                  FROM habilitation WHERE idinspecteur = ? ORDER BY idhabilitation"
             );
             $hb->execute([$id]);
@@ -338,6 +379,7 @@ try {
 
             $db->beginTransaction();
             try {
+                $oldDec = [];   // decisions deja attachees (par domaine), a preserver en cas d'edition
                 if (!$isUpdate) {
                     $iduser = (int) ($_POST['iduser'] ?? 0);
                     if ($iduser <= 0) { $db->rollBack(); $fail('Veuillez choisir l\'utilisateur inspecteur.'); break; }
@@ -371,21 +413,34 @@ try {
                         "UPDATE inspecteur SET trigr_inspecteur=?, codedirec=?, categorie=?, datenomine=?, teleinspecter=? WHERE idinspecteur=?"
                     );
                     $upd->execute([$trigr, $codedirec, $categorie, $datenomine, $tele, $idinsp]);
+                    // Preserver les decisions deja attachees (matchees par domaine) avant reconstruction
+                    $stOld = $db->prepare("SELECT iddomaine, decision FROM habilitation WHERE idinspecteur = ?");
+                    $stOld->execute([$idinsp]);
+                    foreach ($stOld->fetchAll() as $od) {
+                        if (!empty($od['decision'])) { $oldDec[(int) $od['iddomaine']] = $od['decision']; }
+                    }
                     $db->prepare("DELETE FROM habilitation WHERE idinspecteur = ?")->execute([$idinsp]);
                 }
 
                 $insH = $db->prepare(
                     "INSERT INTO habilitation
                         (idinspecteur, iddomaine, numero_habilitation, date_habilitation, date_expiration, decision, observation)
-                     VALUES (?,?,?,?,?,NULL,?)"
+                     VALUES (?,?,?,?,?,?,?)"
                 );
+                $habOut = [];
                 foreach ($habRows as $h) {
-                    $insH->execute([$idinsp, $h['idd'], $h['num'], $h['deb'], $h['fin'], ($h['obs'] !== '' ? $h['obs'] : null)]);
+                    $dec = $oldDec[$h['idd']] ?? null;   // on reporte la decision deja attachee a ce domaine
+                    $insH->execute([$idinsp, $h['idd'], $h['num'], $h['deb'], $h['fin'], $dec, ($h['obs'] !== '' ? $h['obs'] : null)]);
+                    $habOut[] = ['idhabilitation' => (int) $db->lastInsertId(), 'iddomaine' => $h['idd']];
                 }
 
                 $db->commit();
                 Audit::log($isUpdate ? 'update' : 'create', 'inspecteurs', ($isUpdate ? 'Modification' : 'Creation') . ' inspecteur #' . $idinsp);
-                $ok(['message' => $isUpdate ? 'Inspecteur mis a jour.' : 'Inspecteur enregistre.']);
+                $ok([
+                    'message'       => $isUpdate ? 'Inspecteur mis a jour.' : 'Inspecteur enregistre.',
+                    'idinspecteur'  => $idinsp,
+                    'habilitations' => $habOut
+                ]);
             } catch (Throwable $e) {
                 $db->rollBack();
                 error_log('inspecteur save : ' . $e->getMessage());
@@ -407,6 +462,36 @@ try {
                 $db->rollBack();
                 $fail('Suppression impossible : cet inspecteur est rattache a des audits ou des fiches. Detachez-le d\'abord.');
             }
+            break;
+
+        case 'upload_photo':
+            $id = (int) ($_POST['idinspecteur'] ?? 0);
+            if ($id <= 0) { $fail('Inspecteur introuvable.'); break; }
+            $stc = $db->prepare("SELECT photoinspecter FROM inspecteur WHERE idinspecteur = ?");
+            $stc->execute([$id]);
+            $cur = $stc->fetch();
+            if (!$cur) { $fail('Inspecteur introuvable.'); break; }
+            $name = save_upload($_FILES['photo'] ?? null, ['jpg','jpeg','png','webp'], ['image/jpeg','image/png','image/webp'], 2 * 1024 * 1024, dir_photos());
+            if (!$name) { $fail('Photo invalide. Formats acceptes : JPG, PNG, WEBP (2 Mo maximum).'); break; }
+            $db->prepare("UPDATE inspecteur SET photoinspecter = ? WHERE idinspecteur = ?")->execute([$name, $id]);
+            if (!empty($cur['photoinspecter'])) { @unlink(dir_photos() . '/' . basename($cur['photoinspecter'])); }
+            Audit::log('update', 'inspecteurs', 'Mise a jour photo inspecteur #' . $id);
+            $ok(['message' => 'Photo enregistree.']);
+            break;
+
+        case 'upload_decision':
+            $idh = (int) ($_POST['idhabilitation'] ?? 0);
+            if ($idh <= 0) { $fail('Habilitation introuvable.'); break; }
+            $stc = $db->prepare("SELECT decision FROM habilitation WHERE idhabilitation = ?");
+            $stc->execute([$idh]);
+            $cur = $stc->fetch();
+            if (!$cur) { $fail('Habilitation introuvable.'); break; }
+            $name = save_upload($_FILES['decision'] ?? null, ['pdf'], ['application/pdf'], 10 * 1024 * 1024, dir_decisions());
+            if (!$name) { $fail('Decision invalide. Format accepte : PDF (10 Mo maximum).'); break; }
+            $db->prepare("UPDATE habilitation SET decision = ? WHERE idhabilitation = ?")->execute([$name, $idh]);
+            if (!empty($cur['decision'])) { @unlink(dir_decisions() . '/' . basename($cur['decision'])); }
+            Audit::log('update', 'inspecteurs', 'Mise a jour decision habilitation #' . $idh);
+            $ok(['message' => 'Decision enregistree.']);
             break;
 
         default:

@@ -1,42 +1,153 @@
 <?php
 /**
- * Classe Rbac - Contrôle d'accès par rôle (RBAC)
- * ------------------------------------------------------------
- * Source de vérité : la colonne enum `users.role`.
- * Matrice rôle -> modules accessibles, réutilisable par toutes
- * les pages et tous les endpoints AJAX.
- *
- * @package AGAI
- * @author  ANAC Gabon
+ * Classe Rbac - Controle d'acces par role et habilitations
+ * ----------------------------------------------------------
+ * Source de verite : table `user_modules` (habilitations individuelles).
+ * Fallback : matrice de roles si la table est vide pour cet utilisateur.
  */
-
 class Rbac
 {
-    /** Modules accessibles par rôle (visibilité menu + accès page/API). */
+    /** Matrice de fallback role -> modules feuilles (si user_modules vide). */
     private const MATRIX = [
-        'admin'           => ['dashboard','programme','audits','inspecteurs','nonconformites','actions','documents','rapports','domaines','users','parametres'],
-        'chef_inspecteur' => ['dashboard','programme','audits','inspecteurs','nonconformites','actions','documents','rapports','domaines'],
-        'inspecteur'      => ['dashboard','programme','audits','nonconformites','actions','documents','rapports','domaines'],
-        'operateur'       => ['dashboard','audits','nonconformites','actions','documents','rapports'],
-        'consultant'      => ['dashboard','rapports','domaines'],
+        'admin'           => ['dashboard','audits','revue_doc','actes','inspecteurs','exploitants','domaines','sousdomaines','typesorganisme','reglements','sites','nonconformites','analyse_psc','analyse_fnc','mise_oeuvre','users','parametres','cybersecurite'],
+        'chef_inspecteur' => ['dashboard','audits','revue_doc','actes','inspecteurs','exploitants','domaines','sousdomaines','typesorganisme','reglements','sites','nonconformites','users'],
+        'inspecteur'      => ['dashboard','audits','revue_doc','nonconformites','inspecteurs','domaines','reglements'],
+        'operateur'       => ['dashboard','actes'],
+        'consultant'      => ['dashboard','audits','nonconformites','domaines','reglements'],
     ];
 
-    /** Libellés affichables des rôles. */
+    /** Tous les modules disponibles dans AGAI avec leurs labels.
+     *  Structure : module_key => [label, icon, desc, children?]
+     *  Les modules avec 'children' sont des groupes (non stockes en BDD).
+     *  Les enfants sont les vrais modules stockes dans user_modules.
+     */
+    public const MODULES = [
+        'dashboard' => [
+            'label' => 'Tableau de bord',
+            'icon'  => 'bi-speedometer2',
+            'desc'  => 'Acces au tableau de bord principal',
+        ],
+        'audits_group' => [
+            'label'    => 'Gestion des audits',
+            'icon'     => 'bi-clipboard-check',
+            'desc'     => 'Ensemble des fonctionnalites liees aux audits',
+            'is_group' => true,
+            'children' => [
+                'audits'    => ['label'=>'Audits et inspections', 'icon'=>'bi-clipboard-check', 'desc'=>'Declenchement, suivi et cloture des audits'],
+                'revue_doc' => ['label'=>'Revue documentaire',    'icon'=>'bi-file-text',       'desc'=>'Formulaire IX-GEN-R3-F-I-017'],
+                'actes'     => ['label'=>'Mes actes de superv.',  'icon'=>'bi-eye',             'desc'=>'Vue personnalisee par operateur'],
+            ],
+        ],
+        'structures_group' => [
+            'label'    => 'Donnees de structures',
+            'icon'     => 'bi-diagram-3',
+            'desc'     => 'Referentiels et donnees de base',
+            'is_group' => true,
+            'children' => [
+                'inspecteurs'    => ['label'=>'Inspecteurs',         'icon'=>'bi-person-badge',  'desc'=>'Gestion des inspecteurs et habilitations'],
+                'exploitants'    => ['label'=>'Exploitants',         'icon'=>'bi-buildings',     'desc'=>'Operateurs et compagnies aeriennes'],
+                'domaines'       => ['label'=>'Domaines',            'icon'=>'bi-grid-3x3-gap',  'desc'=>'Domaines de surveillance'],
+                'sousdomaines'   => ['label'=>'Sous-domaines',       'icon'=>'bi-diagram-2',     'desc'=>'Sous-domaines par domaine'],
+                'typesorganisme' => ['label'=>'Types d\'activite',   'icon'=>'bi-tags',          'desc'=>'Categories d\'operateurs'],
+                'reglements'     => ['label'=>'Reglements',          'icon'=>'bi-journal-text',  'desc'=>'Textes reglementaires applicables'],
+                'sites'          => ['label'=>'Sites d\'inspection', 'icon'=>'bi-geo-alt',       'desc'=>'Sites identifies par indicateur OACI'],
+            ],
+        ],
+        'nc_group' => [
+            'label'    => 'Non-conformites',
+            'icon'     => 'bi-exclamation-triangle',
+            'desc'     => 'Suivi des non-conformites et FNC',
+            'is_group' => true,
+            'children' => [
+                'nonconformites' => ['label'=>'Suivi FNC', 'icon'=>'bi-list-check', 'desc'=>'Fiches de non-conformite'],
+            ],
+        ],
+        'analyse_group' => [
+            'label'    => 'Analyse des donnees',
+            'icon'     => 'bi-graph-up',
+            'desc'     => 'Tableaux de bord analytiques',
+            'is_group' => true,
+            'children' => [
+                'analyse_psc'  => ['label'=>'Analyse PSC',            'icon'=>'bi-bar-chart',   'desc'=>'Programme de surveillance continue'],
+                'analyse_fnc'  => ['label'=>'Analyse FNC',            'icon'=>'bi-pie-chart',   'desc'=>'Statistiques non-conformites'],
+                'mise_oeuvre'  => ['label'=>'Mise en oeuvre regl.',   'icon'=>'bi-shield-check','desc'=>'Suivi mise en oeuvre reglementaire'],
+            ],
+        ],
+        'users' => [
+            'label' => 'Gestion des utilisateurs',
+            'icon'  => 'bi-people',
+            'desc'  => 'Creer et gerer les comptes et habilitations',
+        ],
+        'parametres' => [
+            'label' => 'Parametres',
+            'icon'  => 'bi-gear',
+            'desc'  => 'Configuration generale de l\'application',
+        ],
+        'cybersecurite' => [
+            'label' => 'Cybersecurite AGAI',
+            'icon'  => 'bi-shield-lock',
+            'desc'  => 'Securite, journaux et tentatives de connexion',
+        ],
+    ];
+
+    /** Retourne la liste PLATE de tous les sous-modules (ceux stockes en BDD). */
+    public static function allLeafModules(): array
+    {
+        $leaves = [];
+        foreach (self::MODULES as $key => $m) {
+            if (!empty($m['is_group'])) {
+                foreach ($m['children'] as $ck => $cm) {
+                    $leaves[$ck] = $cm;
+                }
+            } else {
+                $leaves[$key] = $m;
+            }
+        }
+        return $leaves;
+    }
+
+    /** Cache des modules de l'utilisateur courant (evite N requetes). */
+    private static ?array $userModulesCache = null;
+
+    /** Retourne les modules accordes a l'utilisateur connecte. */
+    public static function userModules(): array
+    {
+        if (self::$userModulesCache !== null) { return self::$userModulesCache; }
+        $uid = (int) ($_SESSION['user_id'] ?? 0);
+        if ($uid <= 0) { self::$userModulesCache = []; return []; }
+        try {
+            $db = Database::getInstance();
+            $st = $db->prepare("SELECT module FROM user_modules WHERE iduser = ?");
+            $st->execute([$uid]);
+            $rows = $st->fetchAll(PDO::FETCH_COLUMN);
+            if (!empty($rows)) {
+                self::$userModulesCache = $rows;
+                return $rows;
+            }
+        } catch (Throwable $e) {
+            // Fallback silencieux si la table n'existe pas encore
+        }
+        // Fallback : matrice de role (utilise les feuilles)
+        $role = self::role();
+        self::$userModulesCache = self::MATRIX[$role] ?? ['dashboard'];
+        return self::$userModulesCache;
+    }
+
+    /** Reinitialise le cache (apres changement d'habilitations). */
+    public static function clearCache(): void { self::$userModulesCache = null; }
+
     public static function roles(): array
     {
         return [
             'admin'           => 'Administrateur',
             'chef_inspecteur' => 'Chef inspecteur',
             'inspecteur'      => 'Inspecteur',
-            'operateur'       => 'Opérateur',
+            'operateur'       => 'Operateur',
             'consultant'      => 'Consultant',
         ];
     }
 
-    public static function role(): string
-    {
-        return $_SESSION['user']['role'] ?? '';
-    }
+    public static function role(): string { return $_SESSION['user']['role'] ?? ''; }
 
     public static function roleLabel(?string $role = null): string
     {
@@ -46,64 +157,45 @@ class Rbac
 
     public static function canAccess(string $module): bool
     {
-        $role = self::role();
-        return isset(self::MATRIX[$role]) && in_array($module, self::MATRIX[$role], true);
+        return in_array($module, self::userModules(), true);
     }
 
-    /** Garde de PAGE : redirige si non connecté / non autorisé. */
     public static function guardPage(string $module): void
     {
-        if (!Auth::checkLogin()) {
-            header('Location: ' . SITE_URL . '/index');
-            exit;
-        }
+        if (!Auth::checkLogin()) { header('Location: ' . SITE_URL . '/index'); exit; }
         if (!self::canAccess($module)) {
-            Audit::log('access_denied', $module, 'Accès page refusé');
-            header('Location: ' . SITE_URL . '/dashboard');
-            exit;
+            Audit::log('access_denied', $module, 'Acces page refuse');
+            header('Location: ' . SITE_URL . '/dashboard'); exit;
         }
     }
 
-    /**
-     * Garde de PAGE pour les pages ouvertes a TOUT utilisateur connecte
-     * (profil, parametres personnels...). Aucune verification de module,
-     * juste une session valide.
-     */
     public static function guardAuthPage(): void
     {
-        if (!Auth::checkLogin()) {
-            header('Location: ' . SITE_URL . '/index');
-            exit;
-        }
+        if (!Auth::checkLogin()) { header('Location: ' . SITE_URL . '/index'); exit; }
     }
 
-    /**
-     * Garde d'API pour les endpoints ouverts a tout utilisateur connecte.
-     * Renvoie un JSON 401 si la session n'est pas valide.
-     */
     public static function guardAuthApi(): void
     {
         header('Content-Type: application/json');
         if (!Auth::checkLogin()) {
             http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Session expirée. Veuillez vous reconnecter.']);
+            echo json_encode(['success' => false, 'message' => 'Session expiree. Veuillez vous reconnecter.']);
             exit;
         }
     }
 
-    /** Garde d'API : renvoie un JSON 401/403 si non connecté / non autorisé. */
     public static function guardApi(string $module): void
     {
         header('Content-Type: application/json');
         if (!Auth::checkLogin()) {
             http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Session expirée. Veuillez vous reconnecter.']);
+            echo json_encode(['success' => false, 'message' => 'Session expiree. Veuillez vous reconnecter.']);
             exit;
         }
         if (!self::canAccess($module)) {
             http_response_code(403);
-            Audit::log('access_denied', $module, 'Accès API refusé');
-            echo json_encode(['success' => false, 'message' => 'Accès refusé.']);
+            Audit::log('access_denied', $module, 'Acces API refuse');
+            echo json_encode(['success' => false, 'message' => 'Acces refuse.']);
             exit;
         }
     }

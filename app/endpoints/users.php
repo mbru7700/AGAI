@@ -174,6 +174,7 @@ try {
                  VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)"
             );
             $st->execute([$matricule, $email, $hash, $nom, $prenom, $role, $idorga, $is2fa, $notif]);
+            $newId = (int) $db->lastInsertId();
 
             Audit::log('create', 'users', "Creation utilisateur $email (role $role, matricule $matricule, mot de passe $pwdMode)");
 
@@ -181,17 +182,16 @@ try {
                 $mailer = new Mailer();
                 $sent = $mailer->sendCredentials($email, trim($prenom . ' ' . $nom), $email, $password, $PUBLIC_URL);
                 if ($sent) {
-                    $ok(['message' => 'Utilisateur cree. Identifiants envoyes par email.']);
+                    $ok(['message' => 'Utilisateur cree. Identifiants envoyes par email.', 'iduser' => $newId]);
                 } elseif ($pwdMode === 'manual') {
-                    $ok(['message' => 'Utilisateur cree, mais email non envoye. Le mot de passe defini reste valide.']);
+                    $ok(['message' => 'Utilisateur cree, mais email non envoye. Le mot de passe defini reste valide.', 'iduser' => $newId]);
                 } else {
-                    $ok(['message' => 'Utilisateur cree, mais email non envoye.', 'password' => $password]);
+                    $ok(['message' => 'Utilisateur cree, mais email non envoye.', 'password' => $password, 'iduser' => $newId]);
                 }
             } elseif ($pwdMode === 'manual') {
-                // L'administrateur a saisi le mot de passe : inutile de le reafficher.
-                $ok(['message' => 'Utilisateur cree. Mot de passe defini manuellement.']);
+                $ok(['message' => 'Utilisateur cree. Mot de passe defini manuellement.', 'iduser' => $newId]);
             } else {
-                $ok(['message' => 'Utilisateur cree.', 'password' => $password]);
+                $ok(['message' => 'Utilisateur cree.', 'password' => $password, 'iduser' => $newId]);
             }
             break;
 
@@ -288,6 +288,52 @@ try {
                 $ok(['message' => 'Utilisateur supprime.']);
             } catch (Throwable $e) {
                 $fail('Suppression impossible : cet utilisateur a des donnees liees. Desactivez plutot son compte.');
+            }
+            break;
+
+        // ----------------------------------------------------------------
+        // Lire les habilitations d'un utilisateur
+        case 'get_modules':
+            $id = (int) ($_POST['iduser'] ?? 0);
+            if ($id <= 0) { $fail('Utilisateur invalide.'); break; }
+            $stU = $db->prepare("SELECT iduser FROM users WHERE iduser = ?");
+            $stU->execute([$id]);
+            if (!$stU->fetch()) { $fail('Utilisateur introuvable.'); break; }
+            // Retourner UNIQUEMENT les modules en BDD, sans fallback
+            // Si la table est vide pour cet utilisateur : tableau vide
+            // (c'est voulu : aucune habilitation n'a ete attribuee)
+            $st = $db->prepare("SELECT module FROM user_modules WHERE iduser = ? ORDER BY module");
+            $st->execute([$id]);
+            $mods = $st->fetchAll(PDO::FETCH_COLUMN);
+            $ok(['modules' => array_values($mods)]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Enregistrer les habilitations d'un utilisateur
+        case 'set_modules':
+            $id   = (int) ($_POST['iduser'] ?? 0);
+            $mods = $_POST['modules'] ?? [];
+            if ($id <= 0) { $fail('Utilisateur invalide.'); break; }
+            if (!is_array($mods)) { $mods = []; }
+
+            // Liste blanche des modules valides = uniquement les feuilles (pas les groupes)
+            $valid = array_keys(Rbac::allLeafModules());
+            $mods  = array_values(array_filter($mods, fn($m) => in_array($m, $valid, true)));
+
+            // dashboard est toujours accorde
+            if (!in_array('dashboard', $mods, true)) { $mods[] = 'dashboard'; }
+
+            $db->beginTransaction();
+            try {
+                $db->prepare("DELETE FROM user_modules WHERE iduser = ?")->execute([$id]);
+                $ins = $db->prepare("INSERT INTO user_modules (iduser, module) VALUES (?, ?)");
+                foreach ($mods as $mod) { $ins->execute([$id, $mod]); }
+                $db->commit();
+                Audit::log('update', 'users', "Habilitations utilisateur #$id : " . implode(', ', $mods));
+                $ok(['message' => 'Habilitations enregistrees.', 'modules' => $mods]);
+            } catch (Throwable $e) {
+                $db->rollBack();
+                throw $e;
             }
             break;
 

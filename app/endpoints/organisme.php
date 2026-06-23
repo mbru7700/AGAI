@@ -19,7 +19,13 @@ try {
     switch ($action) {
 
         case 'list':
-            $st = $db->query("SELECT idorga, nomorga, trigrorganisme FROM organisme ORDER BY nomorga");
+            $st = $db->query(
+                "SELECT MIN(idorga) AS idorga, nomorga, MAX(trigrorganisme) AS trigrorganisme
+                 FROM organisme
+                 WHERE idorga > 0 AND TRIM(nomorga) <> ''
+                 GROUP BY nomorga
+                 ORDER BY nomorga"
+            );
             echo json_encode(['success' => true, 'data' => $st->fetchAll()]);
             break;
 
