@@ -120,16 +120,28 @@ try {
         // ----------------------------------------------------------------
         // Liste des audits visibles par l'utilisateur connecte
         case 'mes_audits':
-            if (in_array($role, ['admin', 'chef_inspecteur'], true)) {
+            // Sous-requete commune : nb_revues tient compte du RA
+            // Si le RA a soumis sa revue -> nb_revues = nb_equipe (couvre tout le monde)
+            // Sinon : compte des revues individuelles saisies
+            $nb_revues_sql = "CASE
+              WHEN (SELECT COUNT(*) FROM revue_documentaire rd_ra
+                    WHERE rd_ra.idaudit = a.idaudit
+                      AND rd_ra.idinspecteur = a.idresponsable_audit
+                      AND (rd_ra.contexte_objectif IS NOT NULL OR rd_ra.fichier_joint IS NOT NULL)) > 0
+              THEN (SELECT COUNT(DISTINCT ae3.idinspecteur) FROM audit_equipe ae3 WHERE ae3.idaudit = a.idaudit)
+              ELSE (SELECT COUNT(*) FROM revue_documentaire rd_ind
+                    WHERE rd_ind.idaudit = a.idaudit
+                      AND (rd_ind.contexte_objectif IS NOT NULL OR rd_ind.fichier_joint IS NOT NULL))
+            END";
+
+            if (in_array($role, ['admin', 'chef_inspecteur', 'consultant'], true)) {
                 $rows = $db->query(
                     "SELECT a.idaudit, a.num_audit, a.type_activite, a.cadre, a.statut,
                             a.date_previsionnelle,
                             o.nomorga AS operateur,
                             TRIM(CONCAT(COALESCE(ir.preninspect,''),' ',COALESCE(ir.nominspecteur,''))) AS ra_nom,
-                            0 AS est_ra,
-                            (SELECT COUNT(*) FROM revue_documentaire rd
-                             WHERE rd.idaudit = a.idaudit
-                               AND (rd.contexte_objectif IS NOT NULL OR rd.fichier_joint IS NOT NULL)) AS nb_revues,
+                            1 AS est_ra,
+                            $nb_revues_sql AS nb_revues,
                             (SELECT COUNT(DISTINCT ae2.idinspecteur) FROM audit_equipe ae2 WHERE ae2.idaudit = a.idaudit) AS nb_equipe,
                             (SELECT rd2.fichier_joint FROM revue_documentaire rd2
                              WHERE rd2.idaudit = a.idaudit AND rd2.fichier_joint IS NOT NULL LIMIT 1) AS mon_pdf,

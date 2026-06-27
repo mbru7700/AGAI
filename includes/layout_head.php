@@ -22,19 +22,21 @@ $menu = [
     // 2. Donnees de structures (groupe)
     ['structures', 'Donnees de structures', 'bi-diagram-3', 'GROUP', 'inspecteurs', true, [
         ['inspecteurs',    'Inspecteurs',          'bi-person-badge',   'inspecteurs',    'inspecteurs',    true],
-        ['exploitants',    'Exploitants',          'bi-buildings',      'exploitants',    'exploitants',    true],
+        ['exploitants',    'Operateurs',           'bi-buildings',      'exploitants',    'exploitants',    true],
         ['domaines',       'Domaines',             'bi-grid-3x3-gap',   'domaines',       'domaines',       true],
         ['sousdomaines',   'Sous-domaines',        'bi-diagram-2',      'sousdomaines',   'sousdomaines',   true],
-        ['typesorganisme', 'Types d\'activite',    'bi-tags',           'typesorganisme', 'typesorganisme', true],
+        ['typesorganisme', "Types d'activite",     'bi-tags',           'typesorganisme', 'typesorganisme', true],
         ['reglements',     'Reglements',           'bi-journal-text',   'reglements',     'reglements',     true],
-        ['sites',          'Sites d\'inspection',  'bi-geo-alt',        'sites',          'sites',          true],
+        ['sites',          "Sites d'inspection",   'bi-geo-alt',        'sites',          'sites',          true],
     ]],
 
-    // 3. Gestion des audits (groupe)
-    ['audits_group', 'Gestion des audits', 'bi-clipboard-check', 'GROUP', 'audits', true, [
-        ['audits',   'Audits et inspections', 'bi-clipboard-check', 'audits',    'audits',    true],
-        ['revue',    'Revue documentaire',    'bi-file-text',       'mes-audits','revue_doc', true],
-        ['actes',    'Mes actes de superv.',  'bi-eye',             'actes',     'actes',     false],
+    // 3. Gestion Supervision (groupe) - anciennement "Gestion des audits"
+    ['audits_group', 'Gestion Supervision', 'bi-clipboard-check', 'GROUP', 'audits', true, [
+        ['audits',         'Audits et inspections',      'bi-clipboard-check',       'audits',        'audits',    true],
+        ['mes_audits',     'Revue documentaire',         'bi-file-text',             'mes-audits',    'audits',    true],
+        ['notifications',  'Notifications',              'bi-bell',                  'notifications', 'audits',    true],
+        ['rapports',       'Rapports',                   'bi-file-earmark-text',     'rapports',      'audits',    true],
+        ['qre',            'Formulaire QRE',             'bi-ui-checks-grid',        'qre',           'audits',    true],
     ]],
 
     // 4. Non-conformites (groupe)
@@ -44,23 +46,20 @@ $menu = [
 
     // 5. Analyse des donnees (groupe)
     ['analyse_group', 'Analyse des donnees', 'bi-graph-up', 'GROUP', 'analyse_psc', true, [
-        ['analyse_psc', 'Analyse PSC',                'bi-bar-chart',    'analyse-psc', 'analyse_psc', false],
-        ['analyse_fnc', 'Analyse FNC',                'bi-pie-chart',    'analyse-fnc', 'analyse_fnc', false],
-        ['mise_oeuvre', 'Mise en oeuvre reglementaire','bi-shield-check','mise-oeuvre', 'mise_oeuvre', false],
+        ['analyse_psc', 'Analyse PSC',                 'bi-bar-chart',    'analyse-psc', 'analyse_psc', false],
+        ['analyse_fnc', 'Analyse FNC',                 'bi-pie-chart',    'analyse-fnc', 'analyse_fnc', false],
+        ['mise_oeuvre', 'Mise en oeuvre reglementaire','bi-shield-check', 'mise-oeuvre', 'mise_oeuvre', false],
     ]],
 
     // 6. Gestion des utilisateurs (admin + chef_inspecteur)
     ['users', 'Gestion des utilisateurs', 'bi-people', 'users', 'users', true],
 
-    // 7. Cybersecurite AGAI (groupe - admin seulement)
+    // 7. Cybersecurite AGAI (groupe)
     ['cybersecu', 'Cybersecurite AGAI', 'bi-shield-lock', 'GROUP', 'cybersecurite', true, [
-        ['parametres',     'Parametres',              'bi-gear',                   'parametres',    'cybersecurite', true],
-        ['login_attempts', 'Tentatives de connexion', 'bi-shield-exclamation',     'login-attempts','cybersecurite', true],
-        ['audit_logs',     'Journal des evenements',  'bi-journal-text',           'audit-logs',    'cybersecurite', true],
+        ['parametres',     'Parametres',              'bi-gear',               'parametres',    'cybersecurite', true],
+        ['login_attempts', 'Tentatives de connexion', 'bi-shield-exclamation', 'login-attempts','cybersecurite', true],
+        ['audit_logs',     'Journal des evenements',  'bi-journal-text',       'audit-logs',    'cybersecurite', true],
     ]],
-
-    // 8. Parametres seul (non plus dans le menu principal)
-    // ['parametres', 'Parametres', 'bi-gear', 'parametres', 'parametres', false],
 ];
 ?>
 <!DOCTYPE html>
@@ -190,7 +189,8 @@ table.dataTable thead th{background:#f4f7fb;color:var(--anac-text);font-size:.82
             foreach ($visibleChildren as $c) {
                 if ($active === $c[0] || $active === $c[3]) { $hasActive = true; break; }
             }
-            if ($key === 'audits_group' && in_array($active, ['mes-audits','revue','audits'], true)) $hasActive = true;
+            // Detection specifique groupe supervision
+            if ($key === 'audits_group' && in_array($active, ['audits','mes-audits','revue','notifications','rapports','qre'], true)) $hasActive = true;
     ?>
         <a class="group-toggle<?php echo $hasActive ? ' has-active' : ''; ?>" data-bs-toggle="collapse" href="#grp_<?php echo $key; ?>" role="button" aria-expanded="<?php echo $hasActive ? 'true' : 'false'; ?>">
           <i class="bi <?php echo $icon; ?>"></i><span><?php echo $label; ?></span><i class="bi bi-chevron-down caret"></i>
@@ -198,7 +198,11 @@ table.dataTable thead th{background:#f4f7fb;color:var(--anac-text);font-size:.82
         <div class="submenu collapse<?php echo $hasActive ? ' show' : ''; ?>" id="grp_<?php echo $key; ?>">
           <?php foreach ($visibleChildren as [$ck, $cl, $ci, $cr, $cm, $cb]):
               $isChildActive = ($active === $ck || $active === $cr) ? ' active' : '';
-              if ($ck === 'revue' && $active === 'mes-audits') $isChildActive = ' active';
+              // Cas speciaux : cle PHP <> route URL
+              if ($ck === 'mes_audits'    && $active === 'mes-audits')    $isChildActive = ' active';
+              if ($ck === 'notifications' && $active === 'notifications') $isChildActive = ' active';
+              if ($ck === 'login_attempts'&& $active === 'login-attempts')$isChildActive = ' active';
+              if ($ck === 'audit_logs'    && $active === 'audit-logs')    $isChildActive = ' active';
           ?>
             <?php if ($cb): ?>
               <a class="<?php echo trim($isChildActive); ?>" href="<?php echo SITE_URL . '/' . $cr; ?>">

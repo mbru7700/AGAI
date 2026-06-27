@@ -14,6 +14,7 @@ define('INCLUDES_PATH', BASE_PATH . '/includes');
 define('CONFIG_PATH', BASE_PATH . '/config');
 define('PUBLIC_PATH', BASE_PATH . '/public');
 define('UPLOAD_PATH', PUBLIC_PATH . '/uploads');
+define('STORAGE_PATH', BASE_PATH . '/storage');  // Hors public : lettres, rapports
 define('LOG_PATH', BASE_PATH . '/logs');
 define('MAIL_PATH', BASE_PATH . '/mail');
 

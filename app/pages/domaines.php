@@ -1,77 +1,118 @@
 <?php
 /**
- * Module : Domaines (page) - Donnees de structures
- * ------------------------------------------------------------
- * CRUD complet de la table `domaine` : liste avec recherche dynamique,
- * cartes de statistiques, creation / edition en fenetre modale,
- * suppression confirmee. Memes patterns de securite que les autres
- * modules (CSRF, requetes preparees cote endpoint, journalisation).
+ * Module : Domaines de surveillance - Donnees de structures
+ * Meme design que inspecteurs et operateurs :
+ * - KPI + panneau stats masquable/affichable
+ * - En-tetes tableau bleu ANAC
+ * - Bouton Voir : modale detail (sous-domaines, reglements, habilitations/inspecteurs)
+ * - CRUD inchange (modale creation/edition)
  */
 if (!defined('SITE_URL')) { require_once dirname(__DIR__, 2) . '/config/config.php'; }
-
 Rbac::guardPage('domaines');
 $csrf      = Security::generateCSRF();
 $pageTitle = 'Domaines';
 $active    = 'domaines';
 $pageIcon  = 'bi-grid-3x3-gap';
-
 require_once INCLUDES_PATH . '/layout_head.php';
 ?>
+<style>
+.filter-bar{background:#fff;border:1px solid #eef1f6;border-radius:14px;padding:14px 16px;box-shadow:0 1px 2px rgba(16,30,54,.04);}
+.stat-card{background:#fff;border:1px solid #eef1f6;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(16,30,54,.04);height:100%;}
+.stat-ic{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex:0 0 auto;}
+.ic-blue{background:rgba(35,64,143,.10);color:#23408F;} .ic-green{background:rgba(30,156,75,.12);color:#1E9C4B;}
+.ic-gold{background:rgba(243,195,0,.18);color:#b58a00;} .ic-purple{background:rgba(90,24,154,.10);color:#5a189a;}
+.ic-dark{background:rgba(44,62,80,.09);color:#2C3E50;}
+.stat-num{font-size:1.5rem;font-weight:700;color:#2C3E50;line-height:1;} .stat-lbl{font-size:.78rem;color:#7b8aa0;}
+/* Tableau */
+table.tbl{width:100%;border-collapse:separate;border-spacing:0;}
+table.tbl thead th{background:#23408F;color:#fff;font-size:.71rem;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border:none;font-weight:600;}
+table.tbl tbody td{padding:10px 12px;border-bottom:1px solid #f1f4f9;vertical-align:middle;font-size:.86rem;}
+table.tbl tbody tr:hover{background:#fafcff;}
+.empty{padding:36px;text-align:center;color:#9aa7bd;}
+/* Badges */
+.b-tag{display:inline-block;padding:.18rem .55rem;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap;margin:.1rem;}
+.b-blue{background:#e8f0fe;color:#23408F;} .b-green{background:#d1e7dd;color:#0a5c36;}
+.b-gold{background:#fff3cd;color:#856404;} .b-muted{background:#f1f4f9;color:#7b8aa0;}
+.b-purple{background:#f0e6ff;color:#5a189a;}
+.dom-code{font-family:monospace;font-size:.9rem;font-weight:800;color:#23408F;background:#e8f0fe;padding:.15rem .5rem;border-radius:6px;}
+/* Detail modale */
+.det-card{border:1px solid #eef1f6;border-radius:12px;overflow:hidden;margin-bottom:10px;}
+.det-card-head{background:linear-gradient(135deg,#23408F,#1b3576);color:#fff;padding:9px 15px;font-weight:700;font-size:.83rem;display:flex;align-items:center;justify-content:space-between;}
+.det-card-body{padding:12px 15px;}
+.det-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px 16px;}
+.dl{font-size:.67rem;text-transform:uppercase;color:#7b8aa0;font-weight:700;letter-spacing:.04em;margin-bottom:1px;}
+.dv{font-size:.88rem;color:#2C3E50;font-weight:600;border-bottom:1px solid #f1f4f9;padding-bottom:3px;}
+.item-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1px solid #eef1f6;margin-bottom:4px;font-size:.84rem;}
+</style>
 
 <div class="page-head">
   <div>
-    <h1><i class="bi bi-grid-3x3-gap me-2" style="color:var(--anac-primary)"></i>Domaines</h1>
-    <div class="sub">Donnees de structures &middot; domaines de surveillance utilises par les habilitations, audits et reglements.</div>
+    <h1><i class="bi bi-grid-3x3-gap me-2" style="color:var(--anac-primary)"></i>Domaines de surveillance</h1>
+    <div class="sub">Domaines utilises dans les habilitations, audits et reglements OACI.</div>
   </div>
   <button class="btn btn-anac" id="btnNew"><i class="bi bi-plus-lg me-2"></i>Nouveau domaine</button>
 </div>
 
-<style>
-  .filter-bar{background:#fff;border:1px solid #eef1f6;border-radius:14px;padding:14px 16px;box-shadow:0 1px 2px rgba(16,30,54,.04);}
-  .stat-card{background:#fff;border:1px solid #eef1f6;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(16,30,54,.04);height:100%;}
-  .stat-ic{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex:0 0 auto;}
-  .ic-blue{background:rgba(35,64,143,.10);color:#23408F;} .ic-green{background:rgba(30,156,75,.12);color:#1E9C4B;} .ic-gold{background:rgba(243,195,0,.18);color:#b58a00;}
-  .stat-num{font-size:1.5rem;font-weight:700;color:#2C3E50;line-height:1;} .stat-lbl{font-size:.78rem;color:#7b8aa0;}
-  table.tbl{width:100%;border-collapse:separate;border-spacing:0;}
-  table.tbl thead th{background:#f7f9fc;color:#5b6b85;font-size:.74rem;text-transform:uppercase;letter-spacing:.04em;padding:11px 14px;border-bottom:1px solid #eef1f6;text-align:left;}
-  table.tbl tbody td{padding:12px 14px;border-bottom:1px solid #f1f4f9;vertical-align:middle;}
-  table.tbl tbody tr:hover{background:#fafcff;}
-  .b-dom{display:inline-block;padding:.2rem .55rem;border-radius:20px;font-size:.72rem;font-weight:600;background:#eef2f9;color:#23408F;margin:1px 2px;}
-  .b-muted{background:#f1f4f9;color:#7b8aa0;}
-  .dom-code{font-size:.8rem;color:#8a97ab;}
-  .empty{padding:38px 14px;text-align:center;color:#9aa7bd;}
-</style>
-
-<div class="row g-3 mb-3">
-  <div class="col-6 col-md-4"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-grid-3x3-gap-fill"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Domaines</div></div></div></div>
-  <div class="col-6 col-md-4"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-diagram-2-fill"></i></div><div><div class="stat-num" id="st_sous">0</div><div class="stat-lbl">Sous-domaines</div></div></div></div>
-  <div class="col-6 col-md-4"><div class="stat-card"><div class="stat-ic ic-gold"><i class="bi bi-journal-text"></i></div><div><div class="stat-num" id="st_regs">0</div><div class="stat-lbl">Reglements</div></div></div></div>
+<!-- Toggle stats -->
+<div class="d-flex justify-content-end mb-2">
+  <button class="btn btn-sm btn-outline-secondary" id="btnToggleStats">
+    <i class="bi bi-bar-chart-line-fill me-1"></i><span id="statsLbl">Afficher les statistiques</span>
+  </button>
 </div>
 
-<div class="filter-bar mb-3">
-  <label class="form-label mb-1 small text-muted"><i class="bi bi-funnel me-1"></i>Filtrer par domaine</label>
-  <select id="filterDom" style="width:100%"></select>
-</div>
-
-<div class="card" style="border:1px solid #eef1f6;border-radius:14px;overflow:hidden;">
-  <div class="table-responsive">
-    <table class="tbl">
-      <thead>
-        <tr>
-          <th style="width:26%">Nom du domaine</th>
-          <th style="width:36%">Libelle</th>
-          <th style="width:24%">Utilisation</th>
-          <th style="width:14%;text-align:right">Actions</th>
-        </tr>
-      </thead>
-      <tbody id="body">
-        <tr><td colspan="4" class="empty"><span class="spinner-border spinner-border-sm me-2"></span>Chargement...</td></tr>
-      </tbody>
-    </table>
+<!-- Panneau stats masquable -->
+<div id="statsPanel" class="mb-3" style="display:none">
+  <div class="row g-3">
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-grid-3x3-gap-fill"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Domaines</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-diagram-2-fill"></i></div><div><div class="stat-num" id="st_sous">0</div><div class="stat-lbl">Sous-domaines</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-gold"><i class="bi bi-journal-text"></i></div><div><div class="stat-num" id="st_regs">0</div><div class="stat-lbl">Reglements</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-purple"><i class="bi bi-shield-check"></i></div><div><div class="stat-num" id="st_habs">0</div><div class="stat-lbl">Habilitations</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-dark"><i class="bi bi-clipboard-check"></i></div><div><div class="stat-num" id="st_audits">0</div><div class="stat-lbl">Audits associes</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-person-badge"></i></div><div><div class="stat-num" id="st_inspecteurs">0</div><div class="stat-lbl">Inspecteurs habilites</div></div></div></div>
   </div>
 </div>
 
-<!-- ===== MODALE AJOUT / EDITION ===== -->
+<!-- Filtre -->
+<div class="filter-bar mb-3">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-8">
+      <label class="form-label small fw-bold mb-1" style="color:#5b6b85;text-transform:uppercase;font-size:.72rem;letter-spacing:.04em">Rechercher un domaine</label>
+      <select id="filterDom" style="width:100%"></select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label small fw-bold mb-1" style="color:#5b6b85;text-transform:uppercase;font-size:.72rem;letter-spacing:.04em">Utilisation</label>
+      <select id="filterUsage" class="form-select form-select-sm">
+        <option value="">Tous</option>
+        <option value="1">Avec habilitations</option>
+        <option value="2">Avec reglements</option>
+        <option value="3">Non utilise</option>
+      </select>
+    </div>
+  </div>
+  <div class="mt-2 small text-muted" id="resCount"></div>
+</div>
+
+<!-- Tableau -->
+<div style="background:#fff;border:1px solid #eef1f6;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(16,30,54,.04)">
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th style="width:14%">Code</th>
+        <th style="width:30%">Libelle</th>
+        <th style="width:12%">Sous-dom.</th>
+        <th style="width:12%">Reglements</th>
+        <th style="width:12%">Habilitations</th>
+        <th style="width:8%">Audits</th>
+        <th style="text-align:right">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="body">
+      <tr><td colspan="7" class="empty"><span class="spinner-border spinner-border-sm me-2"></span>Chargement...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- MODALE : Nouveau / Edition -->
 <div class="modal fade" id="domModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <form class="modal-content" id="domForm" autocomplete="off">
@@ -82,14 +123,15 @@ require_once INCLUDES_PATH . '/layout_head.php';
       <div class="modal-body">
         <input type="hidden" id="d_id">
         <div class="mb-3">
-          <label class="form-label">Nom du domaine <span class="text-danger">*</span></label>
-          <input type="text" class="form-control" id="d_nom" maxlength="255" required placeholder="ex : AGA, PEL, OPS, AIR...">
-          <div class="form-text" id="d_dup" style="display:none;color:#D32F2F;">Un domaine portant ce nom existe deja.</div>
+          <label class="form-label fw-bold">Code du domaine <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="d_nom" maxlength="10" placeholder="ex : OPS, AGA, PEL" style="text-transform:uppercase;font-weight:700;letter-spacing:.05em" required>
+          <div class="form-text" id="d_dup" style="display:none;color:#D32F2F"><i class="bi bi-exclamation-triangle me-1"></i>Un domaine portant ce code existe deja.</div>
+          <div class="form-text">Code court, unique (ex : OPS, AGA, PEL, AVSEC).</div>
         </div>
-        <div class="mb-1">
-          <label class="form-label">Libelle du domaine <span class="text-muted">(facultatif)</span></label>
-          <input type="text" class="form-control" id="d_libel" maxlength="255">
-          <div class="form-text">Description complete. Si vide, le nom est repris automatiquement.</div>
+        <div class="mb-2">
+          <label class="form-label">Libelle du domaine <span class="text-muted small">(facultatif)</span></label>
+          <input type="text" class="form-control" id="d_libel" maxlength="255" placeholder="ex : Exploitation technique des aeronefs">
+          <div class="form-text">Description complete. Si vide, le code est utilise.</div>
         </div>
       </div>
       <div class="modal-footer">
@@ -100,147 +142,232 @@ require_once INCLUDES_PATH . '/layout_head.php';
   </div>
 </div>
 
-<?php require_once INCLUDES_PATH . '/layout_foot.php'; ?>
+<!-- MODALE : Voir detail domaine -->
+<div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width:86vw">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-grid-3x3-gap me-2" style="color:#23408F"></i><span id="viewTitle"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" id="viewBody">
+        <div class="text-center py-4"><span class="spinner-border text-primary"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
 
+<?php require_once INCLUDES_PATH . '/layout_foot.php'; ?>
 <script>
 const CSRF = '<?php echo Security::escape($csrf); ?>';
 const API  = AGAI_BASE + '/api/domaines';
 let ROWS = [];
-
-function apiPost(data){
-  data = Object.assign({csrf_token: CSRF}, data);
-  return $.post(API, data, null, 'json');
+function apiPost(data){ data=Object.assign({csrf_token:CSRF},data); return $.post(API,data,null,'json'); }
+function fmtDate(s){ if(!s||String(s).substring(0,10)==='0000-00-00') return '-'; const p=String(s).substring(0,10).split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):s; }
+function nbBadge(n,icon,cls){
+  const c=Number(n)||0;
+  return '<span class="b-tag '+(c>0?cls:'b-muted')+'" title="'+c+'"><i class="bi bi-'+icon+' me-1"></i>'+c+'</span>';
 }
 
-/* ---------- Statistiques ---------- */
+/* ===== TOGGLE STATS ===== */
+function setStatsVisible(show){
+  $('#statsPanel').toggle(show);
+  $('#statsLbl').text(show?'Masquer les statistiques':'Afficher les statistiques');
+  try{localStorage.setItem('agai_stats_domaines',show?'1':'0');}catch(e){}
+  if(show) loadStats();
+}
+$('#btnToggleStats').on('click',function(){ setStatsVisible($('#statsPanel').is(':hidden')); });
+
+/* ===== STATS ===== */
 function loadStats(){
   apiPost({action:'stats'}).done(res => {
-    if(!res.success || !res.stats) return;
-    $('#st_total').text(res.stats.total || 0);
-    $('#st_sous').text(res.stats.sous || 0);
-    $('#st_regs').text(res.stats.regs || 0);
+    if(!res.success||!res.stats) return;
+    const s=res.stats;
+    $('#st_total').text(s.total||0);     $('#st_sous').text(s.sous||0);
+    $('#st_regs').text(s.regs||0);       $('#st_habs').text(s.habs||0);
+    $('#st_audits').text(s.audits||0);   $('#st_inspecteurs').text(s.inspecteurs||0);
   });
 }
 
-/* ---------- Liste + recherche ---------- */
-function badge(n, label, cls){
-  if(!n) return '<span class="b-dom b-muted">0 '+label+'</span>';
-  return '<span class="b-dom '+(cls||'')+'">'+n+' '+label+'</span>';
-}
+/* ===== LISTE / FILTRE / RENDU ===== */
 function rowHtml(d){
-  const used = (Number(d.nb_sd)+Number(d.nb_reg)+Number(d.nb_hab)) > 0;
+  const used=(Number(d.nb_sd)+Number(d.nb_reg)+Number(d.nb_hab))>0;
+  const lib=(d.libel_domaine||'').trim();
   return '<tr>'
-    + '<td><div style="font-weight:700;color:#23408F">'+esc(d.nomdomaine)+'</div></td>'
-    + '<td><div style="color:#2C3E50">'+esc(d.libel_domaine||'-')+'</div></td>'
-    + '<td>'+badge(d.nb_sd,'sous-dom.')+badge(d.nb_reg,'regl.')+badge(d.nb_hab,'habil.')+'</td>'
-    + '<td style="text-align:right;white-space:nowrap">'
-    +   '<button class="btn btn-sm btn-outline-primary me-1 act-edit" data-id="'+esc(d.iddomaine)+'" title="Modifier"><i class="bi bi-pencil"></i></button>'
-    +   '<button class="btn btn-sm btn-outline-danger act-del" data-id="'+esc(d.iddomaine)+'" data-lib="'+esc(d.nomdomaine)+'" data-used="'+(used?1:0)+'" title="Supprimer"><i class="bi bi-trash"></i></button>'
-    + '</td>'
-    + '</tr>';
+    +'<td><span class="dom-code">'+esc(d.nomdomaine)+'</span></td>'
+    +'<td style="color:#2C3E50">'+(lib&&lib!==d.nomdomaine?esc(lib):'<span class="text-muted">-</span>')+'</td>'
+    +'<td>'+nbBadge(d.nb_sd,'diagram-2','b-green')+'</td>'
+    +'<td>'+nbBadge(d.nb_reg,'journal-text','b-gold')+'</td>'
+    +'<td>'+nbBadge(d.nb_hab,'shield-check','b-purple')+'</td>'
+    +'<td>'+nbBadge(d.nb_aud,'clipboard-check','b-blue')+'</td>'
+    +'<td style="text-align:right;white-space:nowrap">'
+    +'<button class="btn btn-xs btn-outline-info me-1 act-view" data-id="'+esc(d.iddomaine)+'" style="padding:3px 7px" title="Voir le detail"><i class="bi bi-eye"></i></button>'
+    +'<button class="btn btn-xs btn-outline-primary me-1 act-edit" data-id="'+esc(d.iddomaine)+'" style="padding:3px 7px" title="Modifier"><i class="bi bi-pencil"></i></button>'
+    +'<button class="btn btn-xs btn-outline-danger act-del" data-id="'+esc(d.iddomaine)+'" data-lib="'+esc(d.nomdomaine)+'" data-used="'+(used?1:0)+'" style="padding:3px 7px" title="Supprimer"><i class="bi bi-trash"></i></button>'
+    +'</td></tr>';
+}
+function getFiltered(){
+  const sel=$('#filterDom').val();
+  const usage=$('#filterUsage').val();
+  return ROWS.filter(d => {
+    if(sel&&String(d.iddomaine)!==String(sel)) return false;
+    if(usage==='1'&&Number(d.nb_hab)===0) return false;
+    if(usage==='2'&&Number(d.nb_reg)===0) return false;
+    if(usage==='3'&&(Number(d.nb_sd)+Number(d.nb_reg)+Number(d.nb_hab))>0) return false;
+    return true;
+  });
 }
 function render(){
-  const sel = $('#filterDom').val();
-  const list = sel ? ROWS.filter(d => String(d.iddomaine) === String(sel)) : ROWS;
-  const tb = $('#body');
-  if(!list.length){ tb.html('<tr><td colspan="4" class="empty"><i class="bi bi-inbox me-2"></i>Aucun domaine.</td></tr>'); return; }
-  tb.html(list.map(rowHtml).join(''));
+  const list=getFiltered(); const tb=$('#body');
+  if(!list.length){ tb.html('<tr><td colspan="7" class="empty"><i class="bi bi-inbox me-2"></i>Aucun domaine.</td></tr>'); }
+  else { tb.html(list.map(rowHtml).join('')); }
+  $('#resCount').html('<i class="bi bi-grid-3x3-gap me-1"></i>'+list.length+' domaine(s) affiches sur '+ROWS.length);
 }
 function fillFilter(){
-  const sel = $('#filterDom');
-  const cur = sel.val();
-  let opts = '<option value="">Tous les domaines</option>';
-  ROWS.forEach(d => { opts += '<option value="'+esc(d.iddomaine)+'">'+esc(d.nomdomaine)+(d.libel_domaine && d.libel_domaine!==d.nomdomaine ? ' - '+esc(d.libel_domaine) : '')+'</option>'; });
+  const sel=$('#filterDom'), cur=sel.val();
+  let opts='<option value="">Tous les domaines</option>';
+  ROWS.forEach(d => { opts+='<option value="'+esc(d.iddomaine)+'">'+esc(d.nomdomaine)+(d.libel_domaine&&d.libel_domaine.trim()&&d.libel_domaine.trim()!==d.nomdomaine?' - '+esc(d.libel_domaine.substring(0,50)):'')+'</option>'; });
   sel.html(opts);
-  if(cur && ROWS.some(d => String(d.iddomaine) === String(cur))){ sel.val(cur); }
+  if(cur&&ROWS.some(d=>String(d.iddomaine)===String(cur))) sel.val(cur);
   if(sel.hasClass('select2-hidden-accessible')) sel.trigger('change.select2');
 }
 function loadList(){
   apiPost({action:'list'}).done(res => {
-    if(!res.success){ $('#body').html('<tr><td colspan="4" class="empty">'+esc(res.message||'Erreur')+'</td></tr>'); return; }
-    ROWS = res.data || [];
-    fillFilter();
-    render();
-  }).fail(()=>{ $('#body').html('<tr><td colspan="4" class="empty">Echec du chargement.</td></tr>'); });
+    if(!res.success){ $('#body').html('<tr><td colspan="7" class="empty">'+esc(res.message||'Erreur')+'</td></tr>'); return; }
+    ROWS=res.data||[]; fillFilter(); render();
+  }).fail(()=>{ $('#body').html('<tr><td colspan="7" class="empty">Echec.</td></tr>'); });
 }
-$('#filterDom').select2({theme:'bootstrap-5', placeholder:'Tous les domaines', allowClear:true, width:'100%'});
-$('#filterDom').on('change', render);
+$('#filterDom').select2({theme:'bootstrap-5',placeholder:'Tous les domaines',allowClear:true,width:'100%'});
+$('#filterDom,#filterUsage').on('change',render);
 
-/* ---------- Nouveau / edition ---------- */
-$('#btnNew').on('click', function(){
-  $('#domModalTitle').text('Nouveau domaine');
-  $('#d_id').val(''); $('#d_libel').val(''); $('#d_nom').val(''); $('#d_dup').hide();
-  new bootstrap.Modal('#domModal').show();
-});
-$(document).on('click', '.act-edit', function(){
-  const id = $(this).data('id');
-  apiPost({action:'get', iddomaine:id}).done(res => {
-    if(!res.success){ Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); return; }
-    const d = res.data;
-    $('#domModalTitle').text('Modifier le domaine');
-    $('#d_id').val(d.iddomaine); $('#d_libel').val(d.libel_domaine); $('#d_nom').val(d.nomdomaine); $('#d_dup').hide();
-    new bootstrap.Modal('#domModal').show();
+/* ===== MODALE VOIR DETAIL ===== */
+$(document).on('click','.act-view',function(){
+  const id=$(this).data('id');
+  const row=ROWS.find(d=>String(d.iddomaine)===String(id));
+  $('#viewTitle').text(row?(row.nomdomaine+(row.libel_domaine&&row.libel_domaine.trim()?' - '+row.libel_domaine.trim().substring(0,60):'')):'...');
+  $('#viewBody').html('<div class="text-center py-4"><span class="spinner-border text-primary"></span></div>');
+  new bootstrap.Modal('#viewModal').show();
+  apiPost({action:'detail',iddomaine:id}).done(res => {
+    if(!res.success){ $('#viewBody').html('<div class="alert alert-danger">'+esc(res.message||'Erreur')+'</div>'); return; }
+    const d=res.data||{}, sd=res.sous_domaines||[], regs=res.reglements||[], habs=res.habilitations||[], auds=res.audits||[];
+    function di(l,v){ return '<div><div class="dl">'+l+'</div><div class="dv">'+(v||'<span style="color:#aab4c0;font-style:italic">-</span>')+'</div></div>'; }
+    let html='';
+    // En-tete identite
+    html+='<div class="det-card"><div class="det-card-head"><i class="bi bi-grid-3x3-gap me-2"></i>Identification</div><div class="det-card-body"><div class="det-row">';
+    html+=di('Code','<span class="dom-code">'+esc(d.nomdomaine||'')+'</span>');
+    html+=di('Libelle',esc((d.libel_domaine||'').trim()||(d.nomdomaine||'')));
+    html+=di('Sous-domaines','<span class="b-tag b-green">'+sd.length+'</span>');
+    html+=di('Reglements','<span class="b-tag b-gold">'+regs.length+'</span>');
+    html+=di('Habilitations','<span class="b-tag b-purple">'+habs.length+'</span>');
+    html+=di('Audits associes','<span class="b-tag b-blue">'+auds.length+'</span>');
+    html+='</div></div></div>';
+    // Sous-domaines
+    html+='<div class="det-card"><div class="det-card-head"><i class="bi bi-diagram-2 me-2"></i>Sous-domaines ('+sd.length+')</div><div class="det-card-body">';
+    if(!sd.length){ html+='<div class="text-muted small">Aucun sous-domaine pour ce domaine.</div>'; }
+    else { sd.forEach(s => { html+='<div class="item-row"><span class="b-tag b-green">'+esc(s.nomsd||s.nom_sousdomaine||'-')+'</span></div>'; }); }
+    html+='</div></div>';
+    // Reglements
+    html+='<div class="det-card"><div class="det-card-head"><i class="bi bi-journal-text me-2"></i>Reglements ('+regs.length+')</div><div class="det-card-body">';
+    if(!regs.length){ html+='<div class="text-muted small">Aucun reglement associe a ce domaine.</div>'; }
+    else { regs.forEach(r => { html+='<div class="item-row"><span class="b-tag b-gold" style="font-family:monospace">'+esc(r.code_reglement||'-')+'</span><span style="font-size:.82rem">'+esc(r.libelle_reglement||'')+'</span></div>'; }); }
+    html+='</div></div>';
+    // Inspecteurs habilites
+    html+='<div class="det-card"><div class="det-card-head"><i class="bi bi-person-badge me-2"></i>Inspecteurs habilites ('+habs.length+')</div><div class="det-card-body">';
+    if(!habs.length){ html+='<div class="text-muted small">Aucun inspecteur habilite sur ce domaine.</div>'; }
+    else {
+      habs.forEach(h => {
+        const exp=h.date_expiration?new Date(h.date_expiration):null;
+        const days=exp?Math.round((exp-new Date())/86400000):null;
+        let badge='';
+        if(days===null){badge='<span class="b-tag b-muted">Sans date</span>';}
+        else if(days<0){badge='<span class="b-tag" style="background:#f8d7da;color:#842029">Expiree</span>';}
+        else if(days<=90){badge='<span class="b-tag" style="background:#fff3cd;color:#856404">'+days+' j</span>';}
+        else{badge='<span class="b-tag b-green">'+Math.round(days/30)+' mois</span>';}
+        html+='<div class="item-row">'
+          +'<span class="b-tag b-purple" style="font-size:.78rem">'+esc(h.trigr_inspecteur||h.trigr||'-')+'</span>'
+          +'<span style="font-weight:600">'+esc(((h.preninspect||'')+' '+(h.nominspecteur||'')).trim())+'</span>'
+          +'<span class="text-muted small">N '+esc(h.numero_habilitation||'-')+'</span>'
+          +'<span class="text-muted small">'+fmtDate(h.date_habilitation)+' au '+fmtDate(h.date_expiration)+'</span>'
+          +badge
+          +'</div>';
+      });
+    }
+    html+='</div></div>';
+    // Audits recents
+    html+='<div class="det-card"><div class="det-card-head"><i class="bi bi-clipboard-check me-2"></i>Audits associes ('+auds.length+')</div><div class="det-card-body">';
+    if(!auds.length){ html+='<div class="text-muted small">Aucun audit associe a ce domaine.</div>'; }
+    else {
+      const STATUT={1:'Planifie',2:'Reporte',3:'Effectue',4:'Suspendu',6:'Annule',7:'Inopine'};
+      auds.slice(0,10).forEach(a => {
+        html+='<div class="item-row">'
+          +'<span style="font-family:monospace;font-size:.82rem;font-weight:700;color:#23408F">'+esc(a.num_audit||'-')+'</span>'
+          +'<span class="b-tag b-blue" style="font-size:.72rem">'+esc(a.type_activite||'')+'</span>'
+          +'<span class="text-muted small">'+fmtDate(a.date_previsionnelle)+'</span>'
+          +'<span style="font-size:.78rem;font-weight:600">'+esc(STATUT[a.statut]||('-'))+'</span>'
+          +'<span class="text-muted small ms-auto">'+esc(a.nomorga||'')+'</span>'
+          +'</div>';
+      });
+      if(auds.length>10) html+='<div class="text-muted small mt-2">... et '+(auds.length-10)+' autres audits.</div>';
+    }
+    html+='</div></div>';
+    $('#viewBody').html(html);
   });
 });
 
-/* Controle de doublon en direct (sur le nom) */
-let dupTimer = null;
-$('#d_nom').on('input', function(){
-  clearTimeout(dupTimer);
-  const nom = $(this).val().trim();
-  if(!nom){ $('#d_dup').hide(); return; }
-  dupTimer = setTimeout(function(){
-    apiPost({action:'check_nom', nomdomaine:nom, iddomaine:$('#d_id').val()||0}).done(res => {
-      $('#d_dup').toggle(!!(res.success && res.exists));
-    });
-  }, 350);
+/* ===== CRUD ===== */
+$('#btnNew').on('click',function(){
+  $('#domModalTitle').text('Nouveau domaine'); $('#d_id').val(''); $('#d_nom').val(''); $('#d_libel').val(''); $('#d_dup').hide();
+  new bootstrap.Modal('#domModal').show();
 });
-
-/* ---------- Enregistrement ---------- */
-$('#domForm').on('submit', function(e){
+$(document).on('click','.act-edit',function(){
+  const id=$(this).data('id');
+  apiPost({action:'get',iddomaine:id}).done(res => {
+    if(!res.success){ Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); return; }
+    const d=res.data;
+    $('#domModalTitle').text('Modifier le domaine'); $('#d_id').val(d.iddomaine);
+    $('#d_nom').val(d.nomdomaine); $('#d_libel').val(d.libel_domaine); $('#d_dup').hide();
+    new bootstrap.Modal('#domModal').show();
+  });
+});
+let dupTimer=null;
+$('#d_nom').on('input',function(){
+  clearTimeout(dupTimer); const nom=$(this).val().trim();
+  if(!nom){ $('#d_dup').hide(); return; }
+  dupTimer=setTimeout(function(){ apiPost({action:'check_nom',nomdomaine:nom,iddomaine:$('#d_id').val()||0}).done(res=>{ $('#d_dup').toggle(!!(res.success&&res.exists)); }); },350);
+});
+$('#domForm').on('submit',function(e){
   e.preventDefault();
-  const id  = $('#d_id').val();
-  const nom = $('#d_nom').val().trim();
-  if(!nom){ Swal.fire({icon:'warning',title:'Nom requis',text:'Indiquez le nom du domaine (ex : AGA, PEL).',confirmButtonColor:'#23408F'}); return; }
-  const data = { action: id ? 'update' : 'create', iddomaine: id, nomdomaine: nom, libel_domaine: $('#d_libel').val().trim() };
-  const btn = $('#domSubmit'); const html = btn.html();
-  btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>...');
+  const id=$('#d_id').val(), nom=$('#d_nom').val().trim();
+  if(!nom){ Swal.fire({icon:'warning',title:'Code requis',text:'Indiquez le code du domaine (ex : OPS, AGA, PEL).',confirmButtonColor:'#23408F'}); return; }
+  const data={action:id?'update':'create',iddomaine:id,nomdomaine:nom.toUpperCase(),libel_domaine:$('#d_libel').val().trim()};
+  const btn=$('#domSubmit'), html=btn.html();
+  btn.prop('disabled',true).html('<span class="spinner-border spinner-border-sm me-1"></span>...');
   apiPost(data).done(res => {
-    btn.prop('disabled', false).html(html);
+    btn.prop('disabled',false).html(html);
     if(res.success){
       bootstrap.Modal.getInstance(document.getElementById('domModal')).hide();
       Swal.fire({icon:'success',title:'Enregistre',text:res.message,timer:1600,showConfirmButton:false,timerProgressBar:true});
       loadList(); loadStats();
     } else { Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); }
-  }).fail(()=>{ btn.prop('disabled', false).html(html); Swal.fire({icon:'error',title:'Erreur',text:'Echec de la requete.',confirmButtonColor:'#23408F'}); });
+  }).fail(()=>{ btn.prop('disabled',false).html(html); Swal.fire({icon:'error',title:'Erreur',text:'Echec.',confirmButtonColor:'#23408F'}); });
 });
-
-/* ---------- Suppression ---------- */
-$(document).on('click', '.act-del', function(){
-  const id = $(this).data('id');
-  const lib = $(this).data('lib');
-  const used = String($(this).data('used')) === '1';
+$(document).on('click','.act-del',function(){
+  const id=$(this).data('id'), lib=$(this).data('lib'), used=String($(this).data('used'))==='1';
   Swal.fire({
-    icon: used ? 'warning' : 'question',
-    title: 'Supprimer ce domaine ?',
-    html: '<b>'+esc(lib)+'</b>' + (used ? '<br><br><span style="color:#D32F2F">Ce domaine est utilise ailleurs. La suppression sera refusee tant qu\'il est rattache a des sous-domaines, reglements ou habilitations.</span>' : ''),
-    showCancelButton: true,
-    confirmButtonText: 'Supprimer',
-    cancelButtonText: 'Annuler',
-    confirmButtonColor: '#D32F2F',
-    cancelButtonColor: '#6c757d'
+    icon:used?'warning':'question', title:'Supprimer ce domaine ?',
+    html:'<b>'+esc(lib)+'</b>'+(used?'<br><br><span style="color:#D32F2F">Ce domaine est utilise (habilitations, reglements, audits). La suppression sera refusee.</span>':''),
+    showCancelButton:true,confirmButtonText:'Supprimer',cancelButtonText:'Annuler',
+    confirmButtonColor:'#D32F2F',cancelButtonColor:'#6c757d'
   }).then(r => {
     if(!r.isConfirmed) return;
-    apiPost({action:'delete', iddomaine:id}).done(res => {
-      if(res.success){
-        Swal.fire({icon:'success',title:'Supprime',timer:1400,showConfirmButton:false});
-        loadList(); loadStats();
-      } else { Swal.fire({icon:'error',title:'Suppression impossible',text:res.message,confirmButtonColor:'#23408F'}); }
-    }).fail(()=>{ Swal.fire({icon:'error',title:'Erreur',text:'Echec de la requete.',confirmButtonColor:'#23408F'}); });
+    apiPost({action:'delete',iddomaine:id}).done(res => {
+      if(res.success){ Swal.fire({icon:'success',timer:1400,showConfirmButton:false}); loadList(); loadStats(); }
+      else { Swal.fire({icon:'error',title:'Impossible',text:res.message,confirmButtonColor:'#23408F'}); }
+    });
   });
 });
 
-/* ---------- Demarrage ---------- */
-loadStats();
-loadList();
+/* ===== DEMARRAGE ===== */
+loadStats(); loadList();
+(function(){ let v='0'; try{v=localStorage.getItem('agai_stats_domaines')||'0';}catch(e){} if(v==='1') setStatsVisible(true); })();
 </script>

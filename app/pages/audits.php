@@ -10,6 +10,7 @@ $csrf      = Security::generateCSRF();
 $role      = Rbac::role();
 $pageTitle = 'Audits et inspections';
 $active    = 'audits';
+$isOper    = ($role === 'operateur');
 $canWrite  = in_array($role, ['admin', 'chef_inspecteur'], true);
 $canDelete = in_array($role, ['admin', 'chef_inspecteur'], true);
 
@@ -45,9 +46,19 @@ require_once INCLUDES_PATH . '/layout_head.php';
 /* ---- Tableau ---- */
 .tbl-wrap{background:#fff;border:1px solid #eef1f6;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(16,30,54,.04);}
 table.tbl{width:100%;border-collapse:separate;border-spacing:0;}
-table.tbl thead th{background:#f7f9fc;color:#5b6b85;font-size:.71rem;text-transform:uppercase;letter-spacing:.04em;padding:9px 10px;border-bottom:1px solid #eef1f6;white-space:nowrap;}
+table.tbl thead th{background:#23408F;color:#fff;font-size:.71rem;text-transform:uppercase;letter-spacing:.04em;padding:9px 10px;border-bottom:2px solid #1b3576;white-space:nowrap;font-weight:600;}
+table.tbl thead th:first-child{border-radius:0;}
 table.tbl tbody td{padding:8px 10px;border-bottom:1px solid #f1f4f9;vertical-align:middle;font-size:.85rem;}
-table.tbl tbody tr:hover{background:#fafcff;}
+table.tbl tbody tr:hover{filter:brightness(.97);}
+/* Couleur de fond par statut */
+table.tbl tbody tr.st-1{background:#f0f4ff;}
+table.tbl tbody tr.st-2{background:#fffbeb;}
+table.tbl tbody tr.st-3{background:#f0fdf4;}
+table.tbl tbody tr.st-4{background:#fff5f5;}
+table.tbl tbody tr.st-5{background:#faf5ff;}
+table.tbl tbody tr.st-6{background:#f8f9fa;}
+table.tbl tbody tr.st-7{background:#e8f0fe;}
+table.tbl tbody tr.st-ferme{background:#f5f5f5;opacity:.8;}
 .empty{padding:30px;text-align:center;color:#9aa7bd;}
 .sb{display:inline-block;padding:.18rem .5rem;border-radius:20px;font-size:.69rem;font-weight:700;white-space:nowrap;}
 .sb1{background:#e8f0fe;color:#23408F;} .sb2{background:#fff3cd;color:#856404;}
@@ -80,7 +91,13 @@ table.tbl tbody tr:hover{background:#fafcff;}
 <div class="page-head">
   <div>
     <h1><i class="bi bi-clipboard-check me-2" style="color:var(--anac-primary)"></i>Audits et inspections</h1>
-    <div class="sub">Planification, suivi et statut des activites de surveillance.</div>
+    <div class="sub">
+      <?php if ($isOper): ?>
+        Consultez les actes de supervision vous concernant (lettre de notification recue).
+      <?php else: ?>
+        Planification, suivi et statut des activites de surveillance.
+      <?php endif; ?>
+    </div>
   </div>
   <div class="d-flex gap-2 flex-wrap">
     <?php if ($canWrite): ?>
@@ -92,6 +109,15 @@ table.tbl tbody tr:hover{background:#fafcff;}
   </div>
 </div>
 
+<?php if ($isOper): ?>
+<div class="alert mb-3" style="background:#e8f0fe;border:1px solid #c5d4f5;border-left:4px solid #23408F;border-radius:10px;padding:12px 16px">
+  <i class="bi bi-info-circle-fill me-2" style="color:#23408F"></i>
+  <strong style="color:#23408F">Espace operateur.</strong>
+  Vous visualisez ici uniquement les audits vous concernant pour lesquels une <strong>lettre de notification a ete jointe</strong>.
+  Cliquez sur <i class="bi bi-eye"></i> <strong>Voir</strong> pour consulter le detail d'un audit.
+</div>
+<?php endif; ?>
+
 <!-- Panneau stats depliable -->
 <div class="stats-panel mb-3">
   <div class="stats-toggle" id="statsToggle">
@@ -102,14 +128,40 @@ table.tbl tbody tr:hover{background:#fafcff;}
     </div>
   </div>
   <div class="stats-body collapse" id="statsBody">
-    <!-- KPI -->
+    <!-- KPI avec pourcentages -->
     <div class="kpi-row mb-3">
-      <div class="kpi-card"><div class="kpi-ic ic-total"><i class="bi bi-clipboard-data-fill"></i></div><div><div class="kpi-num" id="kTotal">-</div><div class="kpi-lbl">Total</div></div></div>
-      <div class="kpi-card"><div class="kpi-ic ic-plan"><i class="bi bi-calendar-check-fill"></i></div><div><div class="kpi-num" id="kPlan" style="color:#23408F">-</div><div class="kpi-lbl">Planifies</div></div></div>
-      <div class="kpi-card"><div class="kpi-ic ic-rep"><i class="bi bi-arrow-clockwise"></i></div><div><div class="kpi-num" id="kRep" style="color:#b58a00">-</div><div class="kpi-lbl">Reportes</div></div></div>
-      <div class="kpi-card"><div class="kpi-ic ic-eff"><i class="bi bi-check-circle-fill"></i></div><div><div class="kpi-num" id="kEff" style="color:#1E9C4B">-</div><div class="kpi-lbl">Effectues</div></div></div>
-      <div class="kpi-card"><div class="kpi-ic ic-sus"><i class="bi bi-pause-circle-fill"></i></div><div><div class="kpi-num" id="kSus" style="color:#D32F2F">-</div><div class="kpi-lbl">Suspendus</div></div></div>
-      <div class="kpi-card"><div class="kpi-ic ic-exec"><i class="bi bi-speedometer2"></i></div><div><div class="kpi-taux" id="kTaux" style="color:#1E9C4B">- %</div><div class="kpi-lbl">Taux execution</div></div></div>
+      <div class="kpi-card" title="Total des audits affiches">
+        <div class="kpi-ic ic-total"><i class="bi bi-clipboard-data-fill"></i></div>
+        <div><div class="kpi-num" id="kTotal">-</div><div class="kpi-lbl">Total</div></div>
+      </div>
+      <div class="kpi-card" title="Audits planifies | % du total">
+        <div class="kpi-ic ic-plan"><i class="bi bi-calendar-check-fill"></i></div>
+        <div><div class="kpi-num" id="kPlan" style="color:#23408F">-</div><div class="kpi-lbl">Planifies</div><div class="kpi-pct" id="pPlan" style="font-size:.7rem;color:#23408F;font-weight:700"></div></div>
+      </div>
+      <div class="kpi-card" title="Audits reportes | % du total">
+        <div class="kpi-ic ic-rep"><i class="bi bi-arrow-clockwise"></i></div>
+        <div><div class="kpi-num" id="kRep" style="color:#b58a00">-</div><div class="kpi-lbl">Reportes</div><div class="kpi-pct" id="pRep" style="font-size:.7rem;color:#b58a00;font-weight:700"></div></div>
+      </div>
+      <div class="kpi-card" title="Audits effectues | % du total">
+        <div class="kpi-ic ic-eff"><i class="bi bi-check-circle-fill"></i></div>
+        <div><div class="kpi-num" id="kEff" style="color:#1E9C4B">-</div><div class="kpi-lbl">Effectues</div><div class="kpi-pct" id="pEff" style="font-size:.7rem;color:#1E9C4B;font-weight:700"></div></div>
+      </div>
+      <div class="kpi-card" title="Audits suspendus | % du total">
+        <div class="kpi-ic ic-sus"><i class="bi bi-pause-circle-fill"></i></div>
+        <div><div class="kpi-num" id="kSus" style="color:#D32F2F">-</div><div class="kpi-lbl">Suspendus</div><div class="kpi-pct" id="pSus" style="font-size:.7rem;color:#D32F2F;font-weight:700"></div></div>
+      </div>
+      <div class="kpi-card" title="Audits annules | % du total">
+        <div class="kpi-ic" style="background:rgba(56,61,65,.1);color:#383d41"><i class="bi bi-x-circle-fill"></i></div>
+        <div><div class="kpi-num" id="kAnn" style="color:#383d41">-</div><div class="kpi-lbl">Annules</div><div class="kpi-pct" id="pAnn" style="font-size:.7rem;color:#383d41;font-weight:700"></div></div>
+      </div>
+      <div class="kpi-card" title="Audits inopines | % du total">
+        <div class="kpi-ic" style="background:rgba(35,64,143,.08);color:#23408F"><i class="bi bi-lightning-fill"></i></div>
+        <div><div class="kpi-num" id="kInop" style="color:#23408F">-</div><div class="kpi-lbl">Inopines</div><div class="kpi-pct" id="pInop" style="font-size:.7rem;color:#23408F;font-weight:700"></div></div>
+      </div>
+      <div class="kpi-card" title="Taux d'execution = Effectues / Total * 100">
+        <div class="kpi-ic ic-exec"><i class="bi bi-speedometer2"></i></div>
+        <div><div class="kpi-taux" id="kTaux" style="color:#1E9C4B">- %</div><div class="kpi-lbl">Taux execution</div></div>
+      </div>
     </div>
     <!-- 3 graphiques sur la meme ligne -->
     <div class="chart-3">
@@ -313,11 +365,12 @@ const API_AUDITS = AGAI_BASE + '/api/audits';
 const ROLE       = '<?php echo Security::escape($role); ?>';
 const CAN_WRITE  = <?php echo $canWrite ? 'true' : 'false'; ?>;
 const CAN_DELETE = <?php echo $canDelete ? 'true' : 'false'; ?>;
+const IS_OPER    = <?php echo $isOper ? 'true' : 'false'; ?>;
 const IMG_BASE   = AGAI_BASE + '/public/images/';
 
 const TYPE_LABELS={audit:'Audit',inspection_programmee:'Inspection programmee',inspection_non_programmee:'Inspection non programmee',demonstration:'Demonstration',test:'Test',investigation:'Investigation'};
 const CADRE_LABELS={certification:'Certification',homologation:'Homologation',reconnaissance:'Reconnaissance',renouvellement:'Renouvellement',surveillance_continue:'Surveillance continue',traitement_evenement:"Traitement d'un evenement",fermeture_provisoire:'Fermeture provisoire',fermeture_definitive:'Fermeture definitive',delivrance_autorisation:"Delivrance d'une autorisation"};
-const STATUT={1:{t:'Planifiee',c:'sb1',col:'#23408F'},2:{t:'Reportee',c:'sb2',col:'#b58a00'},3:{t:'Effectuee',c:'sb3',col:'#1E9C4B'},4:{t:'Suspendue',c:'sb4',col:'#D32F2F'},5:{t:'A surveiller',c:'sb5',col:'#5a189a'}};
+const STATUT={1:{t:'Planifiee',c:'sb1',col:'#23408F'},2:{t:'Reportee',c:'sb2',col:'#b58a00'},3:{t:'Effectuee',c:'sb3',col:'#1E9C4B'},4:{t:'Suspendue',c:'sb4',col:'#D32F2F'},5:{t:'A surveiller',c:'sb5',col:'#5a189a'},6:{t:'Annulee',c:'sb0',col:'#383d41'},7:{t:'Inopinee',c:'sb1',col:'#23408F'}};
 const MOIS_FR=['','Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec'];
 
 function apiPost(data){data=Object.assign({csrf_token:CSRF},data);return $.post(API_AUDITS,data,null,'json');}
@@ -345,13 +398,17 @@ $('#statsToggle').on('click', function(){
 let chartAnnee=null, chartMois=null, chartPie=null, STATS_DATA=null;
 
 function calcStats(list){
-  const s={total:list.length,planifies:0,reportes:0,effectues:0,suspendus:0,fermes:0};
+  const s={total:list.length,planifies:0,reportes:0,effectues:0,suspendus:0,
+           annules:0,inopines:0,fermes:0};
   list.forEach(function(a){
     if(Number(a.est_ferme)===1){s.fermes++;return;}
-    if(a.statut==1)s.planifies++;
-    else if(a.statut==2)s.reportes++;
-    else if(a.statut==3)s.effectues++;
-    else if(a.statut==4)s.suspendus++;
+    const st=Number(a.statut);
+    if(st===1)s.planifies++;
+    else if(st===2)s.reportes++;
+    else if(st===3)s.effectues++;
+    else if(st===4)s.suspendus++;
+    else if(st===6)s.annules++;
+    else if(st===7)s.inopines++;
   });
   s.taux_execution = s.total ? Math.round(s.effectues/s.total*100) : 0;
   return s;
@@ -362,12 +419,15 @@ function calcParAnnee(list){
   list.forEach(function(a){
     const yr = a.date_previsionnelle ? String(a.date_previsionnelle).substring(0,4) : null;
     if(!yr||yr==='0000') return;
-    if(!map[yr]) map[yr]={annee:yr,planifies:0,reportes:0,effectues:0,suspendus:0,total:0};
+    if(!map[yr]) map[yr]={annee:yr,planifies:0,reportes:0,effectues:0,suspendus:0,annules:0,inopines:0,total:0};
     map[yr].total++;
-    if(a.statut==1) map[yr].planifies++;
-    else if(a.statut==2) map[yr].reportes++;
-    else if(a.statut==3) map[yr].effectues++;
-    else if(a.statut==4) map[yr].suspendus++;
+    const st=Number(a.statut);
+    if(st===1)map[yr].planifies++;
+    else if(st===2)map[yr].reportes++;
+    else if(st===3)map[yr].effectues++;
+    else if(st===4)map[yr].suspendus++;
+    else if(st===6)map[yr].annules++;
+    else if(st===7)map[yr].inopines++;
   });
   return Object.values(map).sort(function(a,b){return a.annee-b.annee;});
 }
@@ -380,11 +440,14 @@ function calcParMois(list){
     if(!d||String(d).substring(0,4)!==String(now)) return;
     const mo=Number(String(d).substring(5,7));
     if(!mo) return;
-    if(!map[mo]) map[mo]={mois:mo,planifies:0,reportes:0,effectues:0,total:0};
+    if(!map[mo]) map[mo]={mois:mo,planifies:0,reportes:0,effectues:0,annules:0,inopines:0,total:0};
     map[mo].total++;
-    if(a.statut==1) map[mo].planifies++;
-    else if(a.statut==2) map[mo].reportes++;
-    else if(a.statut==3) map[mo].effectues++;
+    const st=Number(a.statut);
+    if(st===1)map[mo].planifies++;
+    else if(st===2)map[mo].reportes++;
+    else if(st===3)map[mo].effectues++;
+    else if(st===6)map[mo].annules++;
+    else if(st===7)map[mo].inopines++;
   });
   return Object.values(map).sort(function(a,b){return a.mois-b.mois;});
 }
@@ -392,13 +455,20 @@ function calcParMois(list){
 function updateStatsDisplay(data){
   const list=data._filteredList||ALL;
   const s=calcStats(list);
-  // KPI : toujours mis a jour (panneau ouvert ou ferme)
-  $('#kTotal').text(s.total);$('#kPlan').text(s.planifies);
-  $('#kRep').text(s.reportes);$('#kEff').text(s.effectues);
-  $('#kSus').text(s.suspendus);$('#kTaux').text(s.taux_execution+'%');
-  // Resume en-tete du panneau stats : toujours mis a jour
+  const tot=s.total||1; // eviter division par zero
+  function pct(v){ return tot>0?Math.round(v/tot*100):0; }
+  // KPI + pourcentages
+  $('#kTotal').text(s.total);
+  $('#kPlan').text(s.planifies);  $('#pPlan').text(s.planifies>0?pct(s.planifies)+'%':'');
+  $('#kRep').text(s.reportes);    $('#pRep').text(s.reportes>0?pct(s.reportes)+'%':'');
+  $('#kEff').text(s.effectues);   $('#pEff').text(s.effectues>0?pct(s.effectues)+'%':'');
+  $('#kSus').text(s.suspendus);   $('#pSus').text(s.suspendus>0?pct(s.suspendus)+'%':'');
+  $('#kAnn').text(s.annules||0);  $('#pAnn').text((s.annules||0)>0?pct(s.annules||0)+'%':'');
+  $('#kInop').text(s.inopines||0);$('#pInop').text((s.inopines||0)>0?pct(s.inopines||0)+'%':'');
+  $('#kTaux').text(s.taux_execution+'%');
+  // Resume en-tete du panneau stats
   $('#statsResume').text(s.total+' actes | '+s.effectues+' effectues ('+s.taux_execution+'%)');
-  // Graphiques : toujours reconstruits (s'afficheront correctement a l'ouverture)
+  // Graphiques
   const parAnnee=calcParAnnee(list);
   const parMois=calcParMois(list);
   buildFilterGraphAnnee(parAnnee);
@@ -420,6 +490,47 @@ const CHART_OPTS={responsive:true,maintainAspectRatio:true,
   plugins:{legend:{position:'bottom',labels:{font:{size:9},boxWidth:9,padding:4}}},
   scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{beginAtZero:true,ticks:{stepSize:1,font:{size:9}}}}};
 
+// Helper : dessiner les valeurs sur les barres empilees apres animation
+function drawBarLabels(chart){
+  const ctx=chart.ctx;
+  chart.data.datasets.forEach(function(dataset,dsIdx){
+    const meta=chart.getDatasetMeta(dsIdx);
+    if(meta.hidden) return;
+    meta.data.forEach(function(bar,i){
+      const val=dataset.data[i]; if(!val) return;
+      const barH=bar.base-bar.y;
+      if(barH<12) return; // Trop petite
+      ctx.save();
+      ctx.fillStyle='rgba(255,255,255,0.92)';
+      ctx.font='bold 8px Candara,Arial,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(val, bar.x, bar.y+barH*0.5);
+      ctx.restore();
+    });
+  });
+}
+
+// Helper : dessiner nb + % sur les parts du camembert/donut
+function drawPieLabels(chart){
+  const {ctx,data}=chart;
+  const total=data.datasets[0].data.reduce(function(a,b){return a+b;},0);
+  if(!total) return;
+  chart.getDatasetMeta(0).data.forEach(function(arc,i){
+    const val=data.datasets[0].data[i]; if(!val) return;
+    const pct=Math.round(val/total*100);
+    const arcAngle=arc.endAngle-arc.startAngle;
+    if(arcAngle<0.25) return; // Trop petit pour afficher
+    const mid=arc.startAngle+arcAngle/2;
+    const r=(arc.outerRadius-(arc.outerRadius-arc.innerRadius)*0.5)*0.82;
+    const x=arc.x+Math.cos(mid)*r, y=arc.y+Math.sin(mid)*r;
+    ctx.save();
+    ctx.fillStyle='#fff'; ctx.font='bold 8px Candara,Arial,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(val+' ('+pct+'%)', x, y);
+    ctx.restore();
+  });
+}
+
 function buildGraphAnnee(data){
   const ctx=document.getElementById('chartAnnee').getContext('2d');
   if(chartAnnee){chartAnnee.destroy();}
@@ -427,12 +538,17 @@ function buildGraphAnnee(data){
   chartAnnee=new Chart(ctx,{type:'bar',data:{
     labels:data.map(function(r){return String(r.annee);}),
     datasets:[
-      {label:'Plan.',data:data.map(function(r){return Number(r.planifies||0);}),backgroundColor:'rgba(35,64,143,.75)',borderRadius:3},
-      {label:'Eff.',data:data.map(function(r){return Number(r.effectues||0);}),backgroundColor:'rgba(30,156,75,.8)',borderRadius:3},
-      {label:'Rep.',data:data.map(function(r){return Number(r.reportes||0);}),backgroundColor:'rgba(243,195,0,.75)',borderRadius:3},
-      {label:'Sus.',data:data.map(function(r){return Number(r.suspendus||0);}),backgroundColor:'rgba(211,47,47,.75)',borderRadius:3},
+      {label:'Plan.',data:data.map(function(r){return Number(r.planifies||0);}),backgroundColor:'rgba(35,64,143,.78)',borderRadius:3},
+      {label:'Eff.',data:data.map(function(r){return Number(r.effectues||0);}),backgroundColor:'rgba(30,156,75,.82)',borderRadius:3},
+      {label:'Rep.',data:data.map(function(r){return Number(r.reportes||0);}),backgroundColor:'rgba(243,195,0,.78)',borderRadius:3},
+      {label:'Sus.',data:data.map(function(r){return Number(r.suspendus||0);}),backgroundColor:'rgba(211,47,47,.78)',borderRadius:3},
+      {label:'Ann.',data:data.map(function(r){return Number(r.annules||0);}),backgroundColor:'rgba(56,61,65,.72)',borderRadius:3},
+      {label:'Inop.',data:data.map(function(r){return Number(r.inopines||0);}),backgroundColor:'rgba(35,64,143,.42)',borderRadius:3},
     ]
-  },options:CHART_OPTS});
+  },options:{...CHART_OPTS,
+    animation:{onComplete:function(){drawBarLabels(this);}},
+    scales:{x:{grid:{display:false},ticks:{font:{size:9}},stacked:false},y:{beginAtZero:true,ticks:{stepSize:1,font:{size:9}}}}
+  }});
 }
 
 function buildGraphMois(data){
@@ -443,25 +559,38 @@ function buildGraphMois(data){
   chartMois=new Chart(ctx,{type:'bar',data:{
     labels:data.map(function(r){return MOIS[r.mois]||r.mois;}),
     datasets:[
-      {label:'Plan.',data:data.map(function(r){return r.planifies||0;}),backgroundColor:'rgba(35,64,143,.75)',borderRadius:3},
-      {label:'Eff.',data:data.map(function(r){return r.effectues||0;}),backgroundColor:'rgba(30,156,75,.8)',borderRadius:3},
-      {label:'Rep.',data:data.map(function(r){return r.reportes||0;}),backgroundColor:'rgba(243,195,0,.75)',borderRadius:3},
+      {label:'Plan.',data:data.map(function(r){return r.planifies||0;}),backgroundColor:'rgba(35,64,143,.78)',borderRadius:3},
+      {label:'Eff.',data:data.map(function(r){return r.effectues||0;}),backgroundColor:'rgba(30,156,75,.82)',borderRadius:3},
+      {label:'Rep.',data:data.map(function(r){return r.reportes||0;}),backgroundColor:'rgba(243,195,0,.78)',borderRadius:3},
+      {label:'Ann.',data:data.map(function(r){return r.annules||0;}),backgroundColor:'rgba(56,61,65,.72)',borderRadius:3},
     ]
-  },options:CHART_OPTS});
+  },options:{...CHART_OPTS,
+    animation:{onComplete:function(){drawBarLabels(this);}},
+    scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{beginAtZero:true,ticks:{stepSize:1,font:{size:9}}}}
+  }});
 }
 
 function buildGraphPie(s){
   const ctx=document.getElementById('chartPie').getContext('2d');
   if(chartPie){chartPie.destroy();}
-  const vals=[s.planifies||0,s.effectues||0,s.reportes||0,s.suspendus||0,s.fermes||0];
+  const total=s.total||0;
+  const vals=[s.planifies||0,s.effectues||0,s.reportes||0,s.suspendus||0,s.annules||0,s.inopines||0];
   if(!vals.some(function(v){return v>0;})){chartPie=null;return;}
+  // Labels avec pourcentage
+  const pctLabels=['Planifie','Effectue','Reporte','Suspendu','Annule','Inopine'].map(function(l,i){
+    const pct=total>0?Math.round(vals[i]/total*100):0;
+    return l+' '+vals[i]+(pct>0?' ('+pct+'%)':'');
+  });
   chartPie=new Chart(ctx,{type:'doughnut',data:{
-    labels:['Plan.','Eff.','Rep.','Sus.','Fermes'],
+    labels:pctLabels,
     datasets:[{data:vals,
-      backgroundColor:['rgba(35,64,143,.8)','rgba(30,156,75,.8)','rgba(243,195,0,.8)','rgba(211,47,47,.8)','rgba(100,100,100,.6)'],
+      backgroundColor:['rgba(35,64,143,.85)','rgba(30,156,75,.85)','rgba(243,195,0,.85)','rgba(211,47,47,.85)','rgba(56,61,65,.75)','rgba(35,64,143,.4)'],
       borderWidth:2,borderColor:'#fff'}]
-  },options:{responsive:true,maintainAspectRatio:true,cutout:'60%',
-    plugins:{legend:{position:'bottom',labels:{font:{size:9},boxWidth:9,padding:3}}}}});
+  },options:{responsive:true,maintainAspectRatio:true,cutout:'55%',
+    animation:{onComplete:function(){drawPieLabels(this);}},
+    plugins:{legend:{position:'bottom',labels:{font:{size:8},boxWidth:9,padding:3}},
+      tooltip:{callbacks:{label:function(c){const t=c.chart.data.datasets[0].data.reduce(function(a,b){return a+b;},0);const pct=t>0?Math.round(c.parsed/t*100):0;return ' '+c.parsed+' ('+pct+'%)';}}}}
+  }});
 }
 
 function loadStats(){ /* Stats recalculees depuis les donnees filtrees via updateStatsDisplay */ }
@@ -581,12 +710,18 @@ function renderRows(list){
       return (a.inspecteurs||[]).filter(function(i){if(seen[i.idinspecteur])return false;seen[i.idinspecteur]=true;return true;})
         .map(function(i){const ra=Number(i.est_responsable)===1;return (ra?'<b style="color:#D32F2F">':'<span>')+esc(i.nom||'')+(ra?'</b>':'</span>');}).join(', ')||'-';
     }());
+    const effectue = Number(a.statut)===3;
+    // Operateur : lecture seule, bouton Voir uniquement
+    const hasLettre = a.lettre_notification && String(a.lettre_notification).trim();
     const acts='<div style="text-align:right;white-space:nowrap">'
-      +'<button class="btn btn-xs btn-outline-primary me-1 act-view" data-id="'+esc(a.idaudit)+'" style="padding:3px 7px"><i class="bi bi-eye"></i></button>'
-      +(CAN_WRITE?'<a href="'+AGAI_BASE+'/modifier-audit?id='+esc(a.idaudit)+'" class="btn btn-xs btn-outline-secondary me-1" title="Modifier" style="padding:3px 7px"><i class="bi bi-pencil"></i></a>':'')
-      +(CAN_DELETE?'<button class="btn btn-xs btn-outline-danger act-del" data-id="'+esc(a.idaudit)+'" data-num="'+esc(a.num_audit)+'" style="padding:3px 7px"><i class="bi bi-trash"></i></button>':'')
+      +'<button class="btn btn-xs btn-outline-primary me-1 act-view" data-id="'+esc(a.idaudit)+'" style="padding:3px 7px" title="Voir le detail"><i class="bi bi-eye"></i></button>'
+      +(!IS_OPER&&CAN_WRITE&&!effectue?'<a href="'+AGAI_BASE+'/modifier-audit?id='+esc(a.idaudit)+'" class="btn btn-xs btn-outline-secondary me-1" title="Modifier" style="padding:3px 7px"><i class="bi bi-pencil"></i></a>':'')
+      +(!IS_OPER&&CAN_DELETE&&!effectue?'<button class="btn btn-xs btn-outline-danger act-del" data-id="'+esc(a.idaudit)+'" data-num="'+esc(a.num_audit)+'" style="padding:3px 7px"><i class="bi bi-trash"></i></button>':'')
+      +(effectue?'<span class="badge ms-1" style="background:#d1e7dd;color:#0a5c36;font-size:.68rem;padding:4px 7px"><i class="bi bi-check-circle me-1"></i>Effectue</span>':'')
+      +(IS_OPER&&hasLettre?'<span class="badge ms-1" style="background:#e8f0fe;color:#23408F;font-size:.68rem;padding:4px 7px"><i class="bi bi-bell me-1"></i>Notifie</span>':'')
       +'</div>';
-    return '<tr><td><b style="color:#23408F;font-size:.81rem">'+esc(a.num_audit||'')+'</b></td>'
+    const stCls=Number(a.est_ferme)===1?'st-ferme':'st-'+Number(a.statut);
+    return '<tr class="'+stCls+'"><td><b style="color:#23408F;font-size:.81rem">'+esc(a.num_audit||'')+'</b></td>'
       +'<td><span class="type-b">'+esc(TYPE_LABELS[a.type_activite]||a.type_activite||'')+'</span></td>'
       +'<td style="font-size:.81rem;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(a.type_activite_operateur||'-')+'</td>'
       +'<td style="font-size:.81rem">'+esc(a.nomorga||'-')+'</td>'
@@ -781,8 +916,8 @@ function buildDetailHtml(res){
   eq.forEach(function(m){
     if(seenEq[m.idinspecteur]) return; seenEq[m.idinspecteur]=true;
     const ra=Number(m.est_responsable)===1;
-    // Reglements de cet inspecteur via idequipe
-    const myRegs=regs.filter(function(r){return r.idequipe===m.idequipe;});
+    // Reglements de cet inspecteur via idequipe (comparaison souple string/int)
+    const myRegs=regs.filter(function(r){return String(r.idequipe)===String(m.idequipe) && r.idequipe!=null;});
     eqHtml+='<div class="eq-row'+(ra?' ra':'')+'"><div class="'+(ra?'dot-ra':'dot-in')+'"></div>'
       +'<div style="flex:1"><div style="font-weight:700;font-size:.86rem">'+(ra?'<span style="color:#D32F2F">':'')+esc(m.nom||'')+(ra?'<span style="font-size:.7rem;font-weight:700;background:#D32F2F;color:#fff;padding:.1rem .4rem;border-radius:10px;margin-left:5px">R.A</span></span>':'')+'</div>'
       +'<div style="font-size:.76rem;color:#7b8aa0">'+esc((m.nomdomaine||'')+(m.libel_domaine?' - '+m.libel_domaine:''))+'</div>'
@@ -827,7 +962,7 @@ function printPDF(res){
   const teamRows=eq.map(function(m){
     if(seen[m.idinspecteur])return '';seen[m.idinspecteur]=true;
     const ra=Number(m.est_responsable)===1;
-    const myRegs=regs.filter(function(r){return r.idequipe===m.idequipe;}).map(function(r){return esc(r.code_reglement||'');}).join(', ')||'-';
+    const myRegs=regs.filter(function(r){return String(r.idequipe)===String(m.idequipe) && r.idequipe!=null;}).map(function(r){return esc(r.code_reglement||'');}).join(', ')||'-';
     return '<tr><td style="'+(ra?'color:#D32F2F;font-weight:700':'')+'">'+(m.nom||'-')+(ra?' (R.A)':'')+'</td>'
       +'<td>'+esc((m.nomdomaine||'')+(m.libel_domaine?' - '+m.libel_domaine:''))+'</td>'
       +'<td>'+myRegs+'</td></tr>';
@@ -858,7 +993,7 @@ function printPDF(res){
     +'<div class="page">'
     +'<div class="ref">Audit AGAI - ANAC Gabon - '+new Date().toLocaleDateString('fr-FR')+'</div>'
     +'<div class="hdr"><img src="'+IMG_BASE+'banierenteanac.png" onerror="this.style.display=\'none\'"></div>'
-    +'<h1>Fiche de supervision</h1>'
+    +'<h1>Fiche de mandat d\'audit</h1>'
     +'<div class="sec"><div class="sh">Informations generales</div><div class="sb"><div class="grid">'
     +'<div><div class="dl">N Audit</div><div class="dv">'+esc(a.num_audit||'-')+'</div></div>'
     +'<div><div class="dl">Nature</div><div class="dv">'+esc(TYPE_LABELS[a.type_activite]||a.type_activite||'-')+'</div></div>'

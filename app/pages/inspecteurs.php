@@ -51,20 +51,87 @@ require_once INCLUDES_PATH . '/layout_head.php';
   .ic-green{background:rgba(30,156,75,.12);color:#1E9C4B;}
   .ic-gold{background:rgba(243,195,0,.18);color:#b58a00;}
   .ic-dark{background:rgba(44,62,80,.10);color:#2C3E50;}
+  .ic-red{background:rgba(211,47,47,.10);color:#D32F2F;}
+  .ic-orange{background:rgba(255,152,0,.12);color:#e65100;}
+  /* Alertes expiration */
+  .exp-alert-row{display:flex;align-items:center;gap:10px;cursor:pointer;padding:8px 12px;border-radius:10px;transition:background .15s;border:1px solid transparent;}
+  .exp-alert-row:hover{border-color:currentColor;background:rgba(255,255,255,.6);}
+  .exp-dot{width:10px;height:10px;border-radius:50%;flex:0 0 auto;}
+  .exp-expired{background:#fef2f2;border-left:4px solid #D32F2F;color:#842029;}
+  .exp-3m{background:#fff8e0;border-left:4px solid #F3C300;color:#856404;}
+  .exp-6m{background:#fff3e0;border-left:4px solid #ff9800;color:#e65100;}
+  /* Badge expiration dans tableau */
+  .hab-chip{display:inline-flex;align-items:center;gap:4px;border-radius:8px;padding:.15rem .5rem;font-size:.72rem;font-weight:700;margin:.1rem;white-space:nowrap;}
+  .hab-ok{background:#d1e7dd;color:#0a5c36;}
+  .hab-3m{background:#fff3cd;color:#856404;}
+  .hab-6m{background:#fde5d0;color:#7c3b00;}
+  .hab-exp{background:#f8d7da;color:#842029;}
+  /* Modale voir detail */
+  .det-card{border:1px solid #eef1f6;border-radius:12px;overflow:hidden;margin-bottom:12px;}
+  .det-card-head{background:linear-gradient(135deg,#23408F,#1b3576);color:#fff;padding:9px 15px;font-weight:700;font-size:.83rem;}
+  .det-card-body{padding:12px 15px;background:#fff;}
+  .det-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px 16px;}
+  .dl{font-size:.67rem;text-transform:uppercase;color:#7b8aa0;font-weight:700;letter-spacing:.04em;margin-bottom:1px;}
+  .dv{font-size:.88rem;color:#2C3E50;font-weight:600;border-bottom:1px solid #f1f4f9;padding-bottom:3px;}
+  .hab-detail-row{border:1px solid #eef1f6;border-radius:10px;padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .hab-detail-row.expired{border-color:#f8d7da;background:#fff8f8;}
+  .hab-detail-row.expiring{border-color:#fff3cd;background:#fffbeb;}
 </style>
 
-<div class="d-flex justify-content-end mb-2">
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
   <button class="btn btn-sm btn-outline-secondary" id="btnToggleStats" type="button">
     <i class="bi bi-bar-chart-line-fill me-1"></i><span id="statsToggleLabel">Afficher les statistiques</span>
   </button>
+  <button class="btn btn-sm btn-outline-danger" id="btnExpirationAlert" title="Habilitations a surveiller">
+    <i class="bi bi-exclamation-triangle-fill me-1"></i>Alertes habilitations <span class="badge bg-danger ms-1" id="expBadgeCount">0</span>
+  </button>
 </div>
-<div id="statsPanel" class="row g-3 mb-3" style="display:none;">
-  <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-person-badge-fill"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Total inspecteurs</div></div></div></div>
-  <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-gold"><i class="bi bi-mortarboard-fill"></i></div><div><div class="stat-num" id="st_stagiaires">0</div><div class="stat-lbl">Stagiaires</div></div></div></div>
-  <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-patch-check-fill"></i></div><div><div class="stat-num" id="st_titulaires">0</div><div class="stat-lbl">Titulaires</div></div></div></div>
-  <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-star-fill"></i></div><div><div class="stat-num" id="st_exceptionnels">0</div><div class="stat-lbl">Exceptionnels</div></div></div></div>
-  <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-dark"><i class="bi bi-shield-fill-check"></i></div><div><div class="stat-num" id="st_habilitations">0</div><div class="stat-lbl">Habilitations</div></div></div></div>
-  <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-diagram-3-fill"></i></div><div><div class="stat-num" id="st_domaines">0</div><div class="stat-lbl">Domaines couverts</div></div></div></div>
+
+<div id="statsPanel" class="mb-3" style="display:none;">
+  <div class="row g-3 mb-2">
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-person-badge-fill"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Total inspecteurs</div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-gold"><i class="bi bi-mortarboard-fill"></i></div><div><div class="stat-num" id="st_stagiaires">0</div><div class="stat-lbl">Stagiaires</div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-patch-check-fill"></i></div><div><div class="stat-num" id="st_titulaires">0</div><div class="stat-lbl">Titulaires</div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-star-fill"></i></div><div><div class="stat-num" id="st_exceptionnels">0</div><div class="stat-lbl">Exceptionnels</div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-dark"><i class="bi bi-shield-fill-check"></i></div><div><div class="stat-num" id="st_habilitations">0</div><div class="stat-lbl">Habilitations</div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-diagram-3-fill"></i></div><div><div class="stat-num" id="st_domaines">0</div><div class="stat-lbl">Domaines couverts</div></div></div></div>
+  </div>
+  <!-- Stats habilitations par etat d'expiration (1 ligne par habilitation, pas par inspecteur) -->
+  <div class="row g-3">
+    <div class="col-12"><div style="background:#fff;border:1px solid #eef1f6;border-radius:14px;padding:14px 18px;box-shadow:0 1px 2px rgba(16,30,54,.04)">
+      <div style="font-size:.8rem;font-weight:700;color:#2C3E50;margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em"><i class="bi bi-shield-exclamation me-2" style="color:#23408F"></i>Etat des habilitations (par domaine)</div>
+      <div class="row g-2">
+        <div class="col-6 col-md-3">
+          <div class="exp-alert-row exp-expired" id="statExpCard" onclick="showExpModal('expired')">
+            <div class="exp-dot" style="background:#D32F2F"></div>
+            <div><div style="font-size:1.3rem;font-weight:800" id="st_exp_expired">0</div><div style="font-size:.75rem">Habilitations expirees</div></div>
+            <i class="bi bi-chevron-right ms-auto" style="font-size:.8rem"></i>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="exp-alert-row exp-3m" id="stat3mCard" onclick="showExpModal('3m')">
+            <div class="exp-dot" style="background:#F3C300"></div>
+            <div><div style="font-size:1.3rem;font-weight:800" id="st_exp_3m">0</div><div style="font-size:.75rem">Expirent dans 3 mois</div></div>
+            <i class="bi bi-chevron-right ms-auto" style="font-size:.8rem"></i>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="exp-alert-row exp-6m" id="stat6mCard" onclick="showExpModal('6m')">
+            <div class="exp-dot" style="background:#ff9800"></div>
+            <div><div style="font-size:1.3rem;font-weight:800" id="st_exp_6m">0</div><div style="font-size:.75rem">Expirent dans 6 mois</div></div>
+            <i class="bi bi-chevron-right ms-auto" style="font-size:.8rem"></i>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="exp-alert-row" style="background:#f0fdf4;border-left:4px solid #1E9C4B;color:#0a5c36" onclick="showExpModal('valid')">
+            <div class="exp-dot" style="background:#1E9C4B"></div>
+            <div><div style="font-size:1.3rem;font-weight:800" id="st_exp_valid">0</div><div style="font-size:.75rem">Habilitations valides (+6 mois)</div></div>
+            <i class="bi bi-chevron-right ms-auto" style="font-size:.8rem"></i>
+          </div>
+        </div>
+      </div>
+    </div></div>
+  </div>
 </div>
 
 <!-- Barre de filtres dynamiques -->
@@ -92,14 +159,20 @@ require_once INCLUDES_PATH . '/layout_head.php';
 <div class="card-anac p-3 p-md-4">
   <div class="table-responsive">
     <table class="table table-hover align-middle" style="width:100%">
-      <thead>
+      <thead style="background:#23408F;color:#fff">
         <tr>
-          <th></th><th>Matricule</th><th>Nom &amp; prenom</th><th>Categorie</th>
-          <th>Direction</th><th>Domaines</th><th>Telephone</th><th>Email</th><th class="text-end">Actions</th>
+          <th style="background:#23408F;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border:none"></th>
+          <th style="background:#23408F;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border:none">Matricule</th>
+          <th style="background:#23408F;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border:none">Nom &amp; Prenom</th>
+          <th style="background:#23408F;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border:none">Categorie</th>
+          <th style="background:#23408F;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border:none">Direction</th>
+          <th style="background:#23408F;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border:none">Habilitations</th>
+          <th style="background:#23408F;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border:none">Contact</th>
+          <th style="background:#23408F;color:#fff;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border:none;text-align:right">Actions</th>
         </tr>
       </thead>
       <tbody id="inspBody">
-        <tr><td colspan="9" class="text-center text-muted py-4">Chargement...</td></tr>
+        <tr><td colspan="8" class="text-center text-muted py-4">Chargement...</td></tr>
       </tbody>
     </table>
   </div>
@@ -275,6 +348,36 @@ require_once INCLUDES_PATH . '/layout_head.php';
   </div>
 </div>
 
+<!-- ===== MODALE VOIR DETAIL INSPECTEUR ===== -->
+<div class="modal fade" id="viewInspModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable" style="max-width:88vw">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-person-badge me-2" style="color:#23408F"></i><span id="viewInspName"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" id="viewInspBody">
+        <div class="text-center py-4"><span class="spinner-border text-primary"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODALE ALERTES EXPIRATION ===== -->
+<div class="modal fade" id="expModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="expModalTitle"><i class="bi bi-exclamation-triangle me-2" style="color:#D32F2F"></i>Alertes habilitations</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" id="expModalBody">
+        <div class="text-center py-4"><span class="spinner-border text-primary"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== LECTEUR PDF REUTILISABLE (voir / imprimer / telecharger) ===== -->
 <div class="modal fade" id="pdfModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
@@ -344,30 +447,49 @@ function avatar(insp){
   const ini = (String(insp.preninspect||'').charAt(0) + String(insp.nominspecteur||'').charAt(0)).toUpperCase();
   return '<span class="insp-avatar">'+esc(ini || 'IN')+'</span>';
 }
+function habChip(h){
+  if(!h.date_expiration) return '<span class="hab-chip hab-ok">'+esc(h.nomdomaine||h.domaine||'-')+'</span>';
+  const exp=new Date(h.date_expiration); const now=new Date();
+  const days=Math.round((exp-now)/86400000);
+  let cls='hab-ok', tip='';
+  if(days<0){cls='hab-exp';tip=' <span style="font-size:.65rem">(exp.)</span>';}
+  else if(days<=90){cls='hab-3m';tip=' <span style="font-size:.65rem">('+days+'j)</span>';}
+  else if(days<=180){cls='hab-6m';tip=' <span style="font-size:.65rem">('+Math.round(days/30)+'mois)</span>';}
+  return '<span class="hab-chip '+cls+'" title="Expiration: '+esc(fmtDate(h.date_expiration))+'">'+esc(h.nomdomaine||h.domaine||'-')+tip+'</span>';
+}
+function fmtDate(s){ if(!s||String(s)==='0000-00-00') return '-'; const p=String(s).substring(0,10).split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):s; }
+
 function renderRows(data){
   const tb = $('#inspBody'); tb.empty();
-  if(!data.length){ tb.append('<tr><td colspan="9" class="text-center text-muted py-4">Aucun inspecteur a afficher</td></tr>'); return; }
+  if(!data.length){ tb.append('<tr><td colspan="8" class="text-center text-muted py-4">Aucun inspecteur a afficher</td></tr>'); return; }
   data.forEach(i => {
     const cat = CAT[i.categorie] || {t:i.categorie, c:'b-blue'};
-    const doms = (i.domaines_list && i.domaines_list.length)
-      ? i.domaines_list.map(d => '<span class="badge-soft b-dom">'+esc(d)+'</span>').join(' ')
-      : '<span class="text-muted">-</span>';
-    const actions = '<div class="btn-group btn-group-sm">'
-      + '<button class="btn btn-outline-primary act-edit" data-id="'+i.idinspecteur+'" title="Modifier"><i class="bi bi-pencil"></i></button>'
-      + '<button class="btn btn-outline-danger act-del" data-id="'+i.idinspecteur+'" data-name="'+esc(((i.preninspect||'')+' '+(i.nominspecteur||'')).trim())+'" title="Supprimer"><i class="bi bi-trash"></i></button>'
-      + '</div>';
+    // Habilitations avec chips colorees
+    let habHtml = '';
+    if(i.habilitations && i.habilitations.length){
+      habHtml = i.habilitations.map(h => habChip(h)).join('');
+    } else if(i.domaines_list && i.domaines_list.length){
+      habHtml = i.domaines_list.map(d => '<span class="hab-chip hab-ok">'+esc(d)+'</span>').join('');
+    } else {
+      habHtml = '<span class="text-muted small">-</span>';
+    }
+    const contact=[i.teleinspecter?esc(i.teleinspecter):'',i.mailinspect?'<span style="font-size:.78rem;color:#7b8aa0">'+esc(i.mailinspect)+'</span>':''].filter(Boolean).join('<br>')||'<span class="text-muted">-</span>';
+    const actions='<div class="btn-group btn-group-sm">'
+      +'<button class="btn btn-outline-info act-view" data-id="'+i.idinspecteur+'" title="Voir le detail"><i class="bi bi-eye"></i></button>'
+      +'<button class="btn btn-outline-primary act-edit" data-id="'+i.idinspecteur+'" title="Modifier"><i class="bi bi-pencil"></i></button>'
+      +'<button class="btn btn-outline-danger act-del" data-id="'+i.idinspecteur+'" data-name="'+esc(((i.preninspect||'')+' '+(i.nominspecteur||'')).trim())+'" title="Supprimer"><i class="bi bi-trash"></i></button>'
+      +'</div>';
     tb.append(
       '<tr>'
-      + '<td>'+avatar(i)+'</td>'
-      + '<td>'+esc(i.numatinspecteur||'-')+'</td>'
-      + '<td>'+esc(((i.preninspect||'')+' '+(i.nominspecteur||'')).trim())+'</td>'
-      + '<td><span class="badge-soft '+cat.c+'">'+esc(cat.t)+'</span></td>'
-      + '<td>'+(i.libdirec ? esc(i.libdirec) : '<span class="text-muted">-</span>')+'</td>'
-      + '<td>'+doms+'</td>'
-      + '<td>'+(i.teleinspecter ? esc(i.teleinspecter) : '<span class="text-muted">-</span>')+'</td>'
-      + '<td>'+(i.mailinspect ? esc(i.mailinspect) : '<span class="text-muted">-</span>')+'</td>'
-      + '<td class="text-end">'+actions+'</td>'
-      + '</tr>'
+      +'<td>'+avatar(i)+'</td>'
+      +'<td style="font-family:monospace;font-size:.85rem;color:#23408F;font-weight:700">'+esc(i.numatinspecteur||'-')+'</td>'
+      +'<td><div style="font-weight:700;font-size:.9rem">'+esc(((i.preninspect||'')+' '+(i.nominspecteur||'')).trim())+'</div>'+(i.trigr_inspecteur?'<div style="font-size:.74rem;color:#7b8aa0">'+esc(i.trigr_inspecteur)+'</div>':'')+'</td>'
+      +'<td><span class="badge-soft '+cat.c+'">'+esc(cat.t)+'</span></td>'
+      +'<td style="font-size:.82rem">'+(i.libdirec?esc(i.libdirec):'<span class="text-muted">-</span>')+'</td>'
+      +'<td>'+habHtml+'</td>'
+      +'<td style="font-size:.83rem">'+contact+'</td>'
+      +'<td class="text-end">'+actions+'</td>'
+      +'</tr>'
     );
   });
 }
@@ -621,14 +743,141 @@ function loadStats(){
     $('#st_titulaires').text(s.titulaires);       $('#st_exceptionnels').text(s.exceptionnels);
     $('#st_habilitations').text(s.habilitations); $('#st_domaines').text(s.domaines_couverts);
   });
+  // Stats expiration habilitations
+  loadExpStats();
 }
+
+function loadExpStats(){
+  apiPost(API_INSP, {action:'exp_stats'}).done(res => {
+    if(!res.success) return;
+    const s=res.stats||{};
+    $('#st_exp_expired').text(s.expired||0);
+    $('#st_exp_3m').text(s.exp_3m||0);
+    $('#st_exp_6m').text(s.exp_6m||0);
+    $('#st_exp_valid').text(s.valid||0);
+    // Badge alerte dans le bouton
+    const total=(s.expired||0)+(s.exp_3m||0);
+    $('#expBadgeCount').text(total).toggleClass('bg-danger',total>0).toggleClass('bg-secondary',total===0);
+  });
+}
+
+/* ---------- Modale alertes expiration ---------- */
+function showExpModal(type){
+  const titles={expired:'Habilitations expirees','3m':'Expirent dans 3 mois','6m':'Expirent dans 6 mois',valid:'Habilitations valides (+ 6 mois)'};
+  $('#expModalTitle').html('<i class="bi bi-shield-exclamation me-2" style="color:#D32F2F"></i>'+esc(titles[type]||'Alertes'));
+  $('#expModalBody').html('<div class="text-center py-4"><span class="spinner-border text-primary"></span></div>');
+  new bootstrap.Modal('#expModal').show();
+  apiPost(API_INSP, {action:'exp_list', type:type}).done(res => {
+    if(!res.success){ $('#expModalBody').html('<div class="alert alert-danger">'+esc(res.message||'Erreur')+'</div>'); return; }
+    const rows=res.data||[];
+    if(!rows.length){ $('#expModalBody').html('<div class="text-center text-muted py-4"><i class="bi bi-check-circle text-success me-2"></i>Aucune habilitation dans cette categorie.</div>'); return; }
+    let h='<div class="table-responsive"><table class="table table-sm table-hover align-middle">'
+      +'<thead style="background:#23408F;color:#fff"><tr>'
+      +'<th style="padding:8px 10px;font-size:.72rem;text-transform:uppercase">Inspecteur</th>'
+      +'<th style="padding:8px 10px;font-size:.72rem;text-transform:uppercase">Domaine</th>'
+      +'<th style="padding:8px 10px;font-size:.72rem;text-transform:uppercase">N Habilitation</th>'
+      +'<th style="padding:8px 10px;font-size:.72rem;text-transform:uppercase">Date debut</th>'
+      +'<th style="padding:8px 10px;font-size:.72rem;text-transform:uppercase">Expiration</th>'
+      +'<th style="padding:8px 10px;font-size:.72rem;text-transform:uppercase">Restant</th>'
+      +'<th style="padding:8px 10px;font-size:.72rem;text-transform:uppercase">Decision</th>'
+      +'</tr></thead><tbody>';
+    rows.forEach(r => {
+      const exp=r.date_expiration?new Date(r.date_expiration):null;
+      const now=new Date();
+      const days=exp?Math.round((exp-now)/86400000):null;
+      let restant='-', rowCls='';
+      if(days===null){restant='-';}
+      else if(days<0){restant='<span class="badge" style="background:#f8d7da;color:#842029">Expiree depuis '+(Math.abs(days))+' j</span>';rowCls='table-danger';}
+      else if(days<=90){restant='<span class="badge" style="background:#fff3cd;color:#856404">'+days+' j</span>';rowCls='table-warning';}
+      else if(days<=180){restant='<span class="badge" style="background:#fde5d0;color:#7c3b00">'+Math.round(days/30)+' mois</span>';}
+      else{restant='<span class="badge" style="background:#d1e7dd;color:#0a5c36">'+Math.round(days/30)+' mois</span>';}
+      const pdfBtn=r.decision
+        ?'<button class="btn btn-xs btn-outline-primary" onclick="openPdf(AGAI_BASE+\'/api/inspecteurs?serve=decision&idhabilitation='+esc(r.idhabilitation)+'\',\'Decision\')"><i class="bi bi-file-earmark-pdf me-1"></i>Voir</button>'
+        :'<span class="text-muted small">-</span>';
+      h+='<tr class="'+rowCls+'"><td style="font-weight:600">'+esc(((r.preninspect||'')+' '+(r.nominspecteur||'')).trim())+'</td>'
+        +'<td><span class="hab-chip hab-ok" style="font-size:.8rem">'+esc(r.nomdomaine||'-')+'</span></td>'
+        +'<td style="font-family:monospace;font-size:.82rem">'+esc(r.numero_habilitation||'-')+'</td>'
+        +'<td style="font-size:.82rem">'+fmtDate(r.date_habilitation)+'</td>'
+        +'<td style="font-size:.82rem;font-weight:600">'+fmtDate(r.date_expiration)+'</td>'
+        +'<td>'+restant+'</td>'
+        +'<td>'+pdfBtn+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+    $('#expModalBody').html(h);
+  });
+}
+$('#btnExpirationAlert').on('click',function(){ showExpModal('expired'); });
 function setStatsVisible(show){
   $('#statsPanel').toggle(show);
   $('#statsToggleLabel').text(show ? 'Masquer les statistiques' : 'Afficher les statistiques');
   try { localStorage.setItem('agai_stats_inspecteurs', show ? '1' : '0'); } catch(e){}
   if(show){ loadStats(); }
 }
-$('#btnToggleStats').on('click', function(){ setStatsVisible($('#statsPanel').is(':hidden')); });
+
+/* ---------- Modale Voir detail inspecteur ---------- */
+$(document).on('click', '.act-view', function(){
+  const id=$(this).data('id');
+  $('#viewInspName').text('Chargement...');
+  $('#viewInspBody').html('<div class="text-center py-4"><span class="spinner-border text-primary"></span></div>');
+  new bootstrap.Modal('#viewInspModal').show();
+  apiPost(API_INSP, {action:'get', idinspecteur:id}).done(res => {
+    if(!res.success){ $('#viewInspBody').html('<div class="alert alert-danger">'+esc(res.message||'Erreur')+'</div>'); return; }
+    const i=res.data||{}; const habs=res.habilitations||[];
+    const nom=((i.preninspect||'')+' '+(i.nominspecteur||'')).trim();
+    $('#viewInspName').text(nom);
+    const cat=CAT[i.categorie]||{t:i.categorie||'',c:'b-blue'};
+    function di(l,v){ return '<div><div class="dl">'+l+'</div><div class="dv">'+(v||'<span style="color:#aab4c0;font-style:italic">-</span>')+'</div></div>'; }
+    let html='<div class="row g-3">';
+    // Avatar + identite
+    html+='<div class="col-12 col-md-3"><div class="text-center p-2">';
+    html+='<div class="insp-avatar" style="width:80px;height:80px;font-size:1.8rem;margin:0 auto 10px">';
+    if(i.photoinspecter){ html+='<img src="'+AGAI_BASE+'/api/inspecteurs?serve=photo&idinspecteur='+esc(i.idinspecteur)+'" alt="">'; }
+    else{ html+= esc(((i.preninspect||'?').charAt(0)+(i.nominspecteur||'?').charAt(0)).toUpperCase()); }
+    html+='</div><div style="font-size:1rem;font-weight:800">'+esc(nom)+'</div>';
+    html+='<span class="badge-soft '+cat.c+' mt-1">'+esc(cat.t)+'</span>';
+    if(i.trigr_inspecteur) html+='<div class="text-muted small mt-1">'+esc(i.trigr_inspecteur)+'</div>';
+    html+='</div></div>';
+    // Infos generales
+    html+='<div class="col-12 col-md-9"><div class="det-card"><div class="det-card-head"><i class="bi bi-info-circle me-2"></i>Informations generales</div><div class="det-card-body"><div class="det-row">';
+    html+=di('Matricule','<span style="font-family:monospace;font-weight:700;color:#23408F">'+esc(i.numatinspecteur||'')+'</span>');
+    html+=di('Date de nomination',fmtDate(i.datenomine));
+    html+=di('Direction',esc(i.libdirec||''));
+    html+=di('Telephone',esc(i.teleinspecter||''));
+    html+=di('Email',i.mailinspect?'<a href="mailto:'+esc(i.mailinspect)+'">'+esc(i.mailinspect)+'</a>':'');
+    html+='</div></div></div></div></div>';
+    // Habilitations
+    html+='<div class="col-12"><div class="det-card"><div class="det-card-head"><i class="bi bi-shield-check me-2"></i>Habilitations par domaine ('+habs.length+')</div><div class="det-card-body">';
+    if(!habs.length){ html+='<div class="text-muted small">Aucune habilitation enregistree.</div>'; }
+    else {
+      habs.forEach(h => {
+        const exp=h.date_expiration?new Date(h.date_expiration):null;
+        const days=exp?Math.round((exp-new Date())/86400000):null;
+        let rowCls='', statusBadge='';
+        if(days===null){statusBadge='<span class="badge-soft b-blue">Sans date</span>';}
+        else if(days<0){rowCls='expired';statusBadge='<span class="badge-soft" style="background:#f8d7da;color:#842029"><i class="bi bi-x-circle me-1"></i>Expiree depuis '+Math.abs(days)+' jours</span>';}
+        else if(days<=90){rowCls='expiring';statusBadge='<span class="badge-soft" style="background:#fff3cd;color:#856404"><i class="bi bi-exclamation-triangle me-1"></i>Expire dans '+days+' jours</span>';}
+        else if(days<=180){statusBadge='<span class="badge-soft" style="background:#fde5d0;color:#7c3b00">Expire dans '+Math.round(days/30)+' mois</span>';}
+        else{statusBadge='<span class="badge-soft b-green"><i class="bi bi-check-circle me-1"></i>Valide ('+Math.round(days/30)+' mois)</span>';}
+        const pdfBtn=h.decision
+          ?'<button class="btn btn-sm btn-outline-primary" onclick="openPdf(AGAI_BASE+\'/api/inspecteurs?serve=decision&idhabilitation='+esc(h.idhabilitation)+'\',\'Decision '+esc(h.nomdomaine||'')+'\')"><i class="bi bi-file-earmark-pdf me-1"></i>Voir PDF</button>'
+           +'<a class="btn btn-sm btn-outline-secondary ms-1" href="'+AGAI_BASE+'/api/inspecteurs?serve=decision&idhabilitation='+esc(h.idhabilitation)+'&dl=1"><i class="bi bi-download"></i></a>'
+          :'<span class="text-muted small">Pas de decision</span>';
+        html+='<div class="hab-detail-row '+rowCls+'">'
+          +'<span class="hab-chip '+(days===null?'hab-ok':days<0?'hab-exp':days<=90?'hab-3m':days<=180?'hab-6m':'hab-ok')+'">'+esc(h.nomdomaine||'-')+'</span>'
+          +'<span style="font-family:monospace;font-size:.82rem;color:#23408F;font-weight:600">N '+esc(h.numero_habilitation||'-')+'</span>'
+          +'<span class="text-muted small">Du '+fmtDate(h.date_habilitation)+' au '+fmtDate(h.date_expiration)+'</span>'
+          +statusBadge
+          +(h.observation?'<span class="text-muted small ms-2"><i class="bi bi-chat me-1"></i>'+esc(h.observation)+'</span>':'')
+          +'<div class="ms-auto d-flex gap-1">'+pdfBtn+'</div>'
+          +'</div>';
+      });
+    }
+    html+='</div></div></div></div>';
+    $('#viewInspBody').html(html);
+  });
+});
+
+$('#btnToggleStats').on('click',function(){ setStatsVisible($('#statsPanel').is(':hidden')); });
 
 /* ---------- Ajout rapide d'un domaine (bouton + dans chaque ligne) ---------- */
 let domTarget = null;     // le select .hab-dom qui a demande l'ajout
@@ -772,5 +1021,7 @@ $(document).on('click', '.hab-viewdec', function(){
 /* ---------- Demarrage ---------- */
 initFilters();
 loadFilters().always(loadList);
+// Charger les stats expiration pour le badge alerte (meme panneau ferme)
+loadExpStats();
 (function(){ let v='0'; try{ v = localStorage.getItem('agai_stats_inspecteurs') || '0'; }catch(e){} if(v==='1'){ setStatsVisible(true); } })();
 </script>

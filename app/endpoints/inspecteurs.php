@@ -196,17 +196,72 @@ try {
                  FROM inspecteur"
             )->fetch();
             $b = $db->query(
-                "SELECT COUNT(*) AS habilitations, COUNT(DISTINCT iddomaine) AS domaines FROM habilitation"
+                "SELECT COUNT(*) AS habilitations, COUNT(DISTINCT iddomaine) AS domaines_couverts FROM habilitation"
             )->fetch();
             $stats = [
-                'total'         => (int) $a['total'],
-                'stagiaires'    => (int) $a['stagiaires'],
-                'titulaires'    => (int) $a['titulaires'],
-                'exceptionnels' => (int) $a['exceptionnels'],
-                'habilitations' => (int) $b['habilitations'],
-                'domaines'      => (int) $b['domaines'],
+                'total'           => (int) $a['total'],
+                'stagiaires'      => (int) $a['stagiaires'],
+                'titulaires'      => (int) $a['titulaires'],
+                'exceptionnels'   => (int) $a['exceptionnels'],
+                'habilitations'   => (int) $b['habilitations'],
+                'domaines_couverts' => (int) $b['domaines_couverts'],
             ];
             $ok(['stats' => $stats]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Stats d'expiration des habilitations (par ligne d'habilitation)
+        case 'exp_stats':
+            $es = $db->query(
+                "SELECT
+                    SUM(date_expiration < CURDATE())                                             AS expired,
+                    SUM(date_expiration >= CURDATE() AND date_expiration < DATE_ADD(CURDATE(), INTERVAL 3 MONTH)) AS exp_3m,
+                    SUM(date_expiration >= DATE_ADD(CURDATE(), INTERVAL 3 MONTH)
+                     AND date_expiration < DATE_ADD(CURDATE(), INTERVAL 6 MONTH))               AS exp_6m,
+                    SUM(date_expiration >= DATE_ADD(CURDATE(), INTERVAL 6 MONTH))                AS valid
+                 FROM habilitation WHERE date_expiration IS NOT NULL AND date_expiration != '0000-00-00'"
+            )->fetch();
+            $ok(['stats' => [
+                'expired' => (int) ($es['expired'] ?? 0),
+                'exp_3m'  => (int) ($es['exp_3m']  ?? 0),
+                'exp_6m'  => (int) ($es['exp_6m']  ?? 0),
+                'valid'   => (int) ($es['valid']   ?? 0),
+            ]]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Liste des habilitations par etat d'expiration
+        case 'exp_list':
+            $type = trim((string) ($_POST['type'] ?? 'expired'));
+            switch ($type) {
+                case 'expired':
+                    $cond = "h.date_expiration IS NOT NULL AND h.date_expiration != '0000-00-00' AND h.date_expiration < CURDATE()";
+                    break;
+                case '3m':
+                    $cond = "h.date_expiration >= CURDATE() AND h.date_expiration < DATE_ADD(CURDATE(), INTERVAL 3 MONTH)";
+                    break;
+                case '6m':
+                    $cond = "h.date_expiration >= DATE_ADD(CURDATE(), INTERVAL 3 MONTH) AND h.date_expiration < DATE_ADD(CURDATE(), INTERVAL 6 MONTH)";
+                    break;
+                case 'valid':
+                    $cond = "h.date_expiration >= DATE_ADD(CURDATE(), INTERVAL 6 MONTH)";
+                    break;
+                default:
+                    $fail('Type inconnu.');
+                    break 2;
+            }
+            $stEl = $db->query(
+                "SELECT h.idhabilitation, h.idinspecteur, h.iddomaine, h.numero_habilitation,
+                        h.date_habilitation, h.date_expiration, h.decision, h.observation,
+                        i.nominspecteur, i.preninspect, i.numatinspecteur,
+                        d.nomdomaine
+                 FROM habilitation h
+                 JOIN inspecteur i ON i.idinspecteur = h.idinspecteur
+                 JOIN domaine   d ON d.iddomaine    = h.iddomaine
+                 WHERE $cond
+                 ORDER BY h.date_expiration ASC, i.nominspecteur"
+            );
+            $ok(['data' => $stEl->fetchAll()]);
             break;
 
         case 'domaine_check':
@@ -283,6 +338,28 @@ try {
             }
             unset($r);
 
+            // Enrichir chaque inspecteur avec ses habilitations (domaine + dates) pour les chips colorees
+            if (!empty($rows)) {
+                $ids   = array_column($rows, 'idinspecteur');
+                $inIds = implode(',', array_map('intval', $ids));
+                $stHab = $db->query(
+                    "SELECT h.idinspecteur, h.idhabilitation, h.date_habilitation, h.date_expiration, h.decision,
+                            d.nomdomaine
+                     FROM habilitation h
+                     JOIN domaine d ON d.iddomaine = h.iddomaine
+                     WHERE h.idinspecteur IN ($inIds)
+                     ORDER BY d.nomdomaine"
+                );
+                $habMap = [];
+                foreach ($stHab->fetchAll() as $hab) {
+                    $habMap[(int) $hab['idinspecteur']][] = $hab;
+                }
+                foreach ($rows as &$r) {
+                    $r['habilitations'] = $habMap[(int) $r['idinspecteur']] ?? [];
+                }
+                unset($r);
+            }
+
             $ok(['data' => $rows, 'count' => count($rows)]);
             break;
 
@@ -300,13 +377,23 @@ try {
 
         case 'get':
             $id = (int) ($_POST['idinspecteur'] ?? 0);
-            $st = $db->prepare("SELECT * FROM inspecteur WHERE idinspecteur = ?");
+            $st = $db->prepare(
+                "SELECT i.*, d.libdirec
+                 FROM inspecteur i
+                 LEFT JOIN direction_anac d ON d.codedirec = i.codedirec
+                 WHERE i.idinspecteur = ?"
+            );
             $st->execute([$id]);
             $i = $st->fetch();
             if (!$i) { $fail('Inspecteur introuvable.'); break; }
             $hb = $db->prepare(
-                "SELECT idhabilitation, iddomaine, numero_habilitation, date_habilitation, date_expiration, decision, observation
-                 FROM habilitation WHERE idinspecteur = ? ORDER BY idhabilitation"
+                "SELECT h.idhabilitation, h.iddomaine, h.numero_habilitation,
+                        h.date_habilitation, h.date_expiration, h.decision, h.observation,
+                        d.nomdomaine, d.libel_domaine
+                 FROM habilitation h
+                 JOIN domaine d ON d.iddomaine = h.iddomaine
+                 WHERE h.idinspecteur = ?
+                 ORDER BY h.date_expiration ASC"
             );
             $hb->execute([$id]);
             $ok(['data' => $i, 'habilitations' => $hb->fetchAll()]);

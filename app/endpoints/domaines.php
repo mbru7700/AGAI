@@ -41,7 +41,8 @@ try {
                 "SELECT d.iddomaine, d.nomdomaine, d.libel_domaine,
                         (SELECT COUNT(*) FROM sous_domaine s WHERE s.iddomaine = d.iddomaine) AS nb_sd,
                         (SELECT COUNT(*) FROM reglement r   WHERE r.iddomaine = d.iddomaine) AS nb_reg,
-                        (SELECT COUNT(*) FROM habilitation h WHERE h.iddomaine = d.iddomaine) AS nb_hab
+                        (SELECT COUNT(*) FROM habilitation h WHERE h.iddomaine = d.iddomaine) AS nb_hab,
+                        (SELECT COUNT(DISTINCT ae.idaudit) FROM audit_equipe ae WHERE ae.iddomaine = d.iddomaine) AS nb_aud
                  FROM domaine d
                  ORDER BY d.iddomaine DESC"
             )->fetchAll();
@@ -52,11 +53,64 @@ try {
         case 'stats':
             $st = $db->query(
                 "SELECT
-                    (SELECT COUNT(*) FROM domaine)      AS total,
-                    (SELECT COUNT(*) FROM sous_domaine) AS sous,
-                    (SELECT COUNT(*) FROM reglement)    AS regs"
+                    (SELECT COUNT(*) FROM domaine)                                                        AS total,
+                    (SELECT COUNT(*) FROM sous_domaine)                                                    AS sous,
+                    (SELECT COUNT(*) FROM reglement)                                                       AS regs,
+                    (SELECT COUNT(*) FROM habilitation)                                                    AS habs,
+                    (SELECT COUNT(DISTINCT iddomaine) FROM audit_equipe)                                   AS audits,
+                    (SELECT COUNT(DISTINCT idinspecteur) FROM habilitation)                                AS inspecteurs"
             )->fetch();
+            foreach ($st as $k => $v) { $st[$k] = (int) $v; }
             $ok(['stats' => $st]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Detail complet : sous-domaines, reglements, habilitations/inspecteurs, audits
+        case 'detail':
+            $id = (int) ($_POST['iddomaine'] ?? 0);
+            if ($id <= 0) { $fail('Domaine introuvable.'); break; }
+            $stD = $db->prepare("SELECT iddomaine, nomdomaine, libel_domaine FROM domaine WHERE iddomaine = ?");
+            $stD->execute([$id]);
+            $d = $stD->fetch();
+            if (!$d) { $fail('Domaine introuvable.'); break; }
+            // Sous-domaines ORDER DESC
+            $stSd = $db->prepare(
+                "SELECT idsousdomaine, nom_sousdomaine AS nomsd FROM sous_domaine WHERE iddomaine = ? ORDER BY idsousdomaine DESC"
+            );
+            $stSd->execute([$id]);
+            $sous = $stSd->fetchAll();
+            // Reglements ORDER DESC
+            $stReg = $db->prepare(
+                "SELECT idreglement, code_reglement, libelle_reglement FROM reglement WHERE iddomaine = ? ORDER BY idreglement DESC"
+            );
+            $stReg->execute([$id]);
+            $regs = $stReg->fetchAll();
+            // Habilitations + inspecteurs
+            $stHab = $db->prepare(
+                "SELECT h.idhabilitation, h.idinspecteur, h.numero_habilitation,
+                        h.date_habilitation, h.date_expiration,
+                        i.nominspecteur, i.preninspect, i.trigr_inspecteur
+                 FROM habilitation h
+                 JOIN inspecteur i ON i.idinspecteur = h.idinspecteur
+                 WHERE h.iddomaine = ?
+                 ORDER BY h.date_expiration ASC, i.nominspecteur"
+            );
+            $stHab->execute([$id]);
+            $habs = $stHab->fetchAll();
+            // Audits recents associes ORDER DESC
+            $stAud = $db->prepare(
+                "SELECT DISTINCT a.idaudit, a.num_audit, a.type_activite, a.statut, a.date_previsionnelle,
+                        o.nomorga
+                 FROM audit_equipe ae
+                 JOIN audit a ON a.idaudit = ae.idaudit
+                 LEFT JOIN organisme o ON o.idorga = a.idorga
+                 WHERE ae.iddomaine = ?
+                 ORDER BY a.idaudit DESC
+                 LIMIT 20"
+            );
+            $stAud->execute([$id]);
+            $auds = $stAud->fetchAll();
+            $ok(['data' => $d, 'sous_domaines' => $sous, 'reglements' => $regs, 'habilitations' => $habs, 'audits' => $auds]);
             break;
 
         // ----------------------------------------------------------------

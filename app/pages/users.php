@@ -315,12 +315,13 @@ function renderModulesTree(checkedModules){
       // Compter combien d'enfants sont coches
       const totalChildren=node.children.length;
       const nbChecked=node.children.filter(function(c){return checkedModules.includes(c.key);}).length;
-      const allChk=nbChecked===totalChildren;
+      const allChk=nbChecked===totalChildren && totalChildren>0;
       const someChk=nbChecked>0&&!allChk;
+      // Groupe coché si au moins 1 enfant est coché
+      const grpChecked=nbChecked>0;
       html+='<div class="hab-group mb-2" style="border:1px solid #dde4f0;border-radius:12px;overflow:hidden">';
-      // En-tete du groupe (cliquable)
       html+='<div class="hab-group-head d-flex align-items-center gap-2 p-2 ps-3" style="background:#f0f4fb;cursor:pointer" onclick="toggleGroup(this)">'
-        +'<input type="checkbox" class="form-check-input grp-chk mt-0 flex-shrink-0" data-group="'+esc(node.key)+'" '+(allChk?'checked':'')+(someChk?' class="indeterminate"':'')+'>'
+        +'<input type="checkbox" class="form-check-input grp-chk mt-0 flex-shrink-0" data-group="'+esc(node.key)+'" '+(grpChecked?'checked':'')+' data-indeterminate="'+(someChk?'true':'false')+'">'
         +'<i class="bi '+esc(node.icon)+'" style="color:#23408F;width:18px"></i>'
         +'<div style="flex:1"><span style="font-weight:700;font-size:.9rem;color:#23408F">'+esc(node.label)+'</span>'
         +' <span class="badge" style="background:#23408F;color:#fff;font-size:.7rem">'+nbChecked+'/'+totalChildren+'</span>'
@@ -372,8 +373,20 @@ function updateGroupCheckbox(groupKey){
   const total=leaves.length;
   const checked=leaves.filter(':checked').length;
   const el=grpChk[0];
-  if(el){ el.checked=(checked===total); el.indeterminate=(checked>0&&checked<total); }
-  // Mettre a jour le badge
+  if(el){
+    // Groupe coche si au moins 1 enfant est coche
+    // indeterminate (tiret) si certains cochés mais pas tous (pour info visuelle)
+    // Mais la case de groupe RESTE cochee si au moins 1 est cochee
+    if(checked===0){
+      el.checked=false; el.indeterminate=false;
+    } else if(checked===total){
+      el.checked=true; el.indeterminate=false;
+    } else {
+      // Partiellement coche : coche + indeterminate pour montrer l'etat partiel
+      el.checked=true; el.indeterminate=true;
+    }
+  }
+  // Badge nombre/total
   const badge=grpChk.closest('.hab-group-head').find('.badge');
   badge.text(checked+'/'+total);
 }
@@ -390,12 +403,20 @@ function bindHabEvents(){
   // Clic sur la case de groupe -> coche/decoche tous les enfants
   $(document).off('change.habgrp').on('change.habgrp','.grp-chk',function(){
     const gk=$(this).data('group');
-    const checked=$(this).is(':checked');
+    const el=this;
+    // Si indeterminate au moment du clic, forcer cocher tout
+    const shouldCheck=el.indeterminate?true:el.checked;
+    el.indeterminate=false; el.checked=shouldCheck;
     $('.leaf-chk[data-group="'+gk+'"]').each(function(){
-      $(this).prop('checked',checked).trigger('change.hab');
+      $(this).prop('checked',shouldCheck).trigger('change.hab');
     });
   });
-  // Initialiser les indeterminate
+  // Initialiser les indeterminate d'apres l'etat initial
+  $('.grp-chk').each(function(){
+    if($(this).data('indeterminate')==='true'||$(this).attr('data-indeterminate')==='true'){
+      this.indeterminate=true;
+    }
+  });
   MODULES_TREE.forEach(function(node){ if(node.is_group) updateGroupCheckbox(node.key); });
   // Ouvrir le premier groupe par defaut
   const first=$('.hab-group-head').first();

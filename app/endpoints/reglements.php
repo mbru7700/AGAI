@@ -56,10 +56,49 @@ try {
         case 'stats':
             $st = $db->query(
                 "SELECT
-                    (SELECT COUNT(*) FROM reglement)                    AS total,
-                    (SELECT COUNT(DISTINCT iddomaine) FROM reglement)    AS dom_couverts"
+                    (SELECT COUNT(*) FROM reglement)                                               AS total,
+                    (SELECT COUNT(DISTINCT iddomaine) FROM reglement)                              AS dom_couverts,
+                    (SELECT COUNT(DISTINCT idreglement) FROM audit_reglement)                      AS nb_aud,
+                    (SELECT COUNT(*) FROM audit_reglement)                                         AS nb_cite,
+                    (SELECT COUNT(*) FROM reglement WHERE description IS NOT NULL AND TRIM(description) <> '') AS avec_desc,
+                    (SELECT COUNT(*) FROM reglement r WHERE NOT EXISTS
+                        (SELECT 1 FROM audit_reglement ar WHERE ar.idreglement = r.idreglement))   AS jamais"
             )->fetch();
+            foreach ($st as $k => $v) { $st[$k] = (int) $v; }
             $ok(['stats' => $st]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Detail complet : infos + audits ou ce reglement est vise
+        case 'detail':
+            $id = (int) ($_POST['idreglement'] ?? 0);
+            if ($id <= 0) { $fail('Reglement introuvable.'); break; }
+            $stR = $db->prepare(
+                "SELECT r.idreglement, r.iddomaine, r.code_reglement, r.libelle_reglement, r.description,
+                        d.nomdomaine, d.libel_domaine
+                 FROM reglement r
+                 LEFT JOIN domaine d ON d.iddomaine = r.iddomaine
+                 WHERE r.idreglement = ?"
+            );
+            $stR->execute([$id]);
+            $reg = $stR->fetch();
+            if (!$reg) { $fail('Reglement introuvable.'); break; }
+            // Audits ou ce reglement est vise (via audit_reglement) ORDER DESC
+            $stAud = $db->prepare(
+                "SELECT DISTINCT a.idaudit, a.num_audit, a.type_activite, a.statut,
+                        a.date_previsionnelle, o.nomorga,
+                        TRIM(CONCAT(COALESCE(insp.preninspect,''),' ',COALESCE(insp.nominspecteur,''))) AS nom_inspecteur
+                 FROM audit_reglement ar
+                 JOIN audit a ON a.idaudit = ar.idaudit
+                 LEFT JOIN organisme  o    ON o.idorga      = a.idorga
+                 LEFT JOIN inspecteur insp ON insp.idinspecteur = a.idresponsable_audit
+                 WHERE ar.idreglement = ?
+                 ORDER BY a.idaudit DESC
+                 LIMIT 30"
+            );
+            $stAud->execute([$id]);
+            $auds = $stAud->fetchAll();
+            $ok(['data' => $reg, 'audits' => $auds]);
             break;
 
         // ----------------------------------------------------------------

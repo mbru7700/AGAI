@@ -64,6 +64,16 @@ require_once INCLUDES_PATH . '/layout_head.php';
   .eq-dom .dom-code{font-weight:600;color:#2C3E50;}
   .eq-dom .exp-tag{font-size:.75rem;color:#D32F2F;font-weight:600;margin-left:auto;}
   .eq-dom .ok-tag{font-size:.75rem;color:#1E9C4B;font-weight:600;margin-left:auto;}
+  /* Radios statut style pastille */
+  .statut-radio-group{display:flex;gap:8px;flex-wrap:wrap;}
+  .statut-radio-group label{display:flex;align-items:center;gap:6px;cursor:pointer;padding:7px 14px;border:2px solid #eef1f6;border-radius:10px;font-size:.86rem;font-weight:600;transition:all .15s;background:#fff;}
+  .statut-radio-group label:hover{border-color:#23408F;background:#f0f4ff;}
+  .statut-radio-group input[type=radio]:checked + label,
+  .statut-radio-group label:has(input[type=radio]:checked){border-color:#23408F;background:rgba(35,64,143,.08);color:#23408F;}
+  .statut-radio-group input[type=radio]{display:none;}
+  .statut-pill{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:3px;}
+  .pill-plan{background:#23408F;} .pill-inop{background:#F3C300;} .pill-eff{background:#1E9C4B;}
+  .pill-rep{background:#b58a00;} .pill-sus{background:#D32F2F;} .pill-surv{background:#6c757d;}
   .reg-list{margin-top:8px;padding-top:8px;border-top:1px dashed #e3e9f2;display:none;}
   .reg-list .form-check{margin-bottom:3px;}
   .reg-empty{font-size:.82rem;color:#9aa7bd;}
@@ -119,14 +129,11 @@ require_once INCLUDES_PATH . '/layout_head.php';
         <div class="form-text">Seuls les inspecteurs non stagiaires peuvent etre responsables.</div>
       </div>
       <div class="col-md-6">
-        <label class="form-label">Statut</label>
-        <select class="form-select" id="d_statut">
-          <option value="1">Planifiee</option>
-          <option value="2">Reportee</option>
-          <option value="3">Effectuee</option>
-          <option value="4">Suspendue</option>
-          <option value="5">A surveiller</option>
-        </select>
+        <label class="form-label">Statut <span class="text-danger">*</span></label>
+        <div id="statutZone">
+          <!-- Contenu genere dynamiquement selon la nature de la supervision -->
+        </div>
+        <input type="hidden" id="d_statut" value="1">
       </div>
     </div>
 
@@ -246,18 +253,34 @@ require_once INCLUDES_PATH . '/layout_head.php';
   </div>
 </div>
 
-<!-- ===== MODALE : ajouter des reglements a un domaine ===== -->
+<!-- ===== MODALE : Nouveau(x) reglement(s) pour un domaine ===== -->
 <div class="modal fade" id="regModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <form class="modal-content" id="regForm" autocomplete="off">
-      <div class="modal-header"><h5 class="modal-title">Ajouter des reglements - domaine <span id="regDomName" style="color:var(--anac-primary)"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-header" style="background:linear-gradient(135deg,#23408F,#1b3576)">
+        <h5 class="modal-title text-white">
+          <i class="bi bi-journal-plus me-2" style="color:#F3C300"></i>
+          Nouveau(x) reglement(s) - domaine <span id="regDomName" style="color:#F3C300;font-weight:700"></span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
       <div class="modal-body">
         <input type="hidden" id="reg_dom">
-        <div class="form-text mb-2">Saisissez un ou plusieurs reglements. Ils seront crees pour ce domaine et coches automatiquement.</div>
+        <div class="alert alert-info py-2 small mb-3">
+          <i class="bi bi-info-circle me-1"></i>
+          Saisissez un ou plusieurs reglements. Chaque ligne = un reglement. Ils seront crees et coches automatiquement dans la liste.
+        </div>
         <div id="regRows"></div>
-        <button type="button" class="btn btn-sm btn-outline-primary" id="regAddRow"><i class="bi bi-plus-lg me-1"></i>Ajouter une ligne</button>
+        <button type="button" class="btn btn-sm btn-outline-primary mt-1" id="regAddRow">
+          <i class="bi bi-plus-lg me-1"></i>Ajouter une ligne
+        </button>
       </div>
-      <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button><button type="submit" class="btn btn-anac" id="reg_submit">Enregistrer</button></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn btn-anac" id="reg_submit">
+          <i class="bi bi-check-lg me-1"></i>Enregistrer et cocher
+        </button>
+      </div>
     </form>
   </div>
 </div>
@@ -273,6 +296,45 @@ const API_SITE   = AGAI_BASE + '/api/sites';
 const API_REG    = AGAI_BASE + '/api/reglements';
 const SEL_TYPE   = '<?php echo Security::escape($type); ?>';
 const SEL_CADRE  = '<?php echo Security::escape($cadre); ?>';
+
+/* ===== Gestion du champ statut selon la nature de supervision ===== */
+function buildStatutZone(){
+  const zone = $('#statutZone');
+  if(SEL_TYPE === 'inspection_non_programmee'){
+    // Inspection non programmee : Planifiee OU Inopinee (2 radios)
+    zone.html(
+      '<div class="statut-radio-group">'
+      + '<input type="radio" name="statut_radio" id="sr_1" value="1" checked>'
+      + '<label for="sr_1"><span class="statut-pill pill-plan"></span>Planifiee</label>'
+      + '<input type="radio" name="statut_radio" id="sr_inop" value="7">'
+      + '<label for="sr_inop"><span class="statut-pill pill-inop"></span>Inopinee</label>'
+      + '</div>'
+      + '<div class="form-text">Planifiee = date prevue connue. Inopinee = sans preavis.</div>'
+    );
+    $('input[name="statut_radio"]').on('change', function(){
+      $('#d_statut').val($(this).val());
+    });
+    // Initialiser apres le bind pour ne pas ecraser un clic precoce
+    if(!$('input[name="statut_radio"]:checked').length){
+      $('#d_statut').val(1);
+    } else {
+      $('#d_statut').val($('input[name="statut_radio"]:checked').val());
+    }
+  } else {
+    // Tous les autres types (audit, inspection_programmee, demonstration, test, investigation)
+    // Statut Planifiee par defaut, affiche en badge non modifiable
+    zone.html(
+      '<div class="statut-radio-group">'
+      + '<input type="radio" name="statut_radio" id="sr_1" value="1" checked disabled>'
+      + '<label for="sr_1" style="border-color:#23408F;background:rgba(35,64,143,.08);color:#23408F;cursor:default">'
+      + '<span class="statut-pill pill-plan"></span>Planifiee</label>'
+      + '</div>'
+      + '<div class="form-text">Le statut initial est toujours Planifiee pour ce type de supervision.</div>'
+    );
+    $('#d_statut').val(1);
+  }
+}
+buildStatutZone();
 
 const TYPE_LABELS = {audit:'Audit', inspection_programmee:'Inspection programmee', inspection_non_programmee:'Inspection non programmee', demonstration:'Demonstration', test:'Test', investigation:'Investigation'};
 const CADRE_LABELS = {certification:'Certification', homologation:'Homologation', reconnaissance:'Reconnaissance', renouvellement:'Renouvellement', surveillance_continue:'Surveillance continue', traitement_evenement:"Traitement d'un evenement", fermeture_provisoire:'Fermeture provisoire', fermeture_definitive:'Fermeture definitive', delivrance_autorisation:"Delivrance d'une autorisation"};
@@ -388,7 +450,7 @@ $(document).on('change', '.insp-sel', function(){
   body.html('<div class="text-muted small"><span class="spinner-border spinner-border-sm me-1"></span>Chargement des domaines habilites...</div>');
   post(API_AUDITS, {action:'insp_domaines', idinspecteur:id}).done(res => {
     if(!res.success){ body.html('<div class="text-danger small">Erreur de chargement des domaines.</div>'); return; }
-    const doms = res.data || [];
+    const doms = res.domaines || res.data || [];
     if(!doms.length){ body.html('<div class="reg-empty">Aucun domaine habilite pour cet inspecteur.</div>'); validateForm(); return; }
     body.html(doms.map(domRow).join(''));
     validateForm();
@@ -397,7 +459,7 @@ $(document).on('change', '.insp-sel', function(){
 });
 
 function domRow(d){
-  const expired = Number(d.expired) === 1;
+  const expired = Number(d.est_expire || d.expired) === 1;
   const code = esc(d.nomdomaine) + (d.libel_domaine ? ' - ' + esc(d.libel_domaine) : '');
   const tag = expired
     ? '<span class="exp-tag">Habilitation expiree le '+esc(fmtDate(d.date_expiration))+'</span>'
@@ -407,26 +469,75 @@ function domRow(d){
     +   '<input class="form-check-input dom-chk" type="checkbox"'+(expired?' disabled':'')+'>'
     +   '<span class="dom-code">'+code+'</span>'+tag
     + '</div>'
-    + '<div class="reg-list">'
-    +   regListHtml(d.iddomaine)
-    +   '<button type="button" class="btn btn-sm btn-outline-secondary reg-add mt-1"><i class="bi bi-plus-lg me-1"></i>Ajouter des reglements</button>'
+    + '<div class="reg-list" style="display:none">'
+    +   '<div class="reg-select-wrap mt-2">'
+    +     '<label class="form-label small fw-bold mb-1" style="color:#23408F"><i class="bi bi-journal-text me-1"></i>Reglements vises (cochez un ou plusieurs)</label>'
+    +     '<select class="reg-select2" data-dom="'+esc(d.iddomaine)+'" multiple="multiple" style="width:100%"></select>'
+    +     '<div class="d-flex justify-content-between align-items-center mt-1">'
+    +       '<span class="reg-count small text-muted">0 reglement(s) selectionne(s)</span>'
+    +       '<button type="button" class="btn btn-xs btn-outline-secondary reg-add" style="font-size:.74rem;padding:2px 8px"><i class="bi bi-plus me-1"></i>Nouveau reglement</button>'
+    +     '</div>'
+    +   '</div>'
     + '</div>'
     + '</div>';
 }
-function regListHtml(dom){
-  const regs = REG_BY_DOM[dom] || [];
-  if(!regs.length) return '<div class="reg-holder"><div class="reg-empty">Aucun reglement enregistre pour ce domaine. Utilisez le bouton ci-dessous.</div></div>';
-  return '<div class="reg-holder">' + regs.map(r => regCheck(dom, r)).join('') + '</div>';
-}
-function regCheck(dom, r){
-  const rid = 'rg'+dom+'_'+r.idreglement;
-  return '<div class="form-check"><input class="form-check-input reg-chk" type="checkbox" value="'+esc(r.idreglement)+'" id="'+rid+'"><label class="form-check-label small" for="'+rid+'">'+esc(r.code_reglement)+' - '+esc(r.libelle_reglement)+'</label></div>';
-}
 
+// Vide intentionnellement - remplace regListHtml et regCheck (plus utilises)
+function regListHtml(dom){ return ''; }
+function regCheck(dom, r){ return ''; }
+
+// Charger les reglements dans le Select2 quand un domaine est coche
 $(document).on('change', '.dom-chk', function(){
-  $(this).closest('.eq-dom').find('.reg-list').toggle($(this).is(':checked'));
+  const $dom = $(this).closest('.eq-dom');
+  const checked = $(this).is(':checked');
+  $dom.find('.reg-list').toggle(checked);
+  if(checked){
+    const domId = $dom.data('dom');
+    const $sel = $dom.find('.reg-select2');
+    // Initialiser Select2 si pas encore fait
+    if(!$sel.hasClass('select2-hidden-accessible')){
+      $sel.select2({
+        theme:'bootstrap-5',
+        placeholder:'Rechercher et selectionner des reglements...',
+        allowClear:true,
+        width:'100%',
+        language:{
+          noResults:function(){ return 'Aucun reglement trouve. Utilisez "+ Nouveau reglement".'; },
+          searching:function(){ return 'Recherche en cours...'; },
+          inputTooShort:function(){ return ''; }
+        }
+      });
+      $sel.on('change',function(){
+        const n=$(this).val()||[];
+        $dom.find('.reg-count').text(n.length+' reglement(s) selectionne(s)');
+        validateForm();
+      });
+    }
+    // Peupler si vide
+    if($sel.find('option').length === 0){
+      populateRegSelect($sel, domId);
+    }
+  }
   validateForm();
 });
+
+function populateRegSelect($sel, domId){
+  const regs = REG_BY_DOM[domId] || [];
+  $sel.empty();
+  if(regs.length){
+    regs.forEach(function(r){
+      const opt = new Option(r.code_reglement+' - '+r.libelle_reglement, r.idreglement, false, false);
+      $sel.append(opt);
+    });
+  } else {
+    // Message vide - le bouton "+ Nouveau reglement" permettra d'en creer
+    const opt = new Option('Aucun reglement pour ce domaine', '', false, false);
+    opt.disabled = true;
+    $sel.append(opt);
+  }
+  $sel.trigger('change');
+}
+
 $(document).on('click', '.eq-remove', function(){ $(this).closest('.eq-card').remove(); refreshRaBadges(); validateForm(); });
 
 function refreshRaBadges(){
@@ -437,20 +548,35 @@ function refreshRaBadges(){
   });
 }
 
-/* ----- Bouton + : ajouter des reglements a un domaine (sans rechargement) ----- */
+/* ----- Fonction template d'une ligne de saisie reglement ----- */
 function regRowHtml(){
-  return '<div class="reg-row row g-2 mb-2 align-items-center">'
-    + '<div class="col-4"><input type="text" class="form-control form-control-sm rr-code" placeholder="Code (ex: RAG-OPS-1)"></div>'
-    + '<div class="col-7"><input type="text" class="form-control form-control-sm rr-lib" placeholder="Libelle du reglement"></div>'
-    + '<div class="col-1"><button type="button" class="btn btn-sm btn-outline-danger rr-del"><i class="bi bi-x"></i></button></div>'
-    + '</div>';
+  return '<div class="reg-row mb-2" style="background:#f8fafc;border:1px solid #e8edf5;border-radius:10px;padding:10px 12px">'
+    +'<div class="row g-2 align-items-center">'
+    +'<div class="col-4">'
+    +'<label class="form-label small fw-bold mb-1">Code <span class="text-danger">*</span></label>'
+    +'<input type="text" class="form-control form-control-sm rr-code" placeholder="ex: RAG-OPS-1.1" style="font-family:monospace;font-weight:700">'
+    +'</div>'
+    +'<div class="col-7">'
+    +'<label class="form-label small fw-bold mb-1">Libelle <span class="text-danger">*</span></label>'
+    +'<input type="text" class="form-control form-control-sm rr-lib" placeholder="Description du reglement">'
+    +'</div>'
+    +'<div class="col-1 d-flex align-items-end pb-1">'
+    +'<button type="button" class="btn btn-sm btn-outline-danger rr-del w-100" title="Supprimer cette ligne"><i class="bi bi-trash"></i></button>'
+    +'</div>'
+    +'</div>'
+    +'</div>';
 }
+
+/* ----- Bouton + nouveau reglement : ouvre la modale ----- */
 $(document).on('click', '.reg-add', function(){
   regTargetEl = $(this).closest('.eq-dom');
-  $('#reg_dom').val(regTargetEl.data('dom'));
-  $('#regDomName').text(regTargetEl.data('domname') || '');
-  $('#regRows').html(regRowHtml());
+  const domId = regTargetEl.data('dom');
+  const domNom = regTargetEl.data('domname') || '';
+  $('#reg_dom').val(domId);
+  $('#regDomName').text(domNom);
+  $('#regRows').html(regRowHtml()); // Au moins une ligne vide
   new bootstrap.Modal('#regModal').show();
+  setTimeout(function(){ $('#regRows .rr-code').first().focus(); }, 400);
 });
 $('#regAddRow').on('click', function(){ $('#regRows').append(regRowHtml()); });
 $(document).on('click', '.rr-del', function(){ if($('#regRows .reg-row').length > 1){ $(this).closest('.reg-row').remove(); } });
@@ -483,9 +609,22 @@ function finishReg(dom, created){
   REG_BY_DOM[dom] = REG_BY_DOM[dom] || [];
   created.forEach(c => REG_BY_DOM[dom].push(c));
   if(regTargetEl){
-    let holder = regTargetEl.find('.reg-holder');
-    holder.find('.reg-empty').remove();
-    created.forEach(c => { holder.append(regCheck(dom, c)); regTargetEl.find('#rg'+dom+'_'+c.idreglement).prop('checked', true); });
+    // Ajouter les nouveaux reglements au Select2 du domaine
+    const $sel = regTargetEl.find('.reg-select2');
+    if($sel.hasClass('select2-hidden-accessible')){
+      created.forEach(function(c){
+        const opt = new Option(c.code_reglement+' - '+c.libelle_reglement, c.idreglement, true, true);
+        $sel.append(opt);
+      });
+      $sel.trigger('change');
+    } else {
+      // Select2 pas encore initialise : repeupler
+      populateRegSelect($sel, dom);
+      created.forEach(function(c){ $sel.find('option[value="'+c.idreglement+'"]').prop('selected', true); });
+      $sel.trigger('change');
+    }
+    const n = $sel.val()||[];
+    regTargetEl.find('.reg-count').text(n.length+' reglement(s) selectionne(s)');
   }
   validateForm();
 }
@@ -499,7 +638,9 @@ function gatherTeam(){
       const chk = $(this).find('.dom-chk');
       if(chk.is(':checked') && !chk.is(':disabled')){
         eqInsp.push(insp); eqDom.push($(this).data('dom'));
-        const rids = []; $(this).find('.reg-chk:checked').each(function(){ rids.push($(this).val()); });
+        // Lire le Select2 multi-select
+        const $sel = $(this).find('.reg-select2');
+        const rids = ($sel.hasClass('select2-hidden-accessible') ? ($sel.val()||[]) : []);
         eqRegs[idx] = rids; idx++;
       }
     });

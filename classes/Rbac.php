@@ -9,11 +9,11 @@ class Rbac
 {
     /** Matrice de fallback role -> modules feuilles (si user_modules vide). */
     private const MATRIX = [
-        'admin'           => ['dashboard','audits','revue_doc','actes','inspecteurs','exploitants','domaines','sousdomaines','typesorganisme','reglements','sites','nonconformites','analyse_psc','analyse_fnc','mise_oeuvre','users','parametres','cybersecurite'],
-        'chef_inspecteur' => ['dashboard','audits','revue_doc','actes','inspecteurs','exploitants','domaines','sousdomaines','typesorganisme','reglements','sites','nonconformites','users'],
-        'inspecteur'      => ['dashboard','audits','revue_doc','nonconformites','inspecteurs','domaines','reglements'],
-        'operateur'       => ['dashboard','actes'],
-        'consultant'      => ['dashboard','audits','nonconformites','domaines','reglements'],
+        'admin'           => ['dashboard','audits','revue_doc','notifications','rapports','qre','actes','inspecteurs','exploitants','domaines','sousdomaines','typesorganisme','reglements','sites','nonconformites','analyse_psc','analyse_fnc','mise_oeuvre','users','parametres','cybersecurite'],
+        'chef_inspecteur' => ['dashboard','audits','revue_doc','notifications','rapports','qre','actes','inspecteurs','exploitants','domaines','sousdomaines','typesorganisme','reglements','sites','nonconformites','users','cybersecurite'],
+        'inspecteur'      => ['dashboard','audits','revue_doc','notifications','rapports','qre','nonconformites','inspecteurs','domaines','reglements'],
+        'operateur'       => ['dashboard','actes','qre','notifications','rapports','audits'],
+        'consultant'      => ['dashboard','audits','revue_doc','notifications','rapports','qre','nonconformites','domaines','reglements'],
     ];
 
     /** Tous les modules disponibles dans AGAI avec leurs labels.
@@ -28,14 +28,17 @@ class Rbac
             'desc'  => 'Acces au tableau de bord principal',
         ],
         'audits_group' => [
-            'label'    => 'Gestion des audits',
+            'label'    => 'Gestion Supervision',
             'icon'     => 'bi-clipboard-check',
-            'desc'     => 'Ensemble des fonctionnalites liees aux audits',
+            'desc'     => 'Ensemble des fonctionnalites liees aux audits et supervision',
             'is_group' => true,
             'children' => [
-                'audits'    => ['label'=>'Audits et inspections', 'icon'=>'bi-clipboard-check', 'desc'=>'Declenchement, suivi et cloture des audits'],
-                'revue_doc' => ['label'=>'Revue documentaire',    'icon'=>'bi-file-text',       'desc'=>'Formulaire IX-GEN-R3-F-I-017'],
-                'actes'     => ['label'=>'Mes actes de superv.',  'icon'=>'bi-eye',             'desc'=>'Vue personnalisee par operateur'],
+                'audits'        => ['label'=>'Audits et inspections', 'icon'=>'bi-clipboard-check',       'desc'=>'Declenchement, suivi et cloture des audits'],
+                'revue_doc'     => ['label'=>'Revue documentaire',    'icon'=>'bi-file-text',             'desc'=>'Formulaire IX-GEN-R3-F-I-017'],
+                'notifications' => ['label'=>'Notifications',         'icon'=>'bi-bell',                  'desc'=>'Lettres de notification aux operateurs'],
+                'rapports'      => ['label'=>'Rapports',              'icon'=>'bi-file-earmark-text',     'desc'=>'Rapports d\'actes de supervision IX-GEN-R3-FI-009'],
+                'qre'           => ['label'=>'Formulaire QRE',        'icon'=>'bi-ui-checks-grid',        'desc'=>'Questionnaire de Retour d\'Experience IX-GEN-R3-FI-011'],
+                'actes'         => ['label'=>'Mes actes de superv.',  'icon'=>'bi-eye',                   'desc'=>'Vue personnalisee par operateur'],
             ],
         ],
         'structures_group' => [

@@ -48,7 +48,20 @@ try {
         case 'list':
             $rows = $db->query(
                 "SELECT t.idtypeorga, t.nomtypeorg, t.datesaizi,
-                        (SELECT COUNT(*) FROM organisme o WHERE o.typeorga = t.idtypeorga) AS nb_org
+                        (SELECT COUNT(*) FROM organisme  o  WHERE o.typeorga  = t.idtypeorga) AS nb_org,
+                        (SELECT COUNT(*) FROM habilitation h WHERE h.iddomaine IN
+                            (SELECT iddomaine FROM domaine)) AS nb_hab_global,
+                        (SELECT COUNT(DISTINCT a.idaudit)
+                           FROM organisme o2
+                           JOIN audit a ON a.idorga = o2.idorga
+                          WHERE o2.typeorga = t.idtypeorga) AS nb_aud,
+                        (SELECT COUNT(*) FROM habilitation h2
+                           JOIN inspecteur i ON i.idinspecteur = h2.idinspecteur
+                          WHERE i.idinspecteur IN
+                              (SELECT ae.idinspecteur FROM audit_equipe ae
+                               JOIN audit a2 ON a2.idaudit = ae.idaudit
+                               JOIN organisme o3 ON o3.idorga = a2.idorga
+                               WHERE o3.typeorga = t.idtypeorga)) AS nb_hab
                  FROM type_organisme t
                  ORDER BY t.idtypeorga DESC"
             )->fetchAll();
@@ -59,10 +72,47 @@ try {
         case 'stats':
             $st = $db->query(
                 "SELECT
-                    (SELECT COUNT(*) FROM type_organisme) AS total,
-                    (SELECT COUNT(*) FROM organisme)       AS orgs"
+                    (SELECT COUNT(*) FROM type_organisme)                                              AS total,
+                    (SELECT COUNT(*) FROM organisme WHERE typeorga > 0)                                AS orgs,
+                    (SELECT COUNT(DISTINCT a.idaudit) FROM audit a JOIN organisme o ON o.idorga=a.idorga WHERE o.typeorga > 0) AS audits,
+                    (SELECT COUNT(*) FROM habilitation)                                                AS habs,
+                    (SELECT COUNT(DISTINCT t.idtypeorga) FROM type_organisme t
+                       JOIN organisme o ON o.typeorga = t.idtypeorga)                                  AS avec_orgs,
+                    (SELECT COUNT(*) FROM type_organisme t
+                       WHERE NOT EXISTS (SELECT 1 FROM organisme o WHERE o.typeorga = t.idtypeorga))   AS sans_orgs"
             )->fetch();
+            foreach ($st as $k => $v) { $st[$k] = (int) $v; }
             $ok(['stats' => $st]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Detail : operateurs et audits associes
+        case 'detail':
+            $id = (int) ($_POST['idtypeorga'] ?? 0);
+            if ($id <= 0) { $fail("Type d'organisme introuvable."); break; }
+            $stT = $db->prepare("SELECT idtypeorga, nomtypeorg, datesaizi FROM type_organisme WHERE idtypeorga = ?");
+            $stT->execute([$id]);
+            $t = $stT->fetch();
+            if (!$t) { $fail("Type d'organisme introuvable."); break; }
+            // Operateurs de ce type (ORDER DESC)
+            $stOrg = $db->prepare(
+                "SELECT idorga, nomorga, trigrorganisme, statutorga, ville_org
+                 FROM organisme WHERE typeorga = ? ORDER BY idorga DESC"
+            );
+            $stOrg->execute([$id]);
+            $orgs = $stOrg->fetchAll();
+            // Audits associes via les operateurs de ce type (ORDER DESC)
+            $stAud = $db->prepare(
+                "SELECT a.num_audit, a.type_activite, a.statut, a.date_previsionnelle, o.nomorga
+                 FROM audit a
+                 JOIN organisme o ON o.idorga = a.idorga
+                 WHERE o.typeorga = ?
+                 ORDER BY a.idaudit DESC
+                 LIMIT 30"
+            );
+            $stAud->execute([$id]);
+            $auds = $stAud->fetchAll();
+            $ok(['data' => $t, 'operateurs' => $orgs, 'audits' => $auds]);
             break;
 
         // ----------------------------------------------------------------

@@ -99,11 +99,13 @@ require_once INCLUDES_PATH . '/layout_head.php';
       <div class="col-md-4">
         <label class="form-label req">Statut</label>
         <select class="form-select" id="m_statut" required>
-          <option value="1">1 - Planifie</option>
-          <option value="2">2 - Reporte</option>
-          <option value="3">3 - Effectue</option>
-          <option value="4">4 - Suspendu</option>
-          <option value="5">5 - A surveiller</option>
+          <option value="1">Planifiee</option>
+          <option value="2">Reportee</option>
+          <option value="3">Effectuee</option>
+          <option value="4">Suspendue</option>
+          <option value="5">A surveiller</option>
+          <option value="6">Annulee</option>
+          <option value="7">Inopinee</option>
         </select>
       </div>
       <div class="col-md-4">
@@ -111,6 +113,25 @@ require_once INCLUDES_PATH . '/layout_head.php';
         <select class="form-select" id="m_typeorga">
           <option value="">-- Choisir --</option>
         </select>
+      </div>
+    </div>
+    <!-- Zone motif : affichee si statut = Reportee (2) ou Annulee (6) -->
+    <div id="wrapReport" style="display:none" class="row g-3 mt-1">
+      <div class="col-12">
+        <div class="alert py-2 mb-0" id="motifAlert" style="background:#fff3cd;border-color:#ffc107;color:#664d03">
+          <i class="bi bi-info-circle me-2"></i><strong id="motifAlertTitle">Acte reporte</strong> - Veuillez renseigner les informations ci-dessous.
+        </div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-bold"><span id="motifLabel">Motif du report</span> <span class="text-danger">*</span></label>
+        <textarea class="form-control" id="m_motif_report" rows="2" maxlength="500"
+          placeholder="Saisissez le motif..."></textarea>
+        <div class="form-text">Ce motif sera enregistre dans la base de donnees.</div>
+      </div>
+      <div class="col-md-6" id="wrapNewDate">
+        <label class="form-label fw-bold">Nouvelle date previsionnelle <span class="text-danger">*</span></label>
+        <input type="date" class="form-control" id="m_dprev_report">
+        <div class="form-text">La date previsionnelle sera mise a jour.</div>
       </div>
     </div>
   </div>
@@ -287,6 +308,12 @@ function fillForm(){
   $('#m_drap').val(dFmt(a.date_delivrance_rapport));
   $('#m_dnotif').val(dFmt(a.date_notification));
   $('#m_notif').prop('checked', Number(a.notif_mail)===1);
+  // Pré-remplir le motif si deja saisi
+  if(a.motif_report){
+    $('#m_motif_report').val(a.motif_report);
+  }
+  // Afficher la zone motif si statut = Reporte ou Annule
+  updateMotifZone();
 }
 
 
@@ -303,6 +330,36 @@ function updateProgress(){
 }
 $(document).on('change input','#modifForm input,#modifForm select',updateProgress);
 
+/* ======= STATUT : afficher/masquer zone motif report/annulation ======= */
+function updateMotifZone(){
+  const v = $('#m_statut').val();
+  if(v === '2' || v === '6'){
+    // Adapter les labels selon le statut
+    if(v === '2'){
+      $('#motifAlertTitle').text('Acte reporte');
+      $('#motifAlert').css({'background':'#fff3cd','border-color':'#ffc107','color':'#664d03'});
+      $('#motifLabel').text('Motif du report');
+      $('#wrapNewDate').show();
+    } else {
+      $('#motifAlertTitle').text('Acte annule');
+      $('#motifAlert').css({'background':'#f8d7da','border-color':'#f5c2c7','color':'#842029'});
+      $('#motifLabel').text('Motif de l\'annulation');
+      $('#wrapNewDate').hide(); // Pas de nouvelle date pour une annulation
+      $('#m_dprev_report').val('');
+    }
+    $('#wrapReport').slideDown(200);
+    if(!$('#m_dprev_report').val() && v === '2'){
+      $('#m_dprev_report').val($('#m_dprev').val() || '');
+    }
+    setTimeout(function(){ $('#m_motif_report').focus(); }, 250);
+  } else {
+    $('#wrapReport').slideUp(200);
+    $('#m_motif_report').val('');
+    $('#m_dprev_report').val('');
+  }
+}
+$('#m_statut').on('change', updateMotifZone);
+
 /* ======= EQUIPE : CONSTRUCTION INITIALE ======= */
 function buildEquipeCards(){
   if(!EQUIPE.length){ addInspCard(null); return; }
@@ -310,8 +367,10 @@ function buildEquipeCards(){
   EQUIPE.forEach(function(m){
     if(seen[m.idinspecteur]) return;
     seen[m.idinspecteur]=true;
-    // Reglements de cet inspecteur (par idequipe)
-    const myRegs=EQUIPE_REGS.filter(function(r){return r.idequipe===m.idequipe||r.idequipe===String(m.idequipe);});
+    // Reglements de cet inspecteur (par idequipe, comparaison souple string/int)
+    const myRegs=EQUIPE_REGS.filter(function(r){
+      return r.idequipe!=null && String(r.idequipe)===String(m.idequipe);
+    });
     addInspCard(m, myRegs);
   });
 }
@@ -468,16 +527,22 @@ function loadReglementsDomaine(seq, iddom, preselIds){
 }
 
 function preloadRegChips(seq, domRegs, preselIds){
-  // Ajouter uniquement les reglements preselectionnes (deja enregistres)
+  // Ajouter les reglements deja enregistres pour cet inspecteur
   if(!preselIds||!preselIds.length) return;
   const existingIds=[];
   $('#rl_'+seq+' .reg-chip').each(function(){ existingIds.push(String($(this).data('id'))); });
   preselIds.forEach(function(id){
     if(!id||existingIds.includes(String(id))) return;
-    // Chercher dans les reglements du domaine d'abord, puis dans tous
-    const r=domRegs.find(function(x){return String(x.idreglement)===String(id);})||
-             REGLEMENTS.find(function(x){return String(x.idreglement)===String(id);});
-    if(r) addRegChip(seq, r.idreglement, r.code_reglement);
+    // Chercher le code dans : domaine, tous les reglements, puis EQUIPE_REGS (donnees deja chargees)
+    let r=domRegs.find(function(x){return String(x.idreglement)===String(id);})||
+          REGLEMENTS.find(function(x){return String(x.idreglement)===String(id);})||
+          EQUIPE_REGS.find(function(x){return String(x.idreglement)===String(id);});
+    if(r){
+      addRegChip(seq, id, r.code_reglement);
+    } else {
+      // Dernier recours : afficher l'ID si le code est introuvable
+      addRegChip(seq, id, 'REG-'+id);
+    }
   });
 }
 
@@ -573,12 +638,16 @@ $(document).on('click','.btn-add-reg',function(){
 
 /* ======= AJOUTER UN NOUVEAU REGLEMENT DYNAMIQUEMENT ======= */
 function showAddNewRegModal(seq, domId){
+  if(!domId){
+    Swal.fire({icon:'warning',title:'Domaine requis',text:'Selectionnez d\'abord un domaine pour cet inspecteur avant d\'ajouter un nouveau reglement.',confirmButtonColor:'#23408F'});
+    return;
+  }
   Swal.fire({
     title:'<i class="bi bi-plus-circle me-2" style="color:#23408F"></i>Nouveau reglement',
     html:'<div style="text-align:left">'
       +'<div class="mb-2"><label class="form-label small fw-bold">Code du reglement <span style="color:#D32F2F">*</span></label>'
       +'<input type="text" class="form-control form-control-sm" id="newRegCode" placeholder="Ex: OACI-Annexe1-Art.3" maxlength="50"></div>'
-      +'<div class="mb-2"><label class="form-label small fw-bold">Libelle du reglement</label>'
+      +'<div class="mb-2"><label class="form-label small fw-bold">Libelle du reglement <span style="color:#D32F2F">*</span></label>'
       +'<input type="text" class="form-control form-control-sm" id="newRegLib" placeholder="Description du reglement" maxlength="200"></div>'
       +'<div class="small text-muted mt-2"><i class="bi bi-info-circle me-1"></i>Ce reglement sera associe au domaine selectionne et ajoute a votre liste.</div>'
       +'</div>',
@@ -588,8 +657,10 @@ function showAddNewRegModal(seq, domId){
     confirmButtonColor:'#1E9C4B',
     preConfirm:function(){
       const code=($('#newRegCode').val()||'').trim();
+      const lib=($('#newRegLib').val()||'').trim();
       if(!code){ Swal.showValidationMessage('Le code du reglement est obligatoire.'); return false; }
-      return {code:code, libelle:($('#newRegLib').val()||'').trim()};
+      if(!lib){ Swal.showValidationMessage('Le libelle du reglement est obligatoire.'); return false; }
+      return {code:code, libelle:lib};
     }
   }).then(function(result){
     if(!result.isConfirmed||!result.value) return;
@@ -653,41 +724,71 @@ $('#modifForm').on('submit',function(e){
     return;
   }
 
+  // Validation motif si statut = Reporte (2) ou Annule (6)
+  const statVal = $('#m_statut').val();
+  if(statVal === '2' || statVal === '6'){
+    const motif = ($('#m_motif_report').val()||'').trim();
+    if(!motif){
+      Swal.fire({icon:'warning',title:'Motif requis',
+        text:statVal==='2'?'Veuillez saisir le motif du report.':'Veuillez saisir le motif de l\'annulation.',
+        confirmButtonColor:'#23408F'});
+      $('#m_motif_report').focus();
+      return;
+    }
+    if(statVal === '2'){
+      const nvDate = $('#m_dprev_report').val();
+      if(!nvDate){
+        Swal.fire({icon:'warning',title:'Nouvelle date requise',text:'Veuillez saisir la nouvelle date previsionnelle.',confirmButtonColor:'#23408F'});
+        $('#m_dprev_report').focus();
+        return;
+      }
+      // Mettre a jour la date previsionnelle
+      $('#m_dprev').val(nvDate);
+    }
+  }
+
   const site=$('#m_site').val()||'';
   const siteLib=$('#m_site_lib').val().trim();
   const siteTxt=siteLib||($('#m_site option[value="'+site+'"]').text().replace(/^\s*--.*--\s*$/,'')||'');
 
-  const data={
-    action:'update',
-    idaudit:IDAUDIT,
-    num_audit:$('#m_num').val().trim(),
-    type_activite:$('#m_type').val(),
-    cadre:$('#m_cadre').val(),
-    statut:$('#m_statut').val()||1,
-    idtypeorga:$('#m_typeorga').val()||'',
-    idorga:$('#m_orga').val()||'',
-    idsite:site,
-    site_inspection:siteTxt,
-    idresponsable_audit:$('#m_resp').val()||'',
-    idchef_inspecteur:$('#m_resp').val()||'', // RA = chef pour contrainte BDD
-    date_previsionnelle:$('#m_dprev').val(),
-    date_realisation:$('#m_dreal').val(),
-    delai_execution:$('#m_delai').val()||'',
-    date_delivrance_rapport:$('#m_drap').val(),
-    date_notification:$('#m_dnotif').val(),
-    notif_mail:$('#m_notif').is(':checked')?1:0,
-    'eq_inspecteur[]':eqI,
-    'eq_domaine[]':eqD,
-    'eq_reglements_csv':eqRegs.join('|') // Format CSV par inspecteur, separe par |
-  };
+  // Utiliser FormData pour envoyer correctement les tableaux PHP
+  const fd = new FormData();
+  fd.append('csrf_token',   CSRF);
+  fd.append('action',       'update');
+  fd.append('idaudit',      IDAUDIT);
+  fd.append('num_audit',    $('#m_num').val().trim());
+  fd.append('type_activite',$('#m_type').val());
+  fd.append('cadre',        $('#m_cadre').val());
+  fd.append('statut',       $('#m_statut').val()||1);
+  fd.append('idtypeorga',   $('#m_typeorga').val()||'');
+  fd.append('idorga',       $('#m_orga').val()||'');
+  fd.append('idsite',       site);
+  fd.append('site_inspection', siteTxt);
+  fd.append('idresponsable_audit', $('#m_resp').val()||'');
+  fd.append('idchef_inspecteur',   $('#m_resp').val()||'');
+  fd.append('date_previsionnelle', $('#m_dprev').val());
+  fd.append('date_realisation',    $('#m_dreal').val());
+  fd.append('delai_execution',     $('#m_delai').val()||'');
+  fd.append('date_delivrance_rapport', $('#m_drap').val());
+  fd.append('date_notification',   $('#m_dnotif').val());
+  fd.append('notif_mail',  $('#m_notif').is(':checked')?1:0);
+  fd.append('est_ferme',   0);
+  fd.append('motif_report', ($('#m_motif_report').val()||'').trim());
+  // Tableaux equipe : chaque element en entree separee (PHP lit bien $_POST['eq_inspecteur'])
+  eqI.forEach(function(v){ fd.append('eq_inspecteur[]', v); });
+  eqD.forEach(function(v){ fd.append('eq_domaine[]', v); });
+  fd.append('eq_reglements_csv', eqRegs.join('|'));
 
   const btn=$('#modifSubmit'); const h=btn.html();
   btn.prop('disabled',true).html('<span class="spinner-border spinner-border-sm me-1"></span>Enregistrement...');
 
   $.ajax({
-    url:API_AUDITS, type:'POST', dataType:'json',
-    data:Object.assign({csrf_token:CSRF},data),
-    traditional:true // important pour les tableaux jQuery
+    url: API_AUDITS,
+    type: 'POST',
+    data: fd,
+    processData: false, // Ne pas serialiser FormData
+    contentType: false, // Laisser le navigateur definir le Content-Type multipart
+    dataType: 'json'
   }).done(function(res){
     btn.prop('disabled',false).html(h);
     if(res.success){

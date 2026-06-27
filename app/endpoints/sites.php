@@ -68,10 +68,46 @@ try {
         case 'stats':
             $st = $db->query(
                 "SELECT
-                    (SELECT COUNT(*) FROM site)                                AS total,
-                    (SELECT COUNT(DISTINCT p.nompays) FROM site s JOIN pays_adna p ON p.idpays = s.idpays) AS pays_couverts"
+                    (SELECT COUNT(*) FROM site)                                                              AS total,
+                    (SELECT COUNT(DISTINCT p.nompays) FROM site s JOIN pays_adna p ON p.idpays=s.idpays
+                       WHERE p.nompays IS NOT NULL AND TRIM(p.nompays) <> '')                               AS pays_couverts,
+                    (SELECT COUNT(DISTINCT s2.idsite) FROM site s2
+                       WHERE EXISTS (SELECT 1 FROM audit a WHERE a.idsite = s2.idsite))                     AS sites_avec,
+                    (SELECT COUNT(*) FROM audit WHERE idsite IS NOT NULL AND idsite > 0)                    AS total_aud,
+                    (SELECT COUNT(DISTINCT ville) FROM site WHERE ville IS NOT NULL AND TRIM(ville)<>'')    AS villes,
+                    (SELECT COUNT(*) FROM site s3
+                       WHERE NOT EXISTS (SELECT 1 FROM audit a WHERE a.idsite = s3.idsite))                 AS sans_aud"
             )->fetch();
+            foreach ($st as $k => $v) { $st[$k] = (int) $v; }
             $ok(['stats' => $st]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Detail : infos site + audits associes ORDER DESC
+        case 'detail':
+            $id = (int) ($_POST['idsite'] ?? 0);
+            if ($id <= 0) { $fail('Site introuvable.'); break; }
+            $stS = $db->prepare(
+                "SELECT s.idsite, s.indicateur_oaci, s.nomsite, s.ville, s.idpays, p.nompays
+                 FROM site s
+                 LEFT JOIN pays_adna p ON p.idpays = s.idpays
+                 WHERE s.idsite = ?"
+            );
+            $stS->execute([$id]);
+            $site = $stS->fetch();
+            if (!$site) { $fail('Site introuvable.'); break; }
+            $stAud = $db->prepare(
+                "SELECT a.idaudit, a.num_audit, a.type_activite, a.statut, a.date_previsionnelle,
+                        o.nomorga,
+                        TRIM(CONCAT(COALESCE(r.preninspect,''),' ',COALESCE(r.nominspecteur,''))) AS responsable
+                 FROM audit a
+                 LEFT JOIN organisme  o ON o.idorga       = a.idorga
+                 LEFT JOIN inspecteur r ON r.idinspecteur = a.idresponsable_audit
+                 WHERE a.idsite = ?
+                 ORDER BY a.idaudit DESC LIMIT 30"
+            );
+            $stAud->execute([$id]);
+            $ok(['data' => $site, 'audits' => $stAud->fetchAll()]);
             break;
 
         // ----------------------------------------------------------------

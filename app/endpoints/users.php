@@ -14,6 +14,7 @@ if (!Security::validateCSRF($_POST['csrf_token'] ?? '')) {
 
 $db          = Database::getInstance();
 $action      = $_POST['action'] ?? '';
+$sessionRole = $_SESSION['user']['role'] ?? '';   // Role de l'utilisateur connecte (depuis session)
 $ANAC_ORGA   = 1282;                                       // AGENCE NATIONALE DE L'AVIATION CIVILE - GABON
 $PUBLIC_URL  = rtrim(env('APP_URL', SITE_URL), '/') . '/'; // lien e-mail joignable (configurable en prod)
 
@@ -243,7 +244,16 @@ try {
             $id      = (int) ($_POST['iduser'] ?? 0);
             $enabled = ((int) ($_POST['enabled'] ?? 1)) === 1;
             $reason  = Security::cleanInput($_POST['reason'] ?? '');
-            echo json_encode(Auth::set2FA($id, $enabled, $reason !== '' ? $reason : null));
+
+            // Admin et chef_inspecteur peuvent activer/desactiver le 2FA
+            if (!in_array($sessionRole, ['admin', 'chef_inspecteur'], true)) {
+                $fail('Action reservee aux administrateurs et chefs inspecteurs.');
+                break;
+            }
+            if ($id <= 0) { $fail('Utilisateur invalide.'); break; }
+
+            $result = Auth::set2FA($id, $enabled, $reason !== '' ? $reason : null);
+            echo json_encode($result);
             exit;
 
         case 'reset_password':

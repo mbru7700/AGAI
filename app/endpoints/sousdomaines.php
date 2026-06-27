@@ -59,9 +59,48 @@ try {
             $st = $db->query(
                 "SELECT
                     (SELECT COUNT(*) FROM sous_domaine)                       AS total,
-                    (SELECT COUNT(DISTINCT iddomaine) FROM sous_domaine)       AS dom_couverts"
+                    (SELECT COUNT(DISTINCT iddomaine) FROM sous_domaine)       AS dom_couverts,
+                    (SELECT COUNT(*) FROM fiche_non_conformite WHERE idsousdomaine IS NOT NULL AND idsousdomaine > 0) AS nb_fnc"
             )->fetch();
+            foreach ($st as $k => $v) { $st[$k] = (int) $v; }
             $ok(['stats' => $st]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Detail complet : infos sous-domaine + fiches NC associees
+        case 'detail':
+            $id = (int) ($_POST['idsousdomaine'] ?? 0);
+            if ($id <= 0) { $fail('Sous-domaine introuvable.'); break; }
+            $stSd = $db->prepare(
+                "SELECT sd.idsousdomaine, sd.iddomaine, sd.nom_sousdomaine,
+                        d.nomdomaine, d.libel_domaine
+                 FROM sous_domaine sd
+                 LEFT JOIN domaine d ON d.iddomaine = sd.iddomaine
+                 WHERE sd.idsousdomaine = ?"
+            );
+            $stSd->execute([$id]);
+            $sd = $stSd->fetch();
+            if (!$sd) { $fail('Sous-domaine introuvable.'); break; }
+            // Fiches NC associees (colonnes reelles : num_fnc, categorie, statut)
+            $stFnc = $db->prepare(
+                "SELECT f.num_fnc AS reference_fnc,
+                        f.categorie AS criticite,
+                        CASE f.statut
+                            WHEN 1 THEN 'Accepte non verifie'
+                            WHEN 2 THEN 'Rejete'
+                            WHEN 3 THEN 'Ferme'
+                            WHEN 4 THEN 'Ouvert'
+                            ELSE 'Inconnu'
+                        END AS statut_fnc,
+                        TRIM(CONCAT(COALESCE(i.preninspect,''),' ',COALESCE(i.nominspecteur,''))) AS responsable
+                 FROM fiche_non_conformite f
+                 LEFT JOIN inspecteur i ON i.idinspecteur = f.idinspecteur_createur
+                 WHERE f.idsousdomaine = ?
+                 ORDER BY f.idfnc DESC"
+            );
+            $stFnc->execute([$id]);
+            $fncs = $stFnc->fetchAll();
+            $ok(['data' => $sd, 'fncs' => $fncs]);
             break;
 
         // ----------------------------------------------------------------
