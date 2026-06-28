@@ -31,17 +31,19 @@ $menu = [
     ]],
 
     // 3. Gestion Supervision (groupe) - anciennement "Gestion des audits"
+    //    Correctif : chaque enfant est garde sur SON propre module (et non 'audits').
     ['audits_group', 'Gestion Supervision', 'bi-clipboard-check', 'GROUP', 'audits', true, [
-        ['audits',         'Audits et inspections',      'bi-clipboard-check',       'audits',        'audits',    true],
-        ['mes_audits',     'Revue documentaire',         'bi-file-text',             'mes-audits',    'audits',    true],
-        ['notifications',  'Notifications',              'bi-bell',                  'notifications', 'audits',    true],
-        ['rapports',       'Rapports',                   'bi-file-earmark-text',     'rapports',      'audits',    true],
-        ['qre',            'Formulaire QRE',             'bi-ui-checks-grid',        'qre',           'audits',    true],
+        ['audits',         'Audits et inspections',      'bi-clipboard-check',       'audits',        'audits',        true],
+        ['mes_audits',     'Revue documentaire',         'bi-file-text',             'mes-audits',    'revue_doc',     true],
+        ['notifications',  'Notifications',              'bi-bell',                  'notifications', 'notifications', true],
+        ['rapports',       'Rapports',                   'bi-file-earmark-text',     'rapports',      'rapports',      true],
+        ['qre',            'Formulaire QRE',             'bi-ui-checks-grid',        'qre',           'qre',           true],
     ]],
 
     // 4. Non-conformites (groupe)
     ['nc_group', 'Non-conformites', 'bi-exclamation-triangle', 'GROUP', 'nonconformites', true, [
-        ['fnc', 'Suivi FNC', 'bi-list-check', 'fnc', 'nonconformites', false],
+        ['ouverture_nc', 'Ouverture NC', 'bi-folder-plus',     'ouverture-nc', 'ouverture_nc', true],
+        ['suivi_nc',     'Suivi NC',     'bi-clipboard-check', 'suivi-nc',     'suivi_nc',     true],
     ]],
 
     // 5. Analyse des donnees (groupe)
@@ -56,9 +58,9 @@ $menu = [
 
     // 7. Cybersecurite AGAI (groupe)
     ['cybersecu', 'Cybersecurite AGAI', 'bi-shield-lock', 'GROUP', 'cybersecurite', true, [
-        ['parametres',     'Parametres',              'bi-gear',               'parametres',    'cybersecurite', true],
-        ['login_attempts', 'Tentatives de connexion', 'bi-shield-exclamation', 'login-attempts','cybersecurite', true],
-        ['audit_logs',     'Journal des evenements',  'bi-journal-text',       'audit-logs',    'cybersecurite', true],
+        ['parametres',     'Parametres',              'bi-gear',               'parametres',    'parametres',   true],
+        ['login_attempts', 'Tentatives de connexion', 'bi-shield-exclamation', 'login-attempts','cybersecurite',true],
+        ['audit_logs',     'Journal des evenements',  'bi-journal-text',       'audit-logs',    'cybersecurite',true],
     ]],
 ];
 ?>
@@ -191,6 +193,7 @@ table.dataTable thead th{background:#f4f7fb;color:var(--anac-text);font-size:.82
             }
             // Detection specifique groupe supervision
             if ($key === 'audits_group' && in_array($active, ['audits','mes-audits','revue','notifications','rapports','qre'], true)) $hasActive = true;
+            if ($key === 'nc_group'     && in_array($active, ['ouverture_nc','suivi_nc','nonconformites'], true)) $hasActive = true;
     ?>
         <a class="group-toggle<?php echo $hasActive ? ' has-active' : ''; ?>" data-bs-toggle="collapse" href="#grp_<?php echo $key; ?>" role="button" aria-expanded="<?php echo $hasActive ? 'true' : 'false'; ?>">
           <i class="bi <?php echo $icon; ?>"></i><span><?php echo $label; ?></span><i class="bi bi-chevron-down caret"></i>
@@ -203,6 +206,8 @@ table.dataTable thead th{background:#f4f7fb;color:var(--anac-text);font-size:.82
               if ($ck === 'notifications' && $active === 'notifications') $isChildActive = ' active';
               if ($ck === 'login_attempts'&& $active === 'login-attempts')$isChildActive = ' active';
               if ($ck === 'audit_logs'    && $active === 'audit-logs')    $isChildActive = ' active';
+              if ($ck === 'ouverture_nc'  && $active === 'ouverture_nc')  $isChildActive = ' active';
+              if ($ck === 'suivi_nc'      && $active === 'suivi_nc')      $isChildActive = ' active';
           ?>
             <?php if ($cb): ?>
               <a class="<?php echo trim($isChildActive); ?>" href="<?php echo SITE_URL . '/' . $cr; ?>">

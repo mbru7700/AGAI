@@ -117,3 +117,19 @@ Stack trace:
          GROUP BY email_cible ORDER BY ...' at line 7
 [27-Jun-2026 09:30:30 Europe/Berlin] login-attempts: SQLSTATE[42000]: Syntax error or access violation: 1064 You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'WHERE al.description LIKE '%Email:%'
          GROUP BY email_cible ORDER BY ...' at line 7
+[27-Jun-2026 22:41:00 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to private Database::__construct() from global scope in C:\xampp\htdocs\AGAI\app\pages\ouverture_nc.php:477
+Stack trace:
+#0 C:\xampp\htdocs\AGAI\public\index.php(104): require()
+#1 {main}
+  thrown in C:\xampp\htdocs\AGAI\app\pages\ouverture_nc.php on line 477
+[27-Jun-2026 22:42:33 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to private Database::__construct() from global scope in C:\xampp\htdocs\AGAI\app\pages\ouverture_nc.php:477
+Stack trace:
+#0 C:\xampp\htdocs\AGAI\public\index.php(104): require()
+#1 {main}
+  thrown in C:\xampp\htdocs\AGAI\app\pages\ouverture_nc.php on line 477
+[27-Jun-2026 22:45:16 Europe/Berlin] PHP Warning:  Undefined variable $db in C:\xampp\htdocs\AGAI\app\pages\ouverture_nc.php on line 19
+[27-Jun-2026 22:45:16 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to a member function prepare() on null in C:\xampp\htdocs\AGAI\app\pages\ouverture_nc.php:19
+Stack trace:
+#0 C:\xampp\htdocs\AGAI\public\index.php(104): require()
+#1 {main}
+  thrown in C:\xampp\htdocs\AGAI\app\pages\ouverture_nc.php on line 19
