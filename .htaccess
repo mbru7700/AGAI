@@ -37,4 +37,4 @@ Options -Indexes -MultiViews
 </FilesMatch>
 
 # Bloquer toute requete HTTP vers les dossiers serveur uniquement
-RedirectMatch 403 "(?i)^/AGAI/(config|classes|includes|logs|mail|vendor|app)(/|$)"
+RedirectMatch 403 "(?i)^/AGAI/(config|classes|includes|logs|mail|vendor|app|cron|storage)(/|$)"

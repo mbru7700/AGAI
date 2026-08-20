@@ -980,16 +980,29 @@ LIGNE 3 : Classement + Alertes + Activités
 </div>
 
 <!-- ============================================
-LIGNE 4 : Domaines OACI + Profil
+LIGNE 4 : Indicateurs de decision + Profil
 ============================================ -->
 <div class="row g-3">
     <div class="col-md-8">
         <div class="chart-modern">
             <div class="ch">
-                <h6><i class="bi bi-shield-shaded"></i>Domaines OACI couverts</h6>
+                <h6><i class="bi bi-speedometer2"></i>Indicateurs cles de decision</h6>
+                <span class="ms-auto text-muted" style="font-size:.72rem">Mis a jour en direct</span>
             </div>
-            <div id="domainesBox">
-                <span class="text-muted small">Chargement...</span>
+            <div class="row g-2" id="kpiDecision">
+                <div class="col-12 text-muted small text-center py-3">Chargement...</div>
+            </div>
+            <div class="row g-3 mt-1">
+                <div class="col-md-7">
+                    <div style="font-size:.76rem;font-weight:700;color:#23408F;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">
+                        <i class="bi bi-people me-1"></i>Charge par inspecteur (responsable d'audit)</div>
+                    <div id="chargeInsp" style="max-height:190px;overflow-y:auto"></div>
+                </div>
+                <div class="col-md-5">
+                    <div style="font-size:.76rem;font-weight:700;color:#D32F2F;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">
+                        <i class="bi bi-exclamation-octagon me-1"></i>Operateurs a risque (non-conformites)</div>
+                    <div id="orgaRisque" style="max-height:190px;overflow-y:auto"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -1377,14 +1390,136 @@ function loadDashboard(){
         }).join('');
         $('#activitesBox').html(h||'<div class="text-muted text-center small py-3">Aucune activité</div>');
     });
-    // Domaines OACI
-    $.post(AGAI_BASE+'/api/domaines',{csrf_token:CSRF,action:'list'},null,'json').done(function(res){
-        if(!res.success||!res.data) return;
-        const h=res.data.map(function(d){
-            return '<span class="domaine-tag">'+esc(d.nomdomaine)+'</span>';
-        }).join('');
-        $('#domainesBox').html(h||'<span class="text-muted small">Aucun domaine configuré</span>');
+    // Indicateurs cles de decision
+    renderDecision();
+}
+
+/* ============================================================
+ *  INDICATEURS CLES DE DECISION
+ *  Calcules a partir des audits deja charges (ALL_AUDITS)
+ *  et completes par les statistiques de non-conformites.
+ * ============================================================ */
+function kpiCard(couleur, icone, valeur, libelle, sous){
+    return '<div class="col-6 col-lg-3">'
+      + '<div style="background:#fff;border:1px solid #eef1f6;border-left:4px solid '+couleur+';border-radius:12px;padding:11px 13px;height:100%">'
+      +   '<div style="display:flex;align-items:center;gap:7px">'
+      +     '<i class="bi '+icone+'" style="color:'+couleur+';font-size:1.05rem"></i>'
+      +     '<span style="font-size:1.32rem;font-weight:800;color:#2C3E50;line-height:1">'+valeur+'</span>'
+      +   '</div>'
+      +   '<div style="font-size:.72rem;color:#6b7a90;text-transform:uppercase;letter-spacing:.3px;font-weight:600;margin-top:3px">'+libelle+'</div>'
+      +   (sous ? '<div style="font-size:.68rem;color:#93a1b5;margin-top:1px">'+sous+'</div>' : '')
+      + '</div></div>';
+}
+
+function renderDecision(){
+    const A = ALL_AUDITS || [];
+    const auj = new Date(); auj.setHours(0,0,0,0);
+
+    let planifies=0, effectues=0, enRetard=0, inopines=0;
+    let sumDelaiRapport=0, nbDelaiRapport=0;
+    let sumTC=0, nbTC=0, sumNCNS=0;
+    const parInsp = {}, parOrga = {};
+
+    A.forEach(function(a){
+        const st = parseInt(a.statut||0,10);
+        if(st===1) planifies++;
+        if(st===3) effectues++;
+        if(st===7) inopines++;
+
+        // Retard : prevu dans le passe et toujours non effectue
+        const dp = a.date_previsionnelle ? new Date(String(a.date_previsionnelle).substring(0,10)) : null;
+        if(dp && !isNaN(dp) && dp < auj && st!==3 && st!==6) enRetard++;
+
+        // Delai de remise du rapport (jours entre realisation et delivrance)
+        if(a.date_realisation && a.date_delivrance_rapport){
+            const d1=new Date(String(a.date_realisation).substring(0,10));
+            const d2=new Date(String(a.date_delivrance_rapport).substring(0,10));
+            if(!isNaN(d1)&&!isNaN(d2)&&d2>=d1){ sumDelaiRapport += Math.round((d2-d1)/86400000); nbDelaiRapport++; }
+        }
+
+        // Taux de conformite moyen
+        if(a.taux_conformite!==null && a.taux_conformite!=='' && !isNaN(parseFloat(a.taux_conformite))){
+            sumTC += parseFloat(a.taux_conformite); nbTC++;
+        }
+        sumNCNS += parseInt(a.ncns||0,10);
+
+        // Charge par inspecteur responsable
+        const ri = (a.responsable || a.responsable_nom || '').trim() || 'Non affecte';
+        if(!parInsp[ri]) parInsp[ri]={nom:ri, total:0, encours:0};
+        parInsp[ri].total++;
+        if(st!==3 && st!==6) parInsp[ri].encours++;
+
+        // Operateurs a risque : cumul des criteres non satisfaisants
+        const no = (a.nomorga||'Inconnu').trim();
+        if(!parOrga[no]) parOrga[no]={nom:no, ncns:0, nb:0};
+        parOrga[no].ncns += parseInt(a.ncns||0,10);
+        parOrga[no].nb++;
     });
+
+    const totalProg = planifies + effectues;
+    const tauxReal  = totalProg ? Math.round(effectues*1000/totalProg)/10 : 0;
+    const delaiMoy  = nbDelaiRapport ? Math.round(sumDelaiRapport/nbDelaiRapport) : null;
+    const tcMoy     = nbTC ? Math.round(sumTC*10/nbTC)/10 : null;
+
+    // Cartes : rendu immediat, la partie FNC est completee ensuite
+    function paint(fnc){
+        let h = '';
+        h += kpiCard('#1E9C4B','bi-check2-circle', tauxReal+' %', 'Taux de realisation', effectues+' effectue(s) sur '+totalProg);
+        h += kpiCard(enRetard>0?'#D32F2F':'#7A8798','bi-clock-history', enRetard, 'Actes en retard', 'Date prevue depassee, non effectues');
+        h += kpiCard('#23408F','bi-hourglass-split', (delaiMoy===null?'-':delaiMoy+' j'), 'Delai moyen de rapport', 'Entre realisation et remise');
+        h += kpiCard((tcMoy!==null&&tcMoy<70)?'#E8890C':'#1E9C4B','bi-percent', (tcMoy===null?'-':tcMoy+' %'), 'Conformite moyenne', nbTC+' rapport(s) avec criteres');
+        if(fnc){
+            h += kpiCard(fnc.ouvertes>0?'#E8890C':'#1E9C4B','bi-folder2-open', fnc.ouvertes, 'FNC ouvertes', fnc.total+' fiche(s) au total');
+            h += kpiCard(fnc.critiques>0?'#D32F2F':'#7A8798','bi-exclamation-octagon', fnc.critiques, 'FNC critiques', 'Reponse immediate exigee');
+            h += kpiCard(fnc.retard>0?'#D32F2F':'#1E9C4B','bi-calendar-x', fnc.retard, 'FNC hors delai', 'Date de conformite depassee');
+            h += kpiCard('#7A8798','bi-x-octagon', sumNCNS, 'Criteres non satisfaisants', 'Cumul sur tous les rapports');
+        } else {
+            h += kpiCard('#7A8798','bi-x-octagon', sumNCNS, 'Criteres non satisfaisants', 'Cumul sur tous les rapports');
+            h += kpiCard('#7A8798','bi-lightning', inopines, 'Actes inopines', 'Hors programmation');
+        }
+        $('#kpiDecision').html(h);
+    }
+    paint(null);
+
+    // Complement : statistiques des non-conformites
+    $.post(AGAI_BASE+'/api/nonconformites',{csrf_token:CSRF,action:'stats'},null,'json')
+     .done(function(res){
+        if(!res || !res.success) return;
+        const st = res.stats || res;
+        paint({
+            total:     Number(st.total     || 0),
+            ouvertes:  Number(st.ouvertes  || st.ouvert || 0),
+            critiques: Number(st.critiques || st.critique || 0),
+            retard:    Number(st.en_retard || st.retard || 0)
+        });
+     });
+
+    // Charge par inspecteur
+    const insp = Object.values(parInsp).sort(function(a,b){ return b.total-a.total; }).slice(0,8);
+    const maxI = insp.length ? insp[0].total : 1;
+    $('#chargeInsp').html(insp.length ? insp.map(function(i){
+        const pc = Math.round(i.total*100/maxI);
+        return '<div style="margin-bottom:7px">'
+          + '<div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:2px">'
+          +   '<span style="font-weight:600;color:#2C3E50">'+esc(i.nom)+'</span>'
+          +   '<span style="color:#6b7a90">'+i.total+' acte(s)'+(i.encours?(' &middot; <strong style="color:#E8890C">'+i.encours+' en cours</strong>'):'')+'</span>'
+          + '</div>'
+          + '<div style="background:#eef2f7;border-radius:50px;height:7px;overflow:hidden">'
+          +   '<div style="width:'+pc+'%;height:100%;background:linear-gradient(90deg,#23408F,#1b3576)"></div></div>'
+          + '</div>';
+    }).join('') : '<div class="text-muted small">Aucun acte affecte</div>');
+
+    // Operateurs a risque
+    const orgs = Object.values(parOrga).filter(function(o){ return o.ncns>0; })
+                 .sort(function(a,b){ return b.ncns-a.ncns; }).slice(0,6);
+    $('#orgaRisque').html(orgs.length ? orgs.map(function(o,i){
+        const col = i===0 ? '#D32F2F' : (i<3 ? '#E8890C' : '#7A8798');
+        return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f0f3f8">'
+          + '<span style="background:'+col+';color:#fff;border-radius:6px;padding:1px 7px;font-size:.72rem;font-weight:800">'+o.ncns+'</span>'
+          + '<span style="font-size:.79rem;font-weight:600;color:#2C3E50;flex:1">'+esc(o.nom)+'</span>'
+          + '<span style="font-size:.7rem;color:#93a1b5">'+o.nb+' acte(s)</span>'
+          + '</div>';
+    }).join('') : '<div class="text-muted small">Aucune non-conformite relevee</div>');
 }
 
 // ====== LAUNCHER ======

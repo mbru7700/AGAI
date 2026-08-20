@@ -63,6 +63,64 @@ function can_access_audit($db, int $idaudit, int $uid, string $role, ?int $idins
     return (bool) $st->fetch();
 }
 
+/* Mode adopte par l'equipe pour cet audit : 'pdf', 'texte' ou '' (rien encore).
+   Sert a verrouiller le choix : tous les inspecteurs suivent le meme mode. */
+function mode_audit($db, int $idaudit): string
+{
+    $st = $db->prepare("SELECT COUNT(*) FROM revue_documentaire WHERE idaudit=? AND fichier_joint IS NOT NULL");
+    $st->execute([$idaudit]);
+    if ((int) $st->fetchColumn() > 0) { return 'pdf'; }
+    $st = $db->prepare("SELECT COUNT(*) FROM revue_documentaire WHERE idaudit=? AND contexte_objectif IS NOT NULL AND TRIM(contexte_objectif) <> ''");
+    $st->execute([$idaudit]);
+    if ((int) $st->fetchColumn() > 0) { return 'texte'; }
+    return '';
+}
+
+/* Le RA a-t-il deja traite sa revue (saisie ou PDF) ? Si oui, la revue de
+   l'audit est terminee : plus aucun inspecteur ne peut saisir ou joindre. */
+function ra_a_traite($db, int $idaudit): bool
+{
+    $st = $db->prepare(
+        "SELECT COUNT(*) FROM revue_documentaire rd
+          JOIN audit a ON a.idaudit = rd.idaudit
+         WHERE rd.idaudit = ?
+           AND rd.idinspecteur = a.idresponsable_audit
+           AND (rd.contexte_objectif IS NOT NULL OR rd.fichier_joint IS NOT NULL)"
+    );
+    $st->execute([$idaudit]);
+    return (int) $st->fetchColumn() > 0;
+}
+
+/* Verifie qu'un inspecteur (non RA) peut encore ecrire dans le mode demande.
+   Retourne un message d'erreur, ou '' si l'ecriture est autorisee. */
+function verifier_mode($db, int $idaudit, int $idinsp, string $modeDemande): string
+{
+    // Le RA a le dernier mot : s'il a traite, plus personne n'ecrit.
+    $stRa = $db->prepare("SELECT idresponsable_audit FROM audit WHERE idaudit=?");
+    $stRa->execute([$idaudit]);
+    $raId = (int) $stRa->fetchColumn();
+    $estRA = ($raId === $idinsp);
+
+    if (!$estRA && ra_a_traite($db, $idaudit)) {
+        return 'La revue de cet audit est terminee : le Responsable d\'Audit l\'a deja traitee.';
+    }
+    // Mode verrouille pour tout l'audit (par les ecritures des AUTRES inspecteurs).
+    $st = $db->prepare(
+        "SELECT
+            (SELECT COUNT(*) FROM revue_documentaire WHERE idaudit=? AND idinspecteur<>? AND fichier_joint IS NOT NULL) AS nb_pdf,
+            (SELECT COUNT(*) FROM revue_documentaire WHERE idaudit=? AND idinspecteur<>? AND contexte_objectif IS NOT NULL AND TRIM(contexte_objectif)<>'') AS nb_txt"
+    );
+    $st->execute([$idaudit, $idinsp, $idaudit, $idinsp]);
+    $r = $st->fetch();
+    $modeEquipe = ((int)($r['nb_pdf'] ?? 0) > 0) ? 'pdf' : (((int)($r['nb_txt'] ?? 0) > 0) ? 'texte' : '');
+    if ($modeEquipe !== '' && $modeDemande !== $modeEquipe) {
+        return ($modeEquipe === 'pdf')
+            ? 'L\'equipe a adopte le mode PDF joint : vous devez joindre un PDF, pas saisir.'
+            : 'L\'equipe a adopte le mode saisie : vous devez saisir les rubriques, pas joindre un PDF.';
+    }
+    return '';
+}
+
 const STATUT_LABELS = [1=>'Planifiee',2=>'Reportee',3=>'Effectuee',4=>'Suspendue',5=>'A surveiller'];
 const TYPE_LABELS   = [
     'audit'=>'Audit','inspection_programmee'=>'Inspection programmee',
@@ -108,6 +166,27 @@ try {
             exit;
 
         // ----------------------------------------------------------------
+        // Liste des PDF de revue joints pour un audit (par inspecteur), pour
+        // permettre a chaque membre de consulter ce qui a deja ete depose.
+        case 'pdfs_audit':
+            $idaudit = (int) ($_POST['idaudit'] ?? 0);
+            if (!can_access_audit($db, $idaudit, $uid, $role, $myInsp)) { $fail('Acces refuse.'); break; }
+            $st = $db->prepare(
+                "SELECT rd.idinspecteur, rd.fichier_joint, rd.est_consolide,
+                        TRIM(CONCAT(COALESCE(i.preninspect,''),' ',COALESCE(i.nominspecteur,''))) AS nom,
+                        i.trigr_inspecteur,
+                        (rd.idinspecteur = a.idresponsable_audit) AS est_ra
+                   FROM revue_documentaire rd
+                   JOIN audit a ON a.idaudit = rd.idaudit
+                   LEFT JOIN inspecteur i ON i.idinspecteur = rd.idinspecteur
+                  WHERE rd.idaudit = ? AND rd.fichier_joint IS NOT NULL
+                  ORDER BY est_ra DESC, nom"
+            );
+            $st->execute([$idaudit]);
+            $ok(['pdfs' => $st->fetchAll()]);
+            break;
+
+        // ----------------------------------------------------------------
         // Retourner l'idinspecteur de l'utilisateur connecte
         case 'my_insp':
             $st = $db->prepare("SELECT idinspecteur FROM inspecteur WHERE iduser = ? LIMIT 1");
@@ -146,7 +225,35 @@ try {
                             (SELECT rd2.fichier_joint FROM revue_documentaire rd2
                              WHERE rd2.idaudit = a.idaudit AND rd2.fichier_joint IS NOT NULL LIMIT 1) AS mon_pdf,
                             (SELECT rd3.idinspecteur FROM revue_documentaire rd3
-                             WHERE rd3.idaudit = a.idaudit AND rd3.fichier_joint IS NOT NULL LIMIT 1) AS pdf_idinspecteur
+                             WHERE rd3.idaudit = a.idaudit AND rd3.fichier_joint IS NOT NULL LIMIT 1) AS pdf_idinspecteur,
+                            CASE
+                              WHEN (SELECT COUNT(*) FROM revue_documentaire rdm
+                                    WHERE rdm.idaudit = a.idaudit AND rdm.fichier_joint IS NOT NULL) > 0
+                                   THEN 'pdf'
+                              WHEN (SELECT COUNT(*) FROM revue_documentaire rdt
+                                    WHERE rdt.idaudit = a.idaudit AND rdt.contexte_objectif IS NOT NULL
+                                      AND TRIM(rdt.contexte_objectif) <> '') > 0
+                                   THEN 'texte'
+                              ELSE ''
+                            END AS mode_audit,
+                            (SELECT COUNT(*) FROM revue_documentaire rra
+                              WHERE rra.idaudit = a.idaudit
+                                AND rra.idinspecteur = a.idresponsable_audit
+                                AND (rra.contexte_objectif IS NOT NULL OR rra.fichier_joint IS NOT NULL)) AS ra_a_traite,
+                            a.idresponsable_audit AS ra_id,
+                            -- Numero de la revue documentaire consolidee du RA : idrevue/annee/IX-GEN
+                            (SELECT CONCAT(rdn.idrevue,'/',
+                                     COALESCE(NULLIF(YEAR(rdn.date_consolidation),0), YEAR(CURDATE())),'/IX-GEN')
+                               FROM revue_documentaire rdn
+                              WHERE rdn.idaudit = a.idaudit
+                                AND rdn.idinspecteur = a.idresponsable_audit
+                                AND rdn.est_consolide = 1
+                              LIMIT 1) AS num_revue,
+                            -- Liste des membres de l'equipe (noms)
+                            (SELECT GROUP_CONCAT(DISTINCT TRIM(CONCAT(COALESCE(im.preninspect,''),' ',COALESCE(im.nominspecteur,''))) SEPARATOR ', ')
+                               FROM audit_equipe aem
+                               JOIN inspecteur im ON im.idinspecteur = aem.idinspecteur
+                              WHERE aem.idaudit = a.idaudit) AS membres
                      FROM audit a
                      LEFT JOIN organisme  o  ON o.idorga       = a.idorga
                      LEFT JOIN inspecteur ir ON ir.idinspecteur = a.idresponsable_audit
@@ -191,7 +298,37 @@ try {
                                       AND rd_ra3.fichier_joint IS NOT NULL LIMIT 1) IS NOT NULL
                               THEN a.idresponsable_audit
                               ELSE " . (int) $myInsp . "
-                            END AS pdf_idinspecteur
+                            END AS pdf_idinspecteur,
+                            -- Mode deja adopte par l'equipe : 'texte' si au moins une revue
+                            -- a ete saisie, 'pdf' si au moins une a ete jointe, sinon ''.
+                            -- Sert a verrouiller le choix pour tout l'audit.
+                            CASE
+                              WHEN (SELECT COUNT(*) FROM revue_documentaire rdm
+                                    WHERE rdm.idaudit = a.idaudit AND rdm.fichier_joint IS NOT NULL) > 0
+                                   THEN 'pdf'
+                              WHEN (SELECT COUNT(*) FROM revue_documentaire rdt
+                                    WHERE rdt.idaudit = a.idaudit AND rdt.contexte_objectif IS NOT NULL
+                                      AND TRIM(rdt.contexte_objectif) <> '') > 0
+                                   THEN 'texte'
+                              ELSE ''
+                            END AS mode_audit,
+                            -- Le RA a-t-il traite sa revue (saisie ou PDF) ? Si oui, c'est fini.
+                            (SELECT COUNT(*) FROM revue_documentaire rra
+                              WHERE rra.idaudit = a.idaudit
+                                AND rra.idinspecteur = a.idresponsable_audit
+                                AND (rra.contexte_objectif IS NOT NULL OR rra.fichier_joint IS NOT NULL)) AS ra_a_traite,
+                            a.idresponsable_audit AS ra_id,
+                            (SELECT CONCAT(rdn.idrevue,'/',
+                                     COALESCE(NULLIF(YEAR(rdn.date_consolidation),0), YEAR(CURDATE())),'/IX-GEN')
+                               FROM revue_documentaire rdn
+                              WHERE rdn.idaudit = a.idaudit
+                                AND rdn.idinspecteur = a.idresponsable_audit
+                                AND rdn.est_consolide = 1
+                              LIMIT 1) AS num_revue,
+                            (SELECT GROUP_CONCAT(DISTINCT TRIM(CONCAT(COALESCE(im.preninspect,''),' ',COALESCE(im.nominspecteur,''))) SEPARATOR ', ')
+                               FROM audit_equipe aem
+                               JOIN inspecteur im ON im.idinspecteur = aem.idinspecteur
+                              WHERE aem.idaudit = a.idaudit) AS membres
                      FROM audit a
                      LEFT JOIN organisme  o  ON o.idorga       = a.idorga
                      LEFT JOIN inspecteur ir ON ir.idinspecteur = a.idresponsable_audit
@@ -258,19 +395,31 @@ try {
         case 'save_revue':
             $idaudit = (int) ($_POST['idaudit'] ?? 0);
 
-            // L'inspecteur ne peut ecrire que sur sa propre revue.
-            // Le CI et l'admin peuvent ecrire sur n'importe quelle revue.
-            if (in_array($role, ['admin', 'chef_inspecteur'], true)) {
-                $idinsp = (int) ($_POST['idinspecteur'] ?? 0);
-                if ($idinsp <= 0) { $fail('Inspecteur non specifie.'); break; }
-            } else {
-                // Inspecteur : on ignore l'idinspecteur du POST, on prend le sien
-                if ($myInsp === null) { $fail('Votre compte n\'est pas lie a un inspecteur.'); break; }
-                $idinsp = $myInsp;
+            // Une revue documentaire engage son auteur : SEUL l'inspecteur concerne
+            // peut la rediger ou la modifier. Le responsable d'audit et le chef
+            // inspecteur y accedent en consultation. L'identifiant transmis par le
+            // client est ignore : on retient toujours celui de la session.
+            if ($myInsp === null) {
+                $fail('Seul un inspecteur peut rediger une revue documentaire.'); break;
             }
+            $idinsp = $myInsp;
 
             if (!can_access_audit($db, $idaudit, $uid, $role, $myInsp)) { $fail('Acces refuse.'); break; }
             if ($idaudit <= 0 || $idinsp <= 0) { $fail('Parametres invalides.'); break; }
+
+            // Une revue consolidee est definitive : plus aucune ecriture n'est admise.
+            $stC = $db->prepare("SELECT est_consolide FROM revue_documentaire WHERE idaudit=? AND idinspecteur=? LIMIT 1");
+            $stC->execute([$idaudit, $idinsp]);
+            $ligneC = $stC->fetch();
+            if ($ligneC && (int)$ligneC['est_consolide'] === 1) {
+                $fail('Cette revue est consolidee : elle ne peut plus etre modifiee.'); break;
+            }
+
+            // Verrouillage du mode (OWASP - controle serveur). La saisie texte n'est
+            // permise que si l'equipe est en mode texte (ou n'a encore rien fait) et
+            // que le RA n'a pas deja cloture la revue.
+            $errMode = verifier_mode($db, $idaudit, $idinsp, 'texte');
+            if ($errMode !== '') { $fail($errMode); break; }
 
             $contexte  = trim((string) ($_POST['contexte_objectif']       ?? ''));
             $perimetre = trim((string) ($_POST['perimetre_activite']       ?? ''));
@@ -356,15 +505,14 @@ try {
         // Supprimer le PDF joint (pour revenir en mode saisie texte)
         case 'del_pdf':
             $idaudit = (int) ($_POST['idaudit'] ?? 0);
-            if (in_array($role, ['admin', 'chef_inspecteur'], true)) {
-                $idinsp = (int) ($_POST['idinspecteur'] ?? 0);
-            } else {
-                if ($myInsp === null) { $fail('Compte non lie a un inspecteur.'); break; }
-                $idinsp = $myInsp;
-                // Verifier que c'est sa propre revue ou qu'il est RA
-                $stRA = $db->prepare("SELECT idaudit FROM audit WHERE idaudit = ? AND idresponsable_audit = ?");
-                $stRA->execute([$idaudit, $myInsp]);
-                if (!$stRA->fetch() && $idinsp !== $myInsp) { $fail('Acces refuse.'); break; }
+            // Seul l'auteur retire le document de sa propre revue.
+            if ($myInsp === null) { $fail('Compte non lie a un inspecteur.'); break; }
+            $idinsp = $myInsp;
+            $stCD = $db->prepare("SELECT est_consolide FROM revue_documentaire WHERE idaudit=? AND idinspecteur=? LIMIT 1");
+            $stCD->execute([$idaudit, $idinsp]);
+            $ligCD = $stCD->fetch();
+            if ($ligCD && (int)$ligCD['est_consolide'] === 1) {
+                $fail('Cette revue est consolidee : le document ne peut plus etre retire.'); break;
             }
             $stF = $db->prepare("SELECT fichier_joint FROM revue_documentaire WHERE idaudit = ? AND idinspecteur = ?");
             $stF->execute([$idaudit, $idinsp]);
@@ -383,14 +531,22 @@ try {
         // Upload PDF joint a une revue
         case 'upload_revue':
             $idaudit = (int) ($_POST['idaudit'] ?? 0);
-            if (in_array($role, ['admin', 'chef_inspecteur'], true)) {
-                $idinsp = (int) ($_POST['idinspecteur'] ?? 0);
-                if ($idinsp <= 0) { $fail('Inspecteur non specifie.'); break; }
-            } else {
-                if ($myInsp === null) { $fail('Votre compte n\'est pas lie a un inspecteur.'); break; }
-                $idinsp = $myInsp;
-            }
+            // Meme regle que la saisie : seul l'auteur joint le document de sa revue.
+            if ($myInsp === null) { $fail('Seul un inspecteur peut joindre une revue documentaire.'); break; }
+            $idinsp = $myInsp;
             if (!can_access_audit($db, $idaudit, $uid, $role, $myInsp)) { $fail('Acces refuse.'); break; }
+            $stCU = $db->prepare("SELECT est_consolide FROM revue_documentaire WHERE idaudit=? AND idinspecteur=? LIMIT 1");
+            $stCU->execute([$idaudit, $idinsp]);
+            $ligCU = $stCU->fetch();
+            if ($ligCU && (int)$ligCU['est_consolide'] === 1) {
+                $fail('Cette revue est consolidee : le document ne peut plus etre remplace.'); break;
+            }
+
+            // Verrouillage du mode (OWASP - controle serveur). Joindre un PDF n'est
+            // permis que si l'equipe est en mode PDF (ou n'a rien fait) et que le RA
+            // n'a pas deja cloture la revue.
+            $errModeU = verifier_mode($db, $idaudit, $idinsp, 'pdf');
+            if ($errModeU !== '') { $fail($errModeU); break; }
             if (!isset($_FILES['fichier']) || $_FILES['fichier']['error'] !== UPLOAD_ERR_OK) {
                 $fail('Aucun fichier recu ou erreur d\'upload.'); break;
             }

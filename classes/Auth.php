@@ -60,28 +60,87 @@ class Auth
     public static function login($email, $password)
     {
         try {
-            $db = self::getDB();
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
             $email = Security::cleanInput($email);
-            
-            $stmt = $db->prepare("SELECT * FROM users WHERE email = ? AND is_active = 1 LIMIT 1");
+
+            // Protection brute-force AU NIVEAU IP : verifiee AVANT toute requete
+            // sur les comptes. Complementaire au verrouillage par compte (isLocked) :
+            // protege aussi contre l'enumeration d'utilisateurs et les attaques
+            // distribuees sur plusieurs comptes depuis une meme source.
+            $throttle = self::checkIpThrottle($ip);
+            if ($throttle['blocked']) {
+                self::recordAttempt($email, $ip, false);
+                Audit::log('login_blocked_ip', 'auth', "IP temporairement bloquee ($ip) - seuil de tentatives depasse");
+                return [
+                    'success' => false,
+                    'message' => 'Trop de tentatives depuis cette adresse. Reessayez dans ' . $throttle['retry_minutes'] . ' minute(s).',
+                ];
+            }
+
+            $db = self::getDB();
+
+            $stmt = $db->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
             $stmt->execute([$email]);
             $user = $stmt->fetch();
             
             if (!$user) {
                 self::logAttempt($email, false, 'Utilisateur non trouvé');
+                self::recordAttempt($email, $ip, false);
+                return ['success' => false, 'message' => 'Email ou mot de passe incorrect'];
+            }
+
+            // Compte desactive MANUELLEMENT par un admin/chef inspecteur (conge,
+            // depart, suspension...). Distinct du verrouillage automatique par
+            // echecs (isLocked, juste apres). On ne revele le motif qu'APRES
+            // verification du mot de passe : un tiers qui ne connait pas les
+            // identifiants ne doit pas apprendre que ce compte existe/est desactive.
+            if ((int) $user['is_active'] !== 1) {
+                self::recordAttempt($email, $ip, false);
+                if (Security::verifyPassword($password, $user['password_hash'])) {
+                    self::logAttempt($email, false, 'Connexion refusee - compte desactive', $user['iduser']);
+                    $motif = trim((string) ($user['motif_desactivation'] ?? ''));
+                    return [
+                        'success' => false,
+                        'message' => 'Votre compte a ete desactive' . ($motif !== '' ? " : $motif" : '.')
+                            . ' Contactez un administrateur ou le chef inspecteur pour plus d\'informations.',
+                    ];
+                }
+                self::logAttempt($email, false, 'Utilisateur non trouvé');
                 return ['success' => false, 'message' => 'Email ou mot de passe incorrect'];
             }
             
             if (self::isLocked($user)) {
-                return ['success' => false, 'message' => 'Compte verrouillé. Réessayez plus tard.'];
+                self::logAttempt($email, false, 'Tentative sur un compte verrouille', $user['iduser']);
+                self::recordAttempt($email, $ip, false);
+                return [
+                    'success' => false,
+                    'message' => 'Compte verrouille suite a plusieurs echecs de connexion. Seul un administrateur ou un chef inspecteur peut le reactiver.',
+                ];
             }
             
             if (!Security::verifyPassword($password, $user['password_hash'])) {
-                self::incrementAttempts($user['iduser']);
+                $justLocked = self::incrementAttempts($user['iduser']);
+                self::recordAttempt($email, $ip, false);
+
+                if ($justLocked) {
+                    self::logAttempt($email, false, 'Compte verrouille definitivement apres trop d\'echecs', $user['iduser']);
+                    Audit::log(
+                        'account_locked',
+                        'auth',
+                        "Compte verrouille de facon permanente (email : $email) apres " . MAX_LOGIN_ATTEMPTS . " echecs consecutifs - reactivation manuelle requise (admin/chef inspecteur)."
+                    );
+                    return [
+                        'success' => false,
+                        'message' => 'Compte verrouille suite a plusieurs echecs de connexion. Seul un administrateur ou un chef inspecteur peut le reactiver.',
+                    ];
+                }
+
+                self::logAttempt($email, false, 'Mot de passe incorrect', $user['iduser']);
                 return ['success' => false, 'message' => 'Email ou mot de passe incorrect'];
             }
             
             self::resetAttempts($user['iduser']);
+            self::recordAttempt($email, $ip, true);
             
             $_SESSION['user_id'] = $user['iduser'];
             $_SESSION['user'] = [
@@ -183,6 +242,59 @@ class Auth
     }
     
     /**
+     * Enregistrer chaque tentative (succes ou echec) dans la table dediee
+     * login_attempts. Independante de audit_logs : sert exclusivement a la
+     * detection brute-force par adresse IP (fenetre glissante).
+     */
+    private static function recordAttempt(?string $email, string $ip, bool $success): void
+    {
+        try {
+            $db = self::getDB();
+            $stmt = $db->prepare(
+                "INSERT INTO login_attempts (email, ip_address, success, attempted_at) VALUES (?, ?, ?, NOW())"
+            );
+            $stmt->execute([($email !== null && $email !== '') ? $email : null, $ip, $success ? 1 : 0]);
+        } catch (Throwable $e) {
+            error_log('Auth::recordAttempt : ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Verifie si une adresse IP doit etre bloquee : trop d'echecs enregistres
+     * dans la fenetre glissante LOCKOUT_TIME (secondes). Seuil : MAX_LOGIN_ATTEMPTS_IP.
+     * En cas d'erreur technique on ne bloque PAS (evite un deni de service auto-inflige).
+     */
+    private static function checkIpThrottle(string $ip): array
+    {
+        try {
+            $db = self::getDB();
+            $maxAttempts = defined('MAX_LOGIN_ATTEMPTS_IP') ? MAX_LOGIN_ATTEMPTS_IP : 20;
+            $window      = defined('LOCKOUT_TIME') ? LOCKOUT_TIME : 900;
+
+            $stmt = $db->prepare(
+                "SELECT COUNT(*) AS nb, MAX(attempted_at) AS dernier
+                 FROM login_attempts
+                 WHERE ip_address = ? AND success = 0
+                   AND attempted_at >= DATE_SUB(NOW(), INTERVAL ? SECOND)"
+            );
+            $stmt->execute([$ip, $window]);
+            $row = $stmt->fetch();
+
+            $nb = (int) ($row['nb'] ?? 0);
+            if ($nb >= $maxAttempts) {
+                $dernier   = $row['dernier'] ? strtotime($row['dernier']) : time();
+                $retryAt   = $dernier + $window;
+                $remaining = max(1, (int) ceil(($retryAt - time()) / 60));
+                return ['blocked' => true, 'retry_minutes' => $remaining];
+            }
+            return ['blocked' => false, 'retry_minutes' => 0];
+        } catch (Throwable $e) {
+            error_log('Auth::checkIpThrottle : ' . $e->getMessage());
+            return ['blocked' => false, 'retry_minutes' => 0];
+        }
+    }
+
+    /**
      * Journaliser une tentative
      */
     private static function logAttempt($email, $success, $message, $userId = null)
@@ -218,33 +330,59 @@ class Auth
     }
     
     /**
-     * Vérifier si le compte est verrouillé
+     * Vérifier si le compte est verrouillé.
+     * Depuis la mise en place du verrouillage permanent, locked_until ne
+     * contient plus que NULL ou la sentinelle '9999-12-31 23:59:59' (voir
+     * incrementAttempts). La branche "expire" ci-dessous reste en place
+     * uniquement pour nettoyer d'anciens verrouillages temporaires (15 min)
+     * qui pourraient encore exister en base avant cette mise a jour.
      */
-    private static function isLocked($user)
+    private static function isLocked($user): bool
     {
-        if ($user['login_attempts'] >= 5) {
-            $lockedUntil = strtotime($user['locked_until'] ?? '1970-01-01');
-            if (time() < $lockedUntil) {
-                return true;
-            }
+        if (empty($user['locked_until'])) {
+            return false;
+        }
+        $lockedUntil = strtotime($user['locked_until']);
+        if ($lockedUntil !== false && time() < $lockedUntil) {
+            return true;
+        }
+        if ($lockedUntil !== false) {
+            // Verrouillage temporaire (legacy) expire : on nettoie pour permettre une nouvelle tentative
             self::resetAttempts($user['iduser']);
         }
         return false;
     }
     
     /**
-     * Incrémenter les tentatives
+     * Incrémenter les tentatives échouées d'un compte.
+     * Au seuil MAX_LOGIN_ATTEMPTS, le compte est verrouillé de façon
+     * PERMANENTE (comme une carte bancaire avalée par un distributeur) :
+     * seul un administrateur ou un chef inspecteur peut le débloquer
+     * manuellement (page Cybersécurité > Tentatives de connexion > Débloquer).
+     * Il n'y a plus de déverrouillage automatique après un délai.
+     *
+     * @return bool true si cet appel vient de déclencher le verrouillage
      */
-    private static function incrementAttempts($userId)
+    private static function incrementAttempts($userId): bool
     {
-        $db = self::getDB();
-        $stmt = $db->prepare("
-            UPDATE users 
-            SET login_attempts = login_attempts + 1,
-                locked_until = IF(login_attempts >= 4, DATE_ADD(NOW(), INTERVAL 15 MINUTE), NULL)
-            WHERE iduser = ?
-        ");
+        $db  = self::getDB();
+        $max = defined('MAX_LOGIN_ATTEMPTS') ? MAX_LOGIN_ATTEMPTS : 5;
+
+        $db->prepare("UPDATE users SET login_attempts = login_attempts + 1 WHERE iduser = ?")
+           ->execute([$userId]);
+
+        $stmt = $db->prepare("SELECT login_attempts FROM users WHERE iduser = ?");
         $stmt->execute([$userId]);
+        $attempts = (int) ($stmt->fetch()['login_attempts'] ?? 0);
+
+        if ($attempts >= $max) {
+            // Sentinelle "permanent" : date maximale acceptee par le type DATETIME MySQL.
+            // Seule l'action 'debloquer' (app/endpoints/login-attempts.php) peut l'effacer.
+            $db->prepare("UPDATE users SET locked_until = '9999-12-31 23:59:59' WHERE iduser = ?")
+               ->execute([$userId]);
+            return true;
+        }
+        return false;
     }
     
     /**

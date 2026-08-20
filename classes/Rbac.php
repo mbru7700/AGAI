@@ -19,11 +19,11 @@ class Rbac
 {
     /** Matrice de DEFAUT role -> modules feuilles (utilisee si user_modules vide). */
     private const MATRIX = [
-        'admin'           => ['dashboard','audits','revue_doc','notifications','rapports','qre','ouverture_nc','suivi_nc','inspecteurs','exploitants','domaines','sousdomaines','typesorganisme','reglements','sites','analyse_psc','analyse_fnc','mise_oeuvre','users','parametres','cybersecurite'],
-        'chef_inspecteur' => ['dashboard','audits','revue_doc','notifications','rapports','qre','ouverture_nc','suivi_nc','inspecteurs','exploitants','domaines','sousdomaines','typesorganisme','reglements','sites','users','cybersecurite'],
-        'inspecteur'      => ['dashboard','audits','revue_doc','notifications','rapports','qre','ouverture_nc','suivi_nc','inspecteurs','domaines','sousdomaines','reglements'],
+        'admin'           => ['dashboard','audits','revue_doc','notifications','rapports','qre','ouverture_nc','suivi_nc','alertes_fnc','inspecteurs','programme_psc','exploitants','domaines','sousdomaines','typesorganisme','reglements','sites','analyse_psc','archivage','analyse_fnc','profil_risque','mise_oeuvre','bilan_supervision','users','parametres','cybersecurite'],
+        'chef_inspecteur' => ['dashboard','audits','revue_doc','notifications','rapports','qre','ouverture_nc','suivi_nc','alertes_fnc','inspecteurs','programme_psc','exploitants','domaines','sousdomaines','typesorganisme','reglements','sites','analyse_psc','archivage','analyse_fnc','profil_risque','mise_oeuvre','bilan_supervision','users','cybersecurite'],
+        'inspecteur'      => ['dashboard','audits','revue_doc','notifications','rapports','qre','ouverture_nc','suivi_nc','alertes_fnc','inspecteurs','programme_psc','domaines','sousdomaines','reglements','archivage'],
         'operateur'       => ['dashboard','qre','notifications','rapports','audits'],
-        'consultant'      => ['dashboard','audits','revue_doc','notifications','rapports','qre','ouverture_nc','suivi_nc','domaines','reglements'],
+        'consultant'      => ['dashboard','audits','revue_doc','notifications','rapports','qre','ouverture_nc','suivi_nc','alertes_fnc','domaines','reglements'],
     ];
 
     /** Tous les modules disponibles dans AGAI avec leurs labels.
@@ -37,26 +37,12 @@ class Rbac
             'icon'  => 'bi-speedometer2',
             'desc'  => 'Acces au tableau de bord principal',
         ],
-        'audits_group' => [
-            'label'    => 'Gestion Supervision',
-            'icon'     => 'bi-clipboard-check',
-            'desc'     => 'Ensemble des fonctionnalites liees aux audits et supervision',
-            'is_group' => true,
-            'children' => [
-                'audits'        => ['label'=>'Audits et inspections', 'icon'=>'bi-clipboard-check',   'desc'=>'Declenchement, suivi et cloture des audits'],
-                'revue_doc'     => ['label'=>'Revue documentaire',    'icon'=>'bi-file-text',          'desc'=>'Formulaire IX-GEN-R3-F-I-017'],
-                'notifications' => ['label'=>'Notifications',         'icon'=>'bi-bell',               'desc'=>'Lettres de notification aux operateurs'],
-                'rapports'      => ['label'=>'Rapports',              'icon'=>'bi-file-earmark-text',  'desc'=>'Rapports d\'actes de supervision IX-GEN-R3-FI-009'],
-                'qre'           => ['label'=>'Formulaire QRE',        'icon'=>'bi-ui-checks-grid',     'desc'=>'Questionnaire de Retour d\'Experience IX-GEN-R3-FI-011'],
-            ],
-        ],
         'structures_group' => [
             'label'    => 'Donnees de structures',
             'icon'     => 'bi-diagram-3',
             'desc'     => 'Referentiels et donnees de base',
             'is_group' => true,
             'children' => [
-                'inspecteurs'    => ['label'=>'Inspecteurs',         'icon'=>'bi-person-badge',  'desc'=>'Gestion des inspecteurs et habilitations'],
                 'exploitants'    => ['label'=>'Exploitants',         'icon'=>'bi-buildings',     'desc'=>'Operateurs et compagnies aeriennes'],
                 'domaines'       => ['label'=>'Domaines',            'icon'=>'bi-grid-3x3-gap',  'desc'=>'Domaines de surveillance'],
                 'sousdomaines'   => ['label'=>'Sous-domaines',       'icon'=>'bi-diagram-2',     'desc'=>'Sous-domaines par domaine'],
@@ -65,13 +51,29 @@ class Rbac
                 'sites'          => ['label'=>'Sites d\'inspection', 'icon'=>'bi-geo-alt',       'desc'=>'Sites identifies par indicateur OACI'],
             ],
         ],
+        'audits_group' => [
+            'label'    => 'Gestion Supervision',
+            'icon'     => 'bi-clipboard-check',
+            'desc'     => 'Ensemble des fonctionnalites liees aux audits et supervision',
+            'is_group' => true,
+            'children' => [
+                'inspecteurs'   => ['label'=>'Inspecteurs',           'icon'=>'bi-person-badge',      'desc'=>'Gestion des inspecteurs et habilitations'],
+                'programme_psc' => ['label'=>'Programme PSC',         'icon'=>'bi-calendar3-week',    'desc'=>'Programme de surveillance continue (matrice)'],
+                'audits'        => ['label'=>'Audits et inspections', 'icon'=>'bi-clipboard-check',   'desc'=>'Declenchement, suivi et cloture des audits'],
+                'revue_doc'     => ['label'=>'Revue documentaire',    'icon'=>'bi-file-text',          'desc'=>'Formulaire IX-GEN-R3-F-I-017'],
+                'notifications' => ['label'=>'Notifications',         'icon'=>'bi-bell',               'desc'=>'Lettres de notification aux operateurs'],
+                'rapports'      => ['label'=>'Rapports',              'icon'=>'bi-file-earmark-text',  'desc'=>'Rapports d\'actes de supervision IX-GEN-R3-FI-009'],
+                'qre'           => ['label'=>'Formulaire QRE',        'icon'=>'bi-ui-checks-grid',     'desc'=>'Questionnaire de Retour d\'Experience IX-GEN-R3-FI-011'],
+            ],
+        ],
         'nc_group' => [
             'label'    => 'Non-conformites',
             'icon'     => 'bi-exclamation-triangle',
             'desc'     => 'Ouverture et suivi des fiches de non-conformite',
             'is_group' => true,
             'children' => [
-                'ouverture_nc' => ['label'=>'Ouverture NC', 'icon'=>'bi-file-earmark-x',  'desc'=>'Creer les fiches de non-conformite (FNC)'],
+                'ouverture_nc' => ['label'=>'Fiches de non-conformite', 'icon'=>'bi-clipboard-check', 'desc'=>'Ouverture, suivi et cloture des FNC'],
+                'alertes_fnc'  => ['label'=>'Alertes FNC',               'icon'=>'bi-bell',           'desc'=>'Echeances de reponse et de mise en conformite'],
                 'suivi_nc'     => ['label'=>'Suivi NC',     'icon'=>'bi-clipboard-check', 'desc'=>'Tableau de suivi des non-conformites'],
             ],
         ],
@@ -82,8 +84,11 @@ class Rbac
             'is_group' => true,
             'children' => [
                 'analyse_psc'  => ['label'=>'Analyse PSC',           'icon'=>'bi-bar-chart',    'desc'=>'Programme de surveillance continue'],
+                'archivage'    => ['label'=>'Archivage',             'icon'=>'bi-archive',      'desc'=>'Inventaire documentaire des actes de supervision'],
                 'analyse_fnc'  => ['label'=>'Analyse FNC',           'icon'=>'bi-pie-chart',    'desc'=>'Statistiques non-conformites'],
-                'mise_oeuvre'  => ['label'=>'Mise en oeuvre regl.',  'icon'=>'bi-shield-check', 'desc'=>'Suivi mise en oeuvre reglementaire'],
+                'profil_risque'=> ['label'=>'Profil de risque',      'icon'=>'bi-shield-exclamation','desc'=>'Profil de risque des operateurs (surveillance basee sur les risques)'],
+                'mise_oeuvre'  => ['label'=>'Taux de conformite reglementaire',  'icon'=>'bi-shield-check', 'desc'=>'Suivi mise en oeuvre reglementaire'],
+                'bilan_supervision' => ['label'=>'Bilan supervision', 'icon'=>'bi-clipboard-data', 'desc'=>'Bilan global du programme de supervision'],
             ],
         ],
         'users' => [
@@ -147,6 +152,15 @@ class Rbac
         // Administrateur : acces total garanti, independant de user_modules.
         if ($role === 'admin') {
             return self::$userModulesCache = self::MATRIX['admin'];
+        }
+
+        // Operateur : socle metier garanti (dashboard + ses modules de consultation).
+        // Un operateur n'est pas gere via la modale d'habilitations par module
+        // (il ne voit que SES propres donnees, filtrees par idorga cote endpoints).
+        // On lui garantit donc toujours son menu complet, pour eviter un tableau
+        // de bord et un menu vides si user_modules ne contient qu'une entree.
+        if ($role === 'operateur') {
+            return self::$userModulesCache = self::MATRIX['operateur'];
         }
 
         try {

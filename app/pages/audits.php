@@ -16,12 +16,16 @@ $canDelete = in_array($role, ['admin', 'chef_inspecteur'], true);
 
 require_once INCLUDES_PATH . '/layout_head.php';
 ?>
+<?php require_once INCLUDES_PATH . '/qrcode_inline.php'; ?>
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <style>
 /* ---- KPI compactes ---- */
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:0;}
 .kpi-card{background:#fff;border:1px solid #eef1f6;border-radius:12px;padding:10px 12px;box-shadow:0 1px 2px rgba(16,30,54,.04);display:flex;align-items:center;gap:9px;}
+.kpi-card[data-kpi]{cursor:pointer;transition:.15s;}
+.kpi-card[data-kpi]:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(35,64,143,.14);border-color:#c9d6f0;}
+.kpi-card.kpi-on{border-color:#23408F;box-shadow:0 0 0 2px rgba(35,64,143,.28);}
 .kpi-ic{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex:0 0 auto;}
 .kpi-num{font-size:1.3rem;font-weight:800;line-height:1;color:#2C3E50;}
 .kpi-lbl{font-size:.68rem;color:#6b7a90;margin-top:1px;}
@@ -130,35 +134,35 @@ table.tbl tbody tr.st-ferme{background:#f5f5f5;opacity:.8;}
   <div class="stats-body collapse" id="statsBody">
     <!-- KPI avec pourcentages -->
     <div class="kpi-row mb-3">
-      <div class="kpi-card" title="Total des audits affiches">
+      <div class="kpi-card" data-kpi="" title="Cliquer pour afficher tous les actes">
         <div class="kpi-ic ic-total"><i class="bi bi-clipboard-data-fill"></i></div>
         <div><div class="kpi-num" id="kTotal">-</div><div class="kpi-lbl">Total</div></div>
       </div>
-      <div class="kpi-card" title="Audits planifies | % du total">
+      <div class="kpi-card" data-kpi="1" title="Cliquer pour filtrer les actes planifies">
         <div class="kpi-ic ic-plan"><i class="bi bi-calendar-check-fill"></i></div>
         <div><div class="kpi-num" id="kPlan" style="color:#23408F">-</div><div class="kpi-lbl">Planifies</div><div class="kpi-pct" id="pPlan" style="font-size:.7rem;color:#23408F;font-weight:700"></div></div>
       </div>
-      <div class="kpi-card" title="Audits reportes | % du total">
+      <div class="kpi-card" data-kpi="2" title="Cliquer pour filtrer les actes reportes">
         <div class="kpi-ic ic-rep"><i class="bi bi-arrow-clockwise"></i></div>
         <div><div class="kpi-num" id="kRep" style="color:#b58a00">-</div><div class="kpi-lbl">Reportes</div><div class="kpi-pct" id="pRep" style="font-size:.7rem;color:#b58a00;font-weight:700"></div></div>
       </div>
-      <div class="kpi-card" title="Audits effectues | % du total">
+      <div class="kpi-card" data-kpi="3" title="Cliquer pour filtrer les actes effectues">
         <div class="kpi-ic ic-eff"><i class="bi bi-check-circle-fill"></i></div>
         <div><div class="kpi-num" id="kEff" style="color:#1E9C4B">-</div><div class="kpi-lbl">Effectues</div><div class="kpi-pct" id="pEff" style="font-size:.7rem;color:#1E9C4B;font-weight:700"></div></div>
       </div>
-      <div class="kpi-card" title="Audits suspendus | % du total">
+      <div class="kpi-card" data-kpi="4" title="Cliquer pour filtrer les actes suspendus">
         <div class="kpi-ic ic-sus"><i class="bi bi-pause-circle-fill"></i></div>
         <div><div class="kpi-num" id="kSus" style="color:#D32F2F">-</div><div class="kpi-lbl">Suspendus</div><div class="kpi-pct" id="pSus" style="font-size:.7rem;color:#D32F2F;font-weight:700"></div></div>
       </div>
-      <div class="kpi-card" title="Audits annules | % du total">
+      <div class="kpi-card" data-kpi="6" title="Cliquer pour filtrer les actes annules">
         <div class="kpi-ic" style="background:rgba(56,61,65,.1);color:#383d41"><i class="bi bi-x-circle-fill"></i></div>
         <div><div class="kpi-num" id="kAnn" style="color:#383d41">-</div><div class="kpi-lbl">Annules</div><div class="kpi-pct" id="pAnn" style="font-size:.7rem;color:#383d41;font-weight:700"></div></div>
       </div>
-      <div class="kpi-card" title="Audits inopines | % du total">
+      <div class="kpi-card" data-kpi="7" title="Cliquer pour filtrer les actes inopines">
         <div class="kpi-ic" style="background:rgba(35,64,143,.08);color:#23408F"><i class="bi bi-lightning-fill"></i></div>
         <div><div class="kpi-num" id="kInop" style="color:#23408F">-</div><div class="kpi-lbl">Inopines</div><div class="kpi-pct" id="pInop" style="font-size:.7rem;color:#23408F;font-weight:700"></div></div>
       </div>
-      <div class="kpi-card" title="Taux d'execution = Effectues / Total * 100">
+      <div class="kpi-card" data-kpi="3" title="Taux d'execution : cliquer pour filtrer les actes effectues">
         <div class="kpi-ic ic-exec"><i class="bi bi-speedometer2"></i></div>
         <div><div class="kpi-taux" id="kTaux" style="color:#1E9C4B">- %</div><div class="kpi-lbl">Taux execution</div></div>
       </div>
@@ -208,6 +212,10 @@ table.tbl tbody tr.st-ferme{background:#f5f5f5;opacity:.8;}
 <!-- Filtres dynamiques (sans bouton Filtrer - Select2 instantane) -->
 <div class="filter-bar mb-2">
   <div class="row g-2 align-items-end">
+    <div class="col-6 col-md">
+      <label class="form-label small fw-bold mb-1" style="color:#5b6b85;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em">N audit</label>
+      <select id="fNum" style="width:100%"><option value="">Tous</option></select>
+    </div>
     <div class="col-6 col-md">
       <label class="form-label small fw-bold mb-1" style="color:#5b6b85;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em">Nature supervision</label>
       <select id="fType" style="width:100%"><option value="">Toutes</option></select>
@@ -325,7 +333,7 @@ table.tbl tbody tr.st-ferme{background:#f5f5f5;opacity:.8;}
           <div class="col-md-6"><label class="form-label">Chef inspecteur</label><select id="a_chef" style="width:100%"></select></div>
           <div class="col-md-6"><label class="form-label">Date previsionnelle</label><input type="date" class="form-control" id="a_dprev"></div>
           <div class="col-md-6"><label class="form-label">Date realisation</label><input type="date" class="form-control" id="a_dreal"></div>
-          <div class="col-md-6"><label class="form-label">Delai execution (j)</label><input type="number" class="form-control" id="a_delai" min="0"></div>
+          <div class="col-md-6"><label class="form-label">Delai execution (j)</label><input type="number" class="form-control" id="a_delai" min="0" readonly style="background:#f5f7fa" title="Calcule automatiquement : Date realisation moins Date previsionnelle"><div class="form-text">Calcul automatique : Date realisation - Date previsionnelle.</div></div>
           <div class="col-md-6"><label class="form-label">Date rapport</label><input type="date" class="form-control" id="a_drap"></div>
           <div class="col-md-6"><label class="form-label">Date notification</label><input type="date" class="form-control" id="a_dnotif"></div>
           <div class="col-12"><div class="form-check"><input type="checkbox" class="form-check-input" id="a_ferme"><label class="form-check-label small">Marquer comme ferme</label></div><div id="wrapFerme" style="display:none;margin-top:6px"><input type="date" class="form-control" id="a_dferm"></div></div>
@@ -375,6 +383,16 @@ const MOIS_FR=['','Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','N
 
 function apiPost(data){data=Object.assign({csrf_token:CSRF},data);return $.post(API_AUDITS,data,null,'json');}
 function fmtDate(s){if(!s||String(s)==='0000-00-00')return '-';const p=String(s).substring(0,10).split('-');return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):s;}
+/* Delai d'execution TOUJOURS calcule a la volee : Date realisation - Date
+   previsionnelle (en jours). On ignore volontairement le champ stocke en BDD. */
+function delaiExec(a){
+  const dp=a && a.date_previsionnelle ? String(a.date_previsionnelle).substring(0,10) : '';
+  const dr=a && a.date_realisation ? String(a.date_realisation).substring(0,10) : '';
+  if(!dp || !dr || dp==='0000-00-00' || dr==='0000-00-00') return null;
+  const p=new Date(dp+'T00:00:00'), r=new Date(dr+'T00:00:00');
+  if(isNaN(p) || isNaN(r)) return null;
+  return Math.round((r - p)/86400000);
+}
 function statBadge(a){if(Number(a.est_ferme)===1)return '<span class="sb sb0">Ferme</span>';const s=STATUT[a.statut]||{t:a.statut||'-',c:'sb1'};return '<span class="sb '+s.c+'">'+esc(s.t)+'</span>';}
 
 /* ======= TOGGLE STATS ======= */
@@ -453,7 +471,9 @@ function calcParMois(list){
 }
 
 function updateStatsDisplay(data){
-  const list=data._filteredList||ALL;
+  // Les indicateurs se calculent sur la liste filtree SANS le filtre de statut :
+  // cliquer sur "Effectues" met le tableau a jour mais laisse la repartition lisible.
+  const list = data._listeIndicateurs || data._filteredList || ALL;
   const s=calcStats(list);
   const tot=s.total||1; // eviter division par zero
   function pct(v){ return tot>0?Math.round(v/tot*100):0; }
@@ -467,7 +487,10 @@ function updateStatsDisplay(data){
   $('#kInop').text(s.inopines||0);$('#pInop').text((s.inopines||0)>0?pct(s.inopines||0)+'%':'');
   $('#kTaux').text(s.taux_execution+'%');
   // Resume en-tete du panneau stats
-  $('#statsResume').text(s.total+' actes | '+s.effectues+' effectues ('+s.taux_execution+'%)');
+  const nbAffiches = (data._filteredList || list).length;
+  let resume = s.total+' actes | '+s.effectues+' effectues ('+s.taux_execution+'%)';
+  if(nbAffiches !== s.total){ resume += '  -  '+nbAffiches+' affiche(s) selon le filtre'; }
+  $('#statsResume').text(resume);
   // Graphiques
   const parAnnee=calcParAnnee(list);
   const parMois=calcParMois(list);
@@ -597,7 +620,7 @@ function loadStats(){ /* Stats recalculees depuis les donnees filtrees via updat
 
 /* ======= TABLEAU + FILTRES DYNAMIQUES ======= */
 let ALL=[], PAGE=1, PER=20;
-let F_TYPE='',F_STATUT='',F_ORGA='',F_SITE='',F_INSP='';
+let F_NUM='',F_TYPE='',F_STATUT='',F_ORGA='',F_SITE='',F_INSP='';
 // Filtres graphiques : impactent le tableau, les KPI et les 3 graphiques
 let F_GRAPH_ANNEE='',F_GRAPH_MOIS='',F_GRAPH_STATUT='';
 let LISTS_LOADED=false, EXPLOITANTS=[], INSPECTEURS=[], DOMAINES=[], SITES=[];
@@ -638,8 +661,15 @@ function buildFilters(){
   INSPECTEURS.filter(function(i){return inspIds.has(String(i.idinspecteur));})
     .forEach(function(i){h+='<option value="'+esc(i.idinspecteur)+'">'+esc(i.nom)+'</option>';});
   $('#fInsp').html(h);
+  // Numeros d'audit : liste triee du plus recent au plus ancien
+  const nums = [...new Set(ALL.map(function(a){ return String(a.num_audit||''); }).filter(Boolean))]
+                 .sort(function(x,y){ return y.localeCompare(x, 'fr', {numeric:true}); });
+  h='<option value="">Tous les numeros</option>';
+  nums.forEach(function(n){ h+='<option value="'+esc(n)+'">'+esc(n)+'</option>'; });
+  $('#fNum').html(h);
+
   // Initialiser Select2 sur tous les filtres
-  ['#fType','#fStatut','#fOrga','#fSite','#fInsp'].forEach(function(id){
+  ['#fNum','#fType','#fStatut','#fOrga','#fSite','#fInsp'].forEach(function(id){
     if($(id).hasClass('select2-hidden-accessible'))$(id).select2('destroy');
     $(id).select2({theme:'bootstrap-5',width:'100%',allowClear:true,placeholder:'Tous'});
     // Filtre instantane au changement
@@ -648,6 +678,7 @@ function buildFilters(){
 }
 
 function applyFilters(){
+  F_NUM=$('#fNum').val()||'';
   F_TYPE=$('#fType').val()||'';F_STATUT=$('#fStatut').val()||'';
   F_ORGA=$('#fOrga').val()||'';F_SITE=$('#fSite').val()||'';
   F_INSP=$('#fInsp').val()||'';
@@ -658,6 +689,7 @@ function applyFilters(){
   const list=filtered();
   if(!STATS_DATA) STATS_DATA={};
   STATS_DATA._filteredList=list;
+  STATS_DATA._listeIndicateurs=filtered(true);   // repartition d'ensemble
   updateStatsDisplay(STATS_DATA);
   renderRows(list);
 }
@@ -667,10 +699,18 @@ $(document).off('change.graphfilter').on('change.graphfilter','#fGraphAnnee,#fGr
   applyFilters();
 });
 
-function filtered(){
+/**
+ * Filtre la liste des actes.
+ * @param {boolean} ignorerStatut  true : les filtres de statut ne sont pas appliques.
+ *   Utilise pour les indicateurs, afin qu'ils conservent la repartition d'ensemble.
+ *   Sans cela, filtrer sur "Effectues" afficherait 13 sur 13, soit 100 %,
+ *   ce qui masquerait la realite : 13 effectues sur 39 actes.
+ */
+function filtered(ignorerStatut){
   return ALL.filter(function(a){
+    if(F_NUM    && String(a.num_audit||'')!==F_NUM) return false;
     if(F_TYPE   && a.type_activite!==F_TYPE)    return false;
-    if(F_STATUT && String(a.statut)!==F_STATUT) return false;
+    if(!ignorerStatut && F_STATUT && String(a.statut)!==F_STATUT) return false;
     if(F_ORGA   && String(a.idorga)!==F_ORGA)   return false;
     if(F_SITE   && String(a.idsite||'')!==F_SITE) return false;
     if(F_INSP){const eq=a.inspecteurs||[];if(!eq.some(function(i){return String(i.idinspecteur)===F_INSP;})) return false;}
@@ -683,7 +723,7 @@ function filtered(){
       const mo=String(a.date_previsionnelle||'').substring(5,7).replace(/^0/,'');
       if(mo!==F_GRAPH_MOIS) return false;
     }
-    if(F_GRAPH_STATUT){
+    if(!ignorerStatut && F_GRAPH_STATUT){
       if(F_GRAPH_STATUT==='ferme'){if(Number(a.est_ferme)!==1)return false;}
       else{if(String(a.statut)!==F_GRAPH_STATUT||Number(a.est_ferme)===1)return false;}
     }
@@ -693,7 +733,11 @@ function filtered(){
 
 function render(){
   const list=filtered();
-  if(STATS_DATA){STATS_DATA._filteredList=list;if(statsOpen)updateStatsDisplay(STATS_DATA);}
+  if(STATS_DATA){
+    STATS_DATA._filteredList=list;
+    STATS_DATA._listeIndicateurs=filtered(true);
+    if(statsOpen)updateStatsDisplay(STATS_DATA);
+  }
   renderRows(list);
 }
 
@@ -755,17 +799,39 @@ function loadTable(){
   }).fail(function(){$('#tbody').html('<tr><td colspan="12" class="empty">Echec du chargement.</td></tr>');});
 }
 
+/* ============================================================
+ *  Les cartes d'indicateurs filtrent le tableau au clic.
+ *  Un second clic sur la meme carte annule le filtre.
+ * ============================================================ */
+$(document).on('click','.kpi-card[data-kpi]',function(){
+  const val = String($(this).data('kpi'));
+  const dejaActif = $(this).hasClass('kpi-on');
+  $('.kpi-card').removeClass('kpi-on');
+
+  if(val === '' || dejaActif){
+    // Retour a la vue complete
+    if($('#fStatut').hasClass('select2-hidden-accessible')) $('#fStatut').val(null).trigger('change');
+    else { $('#fStatut').val(''); applyFilters(); }
+    return;
+  }
+  $(this).addClass('kpi-on');
+  if($('#fStatut').hasClass('select2-hidden-accessible')) $('#fStatut').val(val).trigger('change');
+  else { $('#fStatut').val(val); applyFilters(); }
+});
+
 $('#btnReset').on('click',function(){
-  ['#fType','#fStatut','#fOrga','#fSite','#fInsp'].forEach(function(id){
+  ['#fNum','#fType','#fStatut','#fOrga','#fSite','#fInsp'].forEach(function(id){
     if($(id).hasClass('select2-hidden-accessible'))$(id).val(null).trigger('change');
     else $(id).val('');
   });
   $('#fGraphAnnee,#fGraphMois,#fGraphStatut').val('');
-  F_TYPE=F_STATUT=F_ORGA=F_SITE=F_INSP='';
+  $('.kpi-card').removeClass('kpi-on');
+  F_NUM=F_TYPE=F_STATUT=F_ORGA=F_SITE=F_INSP='';
   F_GRAPH_ANNEE=F_GRAPH_MOIS=F_GRAPH_STATUT='';
   PAGE=1;
   if(!STATS_DATA) STATS_DATA={};
   STATS_DATA._filteredList=ALL;
+  STATS_DATA._listeIndicateurs=ALL;
   updateStatsDisplay(STATS_DATA);
   renderRows(ALL);
 });
@@ -843,7 +909,7 @@ $(document).on('click','.act-edit',function(){
       const d=function(s){return s?String(s).substring(0,10):'';};
       $('#a_dprev').val(d(a.date_previsionnelle));$('#a_dreal').val(d(a.date_realisation));
       $('#a_drap').val(d(a.date_delivrance_rapport));$('#a_dnotif').val(d(a.date_notification));
-      $('#a_delai').val(a.delai_execution||'');
+      calcDelaiExecution();  // delai toujours calcule a partir des dates
       $('#a_ferme').prop('checked',Number(a.est_ferme)===1);$('#wrapFerme').toggle(Number(a.est_ferme)===1);
       $('#a_dferm').val(d(a.date_fermeture));$('#a_dup').hide();
       clearEqRows();const eq=res.equipe||[];if(eq.length){eq.forEach(addEqRow);}else{addEqRow();}
@@ -852,6 +918,22 @@ $(document).on('click','.act-edit',function(){
   };
   if(!LISTS_LOADED){loadLists().always(fill);}else{fill();}
 });
+
+/* Delai d'execution = Date realisation - Date previsionnelle (en jours).
+   Calcul cote client pour affichage ; le serveur recalcule a l'enregistrement. */
+function calcDelaiExecution(){
+  const dp=$('#a_dprev').val(), dr=$('#a_dreal').val();
+  if(dp && dr){
+    const p=new Date(dp+'T00:00:00'), r=new Date(dr+'T00:00:00');
+    if(!isNaN(p) && !isNaN(r)){
+      const j=Math.round((r - p)/86400000);
+      $('#a_delai').val(j);
+      return;
+    }
+  }
+  $('#a_delai').val('');
+}
+$('#a_dprev, #a_dreal').on('change input', calcDelaiExecution);
 
 $('#auditForm').on('submit',function(e){
   e.preventDefault();
@@ -945,7 +1027,7 @@ function buildDetailHtml(res){
     +detSec('bi-calendar3','Planification et dates',
       det('Date previsionnelle',detTxt(fmtDate(a.date_previsionnelle)))
       +det('Date realisation',detTxt(fmtDate(a.date_realisation)))
-      +det("Delai d'execution",a.delai_execution?detTxt(a.delai_execution+' j'):null)
+      +det("Delai d'execution",(delaiExec(a)!==null)?detTxt(delaiExec(a)+' j'):null)
       +det('Date rapport',detTxt(fmtDate(a.date_delivrance_rapport)))
       +det('Date notification',detTxt(fmtDate(a.date_notification)))
       +(Number(a.est_ferme)===1?det('Date fermeture',detTxt(fmtDate(a.date_fermeture))):''))
@@ -959,6 +1041,48 @@ function printPDF(res){
   const a=res.data||{},eq=res.equipe||[],regs=res.reglements_detail||[];
   const statLbl=Number(a.est_ferme)===1?'Ferme':((STATUT[a.statut]||{t:'-'}).t);
   const seen={};
+
+  // ----- QR code d'authentification de la fiche de mandat -----
+  // Meme methode que le rapport : desaccentuation (la librairie encode mal
+  // l'UTF-8) puis montee de version 1..40 jusqu'a ce que le contenu tienne.
+  const qrMandat = (function(){
+    const respAudit = a.responsable || '-';
+    const lignes = [
+      'ANAC GABON - AGAI (Systeme securise)',
+      'FICHE DE MANDAT D ACTE DE SUPERVISION',
+      'N Audit : ' + (a.num_audit || '-'),
+      'Nature : ' + (TYPE_LABELS[a.type_activite] || a.type_activite || '-'),
+      'Cadre : ' + (CADRE_LABELS[a.cadre] || a.cadre || '-'),
+      'Operateur : ' + (a.nomorga || '-'),
+      'Site : ' + (a.site_inspection || '-'),
+      'Responsable audit : ' + respAudit,
+      'Date previsionnelle : ' + (a.date_previsionnelle ? fmtDate(a.date_previsionnelle) : '-'),
+      'Date realisation : ' + (a.date_realisation ? fmtDate(a.date_realisation) : '-'),
+      'Delai execution : ' + (delaiExec(a)!==null ? delaiExec(a) + ' j' : '-'),
+      'Document authentifie AGAI'
+    ];
+    const sansAccents = function(s){
+      return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^\x20-\x7E]/g,' ').replace(/\s+/g,' ').trim();
+    };
+    const texte = lignes.map(sansAccents).join('\n');
+    const QR = window.QRCode || (typeof QRCode!=='undefined' ? QRCode : null);
+    if(!QR) return '';
+    const niveau = (QR.CorrectLevel && QR.CorrectLevel.L!=null) ? QR.CorrectLevel.L : 1;
+    const box = document.createElement('div');
+    for(let tn=1; tn<=40; tn++){
+      try{
+        box.innerHTML='';
+        new QR(box, { text:texte, typeNumber:tn, width:110, height:110,
+          colorDark:'#000000', colorLight:'#ffffff', correctLevel:niveau });
+        const img = box.querySelector('img'), cv = box.querySelector('canvas');
+        if(img && img.src) return img.src;
+        if(cv) return cv.toDataURL('image/png');
+      }catch(e){ /* version trop petite : suivante */ }
+    }
+    return '';
+  })();
+
   const teamRows=eq.map(function(m){
     if(seen[m.idinspecteur])return '';seen[m.idinspecteur]=true;
     const ra=Number(m.est_responsable)===1;
@@ -993,7 +1117,7 @@ function printPDF(res){
     +'<div class="page">'
     +'<div class="ref">Audit AGAI - ANAC Gabon - '+new Date().toLocaleDateString('fr-FR')+'</div>'
     +'<div class="hdr"><img src="'+IMG_BASE+'banierenteanac.png" onerror="this.style.display=\'none\'"></div>'
-    +'<h1>Fiche de mandat d\'audit</h1>'
+    +'<h1>Fiche de mandat d\'acte de supervision</h1>'
     +'<div class="sec"><div class="sh">Informations generales</div><div class="sb"><div class="grid">'
     +'<div><div class="dl">N Audit</div><div class="dv">'+esc(a.num_audit||'-')+'</div></div>'
     +'<div><div class="dl">Nature</div><div class="dv">'+esc(TYPE_LABELS[a.type_activite]||a.type_activite||'-')+'</div></div>'
@@ -1009,7 +1133,7 @@ function printPDF(res){
     +'<div class="sec"><div class="sh">Planification</div><div class="sb"><div class="grid">'
     +'<div><div class="dl">Date previsionnelle</div><div class="dv">'+fmtDate(a.date_previsionnelle)+'</div></div>'
     +'<div><div class="dl">Date realisation</div><div class="dv">'+fmtDate(a.date_realisation)+'</div></div>'
-    +'<div><div class="dl">Delai execution</div><div class="dv">'+(a.delai_execution?esc(a.delai_execution)+' j':'-')+'</div></div>'
+    +'<div><div class="dl">Delai execution</div><div class="dv">'+(delaiExec(a)!==null?esc(delaiExec(a))+' j':'-')+'</div></div>'
     +'<div><div class="dl">Date rapport</div><div class="dv">'+fmtDate(a.date_delivrance_rapport)+'</div></div>'
     +'<div><div class="dl">Date notification</div><div class="dv">'+fmtDate(a.date_notification)+'</div></div>'
     +(Number(a.est_ferme)===1?'<div><div class="dl">Date fermeture</div><div class="dv">'+fmtDate(a.date_fermeture)+'</div></div>':'')
@@ -1018,8 +1142,10 @@ function printPDF(res){
     +'<table class="t"><thead><tr><th>Inspecteur</th><th>Domaine</th><th>Reglements</th></tr></thead>'
     +'<tbody>'+teamRows+'</tbody></table></div></div>'
     +(regs.length?'<div class="sec"><div class="sh">Reglements vises</div><div class="sb" style="font-size:9pt;line-height:1.6">'+allRegs+'</div></div>':'')
-    +'<div style="margin-top:18px;padding-top:10px;border-top:1px solid #ccc;display:flex;justify-content:space-between;font-size:9pt">'
-    +'<div><b>Signature du Responsable d\'Audit</b><br><br><br>_______________________</div>'
+    +'<div style="margin-top:18px;padding-top:10px;border-top:1px solid #ccc;display:flex;justify-content:space-between;align-items:flex-end;font-size:9pt">'
+    +(qrMandat
+        ? '<div style="text-align:center"><img src="'+qrMandat+'" style="width:26mm;height:26mm" alt="QR"><div style="font-size:7pt;color:#64748b;margin-top:2px">Authentification AGAI</div></div>'
+        : '<div></div>')
     +'<div style="text-align:right"><b>Visa du Chef Inspecteur</b><br><br><br>_______________________</div>'
     +'</div>'
     +'</div>'
@@ -1039,7 +1165,7 @@ function exportExcel(data){
     const stat=Number(a.est_ferme)===1?'Ferme':((STATUT[a.statut]||{t:a.statut||'-'}).t);
     return [a.num_audit||'',TYPE_LABELS[a.type_activite]||a.type_activite||'',CADRE_LABELS[a.cadre]||a.cadre||'',
       a.type_activite_operateur||'',a.nomorga||'',a.site_inspection||'',doms,a.responsable||'',insps,
-      fmtDate(a.date_previsionnelle),fmtDate(a.date_realisation),a.delai_execution||'',
+      fmtDate(a.date_previsionnelle),fmtDate(a.date_realisation),(delaiExec(a)!==null?delaiExec(a):''),
       fmtDate(a.date_delivrance_rapport),fmtDate(a.date_notification),stat];
   });
   const now=new Date(),dtStr=now.toLocaleDateString('fr-FR')+' '+now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});

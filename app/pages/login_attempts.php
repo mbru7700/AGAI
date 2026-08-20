@@ -68,13 +68,30 @@ table.tbl tbody tr:hover{background:#fff5f5;}
     <i class="bi bi-exclamation-triangle-fill" style="color:#D32F2F;font-size:1.1rem"></i>
     <div>
       <strong style="color:#D32F2F"><span id="nbBloques">0</span> compte(s) actuellement verrouille(s)</strong>
-      <div style="font-size:.8rem;color:#555">Ces comptes ont depasse le seuil de tentatives. Cliquez sur "Debloquer" pour restaurer l'acces.</div>
+      <div style="font-size:.8rem;color:#555">Verrouillage permanent apres depassement du seuil de tentatives : aucun deverrouillage automatique. Cliquez sur "Debloquer" pour restaurer l'acces.</div>
     </div>
     <button class="btn btn-sm ms-auto" style="background:#D32F2F;color:#fff" onclick="openBloques()">
       <i class="bi bi-unlock me-1"></i>Voir et debloquer
     </button>
   </div>
 </div>
+
+<!-- ===== MAINTENANCE DES JOURNAUX (admin uniquement) ===== -->
+<?php if (Rbac::role() === 'admin'): ?>
+<div style="background:#fff;border:1px solid #eef1f6;border-radius:12px;padding:12px 16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(16,30,54,.04);display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  <div style="flex:1;min-width:240px">
+    <div style="font-size:.82rem;font-weight:700;color:#23408F"><i class="bi bi-hdd-stack me-1"></i>Maintenance des journaux</div>
+    <div style="font-size:.76rem;color:#7b8aa0">
+      Fait pivoter <code>app.log</code>/<code>errors.log</code>, purge les tentatives de connexion anciennes et archive
+      (CSV compresse) les journaux d'audit expires. Une tache planifiee quotidienne est recommandee
+      (<code>cron/maintenance_logs.php</code>) ; ce bouton permet un declenchement manuel immediat.
+    </div>
+  </div>
+  <button class="btn btn-sm" style="background:#23408F;color:#fff;white-space:nowrap" id="btnPurgeLogs">
+    <i class="bi bi-recycle me-1"></i>Purger et faire pivoter maintenant
+  </button>
+</div>
+<?php endif; ?>
 
 <!-- ===== FILTRES ===== -->
 <div class="filter-bar mb-3">
@@ -259,6 +276,13 @@ let BLOC_LIST=[];
 
 function apiPost(d){ return $.post(API, Object.assign({csrf_token:CSRF},d), null, 'json'); }
 function fmtDT(s){ if(!s) return '-'; const d=new Date(s); return d.toLocaleDateString('fr-FR')+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function fmtLock(s){
+  if(!s) return '-';
+  const d=new Date(s);
+  // Sentinelle de verrouillage permanent (voir Auth::incrementAttempts)
+  if(d.getFullYear()>=9000) return 'Permanent - deblocage manuel requis';
+  return fmtDT(s);
+}
 function destroyC(c){ if(c){try{c.destroy();}catch(e){}} return null; }
 
 $('#f_annee').select2({theme:'bootstrap-5',width:'100%',allowClear:true,placeholder:'Toutes'});
@@ -268,6 +292,34 @@ $('#f_ip').on('input', function(){ refreshAll(); });
 $('#btnRefresh').on('click',refreshAll);
 $('#btnReset').on('click',function(){ $('#f_annee').val('').trigger('change'); $('#f_mois,#f_date,#f_ip,#f_search').val(''); refreshAll(); });
 $('#f_search').on('input',function(){ currentPage=1; loadTable(); });
+
+$('#btnPurgeLogs').on('click', function(){
+  const $b = $(this);
+  Swal.fire({
+    title: 'Confirmer la maintenance ?',
+    text: 'Cette action fait pivoter les journaux fichiers, purge les anciennes tentatives de connexion et archive les journaux d\'audit expires.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Lancer',
+    cancelButtonText: 'Annuler',
+    confirmButtonColor: '#23408F'
+  }).then(function(r){
+    if (!r.isConfirmed) return;
+    $b.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1"></span>Execution...');
+    apiPost({action:'purger_logs'}).done(function(res){
+      if (res.success) {
+        Swal.fire('Termine', res.message || 'Maintenance effectuee avec succes.', 'success');
+        refreshAll();
+      } else {
+        Swal.fire('Erreur', res.message || 'Echec de la maintenance.', 'error');
+      }
+    }).fail(function(){
+      Swal.fire('Erreur', 'Erreur technique lors de la requete.', 'error');
+    }).always(function(){
+      $b.prop('disabled', false).html('<i class="bi bi-recycle me-1"></i>Purger et faire pivoter maintenant');
+    });
+  });
+});
 
 function getFilters(){ return {f_annee:$('#f_annee').val()||'',f_mois:$('#f_mois').val()||'',f_date:$('#f_date').val()||'',ip_filter:$('#f_ip').val()||''}; }
 
@@ -464,7 +516,7 @@ function openBloques(){
     h+='<div class="bloq-card">'+
       '<div>'+
         '<div style="font-weight:700;font-size:.88rem"><i class="bi bi-person-fill-lock me-1 text-danger"></i>'+esc(u.email||'')+'</div>'+
-        '<div style="font-size:.75rem;color:#7b8aa0">'+esc(u.nom||'')+' '+esc(u.prenom||'')+' &middot; '+u.login_attempts+' tentatives &middot; Verr. jusqu\'au '+fmtDT(u.locked_until)+'</div>'+
+        '<div style="font-size:.75rem;color:#7b8aa0">'+esc(u.nom||'')+' '+esc(u.prenom||'')+' &middot; '+u.login_attempts+' tentatives &middot; Verr. : '+fmtLock(u.locked_until)+'</div>'+
       '</div>'+
       '<button class="btn btn-sm" style="background:#D32F2F;color:#fff;font-size:.75rem" onclick="debloquer(\''+esc(u.email||'')+'\',this)"><i class="bi bi-unlock me-1"></i>Debloquer</button>'+
     '</div>';

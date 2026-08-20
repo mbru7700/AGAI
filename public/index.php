@@ -59,7 +59,7 @@ switch ($route) {
 // 3bis) Endpoints AJAX des modules : /api/<nom>
 if (strpos($route, 'api/') === 0) {
     $name       = substr($route, 4);
-    $allowedApi = ['users', 'organisme', 'personnel', 'profile', 'audits', 'inspecteurs', 'domaines', 'typesorganisme', 'sousdomaines', 'reglements', 'exploitants', 'sites', 'revue', 'parametres', 'login-attempts', 'audit-logs', 'notifications', 'rapports', 'qre', 'nonconformites'];
+    $allowedApi = ['users', 'organisme', 'personnel', 'profile', 'audits', 'inspecteurs', 'domaines', 'typesorganisme', 'sousdomaines', 'reglements', 'exploitants', 'sites', 'revue', 'parametres', 'login-attempts', 'audit-logs', 'notifications', 'rapports', 'qre', 'nonconformites', 'psc', 'archivage'];
     if (in_array($name, $allowedApi, true)) {
         require dirname(__DIR__) . '/app/endpoints/' . $name . '.php';
         exit;
@@ -79,6 +79,9 @@ $pages = [
     'profile'      => 'profile.php',
     'audits'       => 'audits.php',
     'declenchement' => 'declenchement.php',
+    'programme-psc' => 'programme_psc.php',
+    'analyse-psc'   => 'analyse_psc.php',
+    'archivage'     => 'archivage.php',
     'mes-audits'   => 'mes_audits.php',
     'revue'        => 'revue.php',
     'inspecteurs'  => 'inspecteurs.php',
@@ -91,10 +94,15 @@ $pages = [
     'parametres'   => 'parametres.php',
     'ouverture-nc'   => 'ouverture_nc.php',
     'suivi-nc'       => 'suivi_nc.php',
+    'alertes-fnc'    => 'alertes_fnc.php',
+    'analyse-fnc'    => 'analyse_fnc.php',
+    'profil-risque'  => 'profil_risque.php',
     'audit-logs'   => 'audit_logs.php',
     'modifier-audit' => 'modifier_audit.php',
     'notifications'  => 'notifications.php',
     'rapports'       => 'rapports.php',
+    'rapport-saisie' => 'rapport_saisie.php',
+    'rapport-pdf'    => 'rapport_pdf.php',
     'qre'            => 'qre.php',
 ];
 

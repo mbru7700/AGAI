@@ -69,17 +69,84 @@ try {
             $st = $db->query(
                 "SELECT
                     (SELECT COUNT(*) FROM site)                                                              AS total,
-                    (SELECT COUNT(DISTINCT p.nompays) FROM site s JOIN pays_adna p ON p.idpays=s.idpays
+                    (SELECT COUNT(DISTINCT UPPER(TRIM(p.nompays))) FROM site s JOIN pays_adna p ON p.idpays=s.idpays
                        WHERE p.nompays IS NOT NULL AND TRIM(p.nompays) <> '')                               AS pays_couverts,
                     (SELECT COUNT(DISTINCT s2.idsite) FROM site s2
                        WHERE EXISTS (SELECT 1 FROM audit a WHERE a.idsite = s2.idsite))                     AS sites_avec,
                     (SELECT COUNT(*) FROM audit WHERE idsite IS NOT NULL AND idsite > 0)                    AS total_aud,
-                    (SELECT COUNT(DISTINCT ville) FROM site WHERE ville IS NOT NULL AND TRIM(ville)<>'')    AS villes,
+                    (SELECT COUNT(DISTINCT UPPER(TRIM(ville))) FROM site WHERE ville IS NOT NULL AND TRIM(ville)<>'')    AS villes,
                     (SELECT COUNT(*) FROM site s3
                        WHERE NOT EXISTS (SELECT 1 FROM audit a WHERE a.idsite = s3.idsite))                 AS sans_aud"
             )->fetch();
             foreach ($st as $k => $v) { $st[$k] = (int) $v; }
             $ok(['stats' => $st]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Synthese pour les modales des KPI :
+        //  - pays couverts (avec nb de sites)
+        //  - sites avec audits (avec nb d'audits)
+        //  - audits planifies (detail par site)
+        //  - villes distinctes (avec nb de sites)
+        //  - sites sans audit
+        case 'synthese':
+            // Pays couverts (avec nombre de sites). On groupe sur le NOM du pays
+            // (normalise) et non sur idpays, car un meme pays peut avoir plusieurs
+            // idpays dans le referentiel (ex : "Gabon" en double) ; le regroupement
+            // par nom les fusionne en une seule ligne.
+            $pays = $db->query(
+                "SELECT TRIM(p.nompays) AS nompays, COUNT(s.idsite) AS nb_sites
+                 FROM site s
+                 JOIN pays_adna p ON p.idpays = s.idpays
+                 WHERE p.nompays IS NOT NULL AND TRIM(p.nompays) <> ''
+                 GROUP BY UPPER(TRIM(p.nompays))
+                 ORDER BY nb_sites DESC, nompays"
+            )->fetchAll();
+
+            // Sites sans pays renseigne (pour ne rien masquer dans la modale pays)
+            $sitesSansPays = (int) $db->query(
+                "SELECT COUNT(*) FROM site s
+                 WHERE s.idpays IS NULL
+                    OR NOT EXISTS (SELECT 1 FROM pays_adna p WHERE p.idpays = s.idpays AND TRIM(p.nompays) <> '')"
+            )->fetchColumn();
+
+            // Sites avec audits (avec nb d'audits)
+            $sitesAvec = $db->query(
+                "SELECT s.idsite, s.indicateur_oaci, s.nomsite, s.ville, p.nompays,
+                        COUNT(a.idaudit) AS nb_aud
+                 FROM site s
+                 JOIN audit a ON a.idsite = s.idsite
+                 LEFT JOIN pays_adna p ON p.idpays = s.idpays
+                 GROUP BY s.idsite
+                 ORDER BY nb_aud DESC, s.nomsite"
+            )->fetchAll();
+
+            // Villes distinctes (avec nb de sites). Regroupement normalise pour
+            // fusionner d'eventuelles variantes de casse/espaces d'une meme ville.
+            $villes = $db->query(
+                "SELECT TRIM(s.ville) AS ville, COUNT(s.idsite) AS nb_sites
+                 FROM site s
+                 WHERE s.ville IS NOT NULL AND TRIM(s.ville) <> ''
+                 GROUP BY UPPER(TRIM(s.ville))
+                 ORDER BY nb_sites DESC, ville"
+            )->fetchAll();
+
+            // Sites sans audit
+            $sansAudit = $db->query(
+                "SELECT s.idsite, s.indicateur_oaci, s.nomsite, s.ville, p.nompays
+                 FROM site s
+                 LEFT JOIN pays_adna p ON p.idpays = s.idpays
+                 WHERE NOT EXISTS (SELECT 1 FROM audit a WHERE a.idsite = s.idsite)
+                 ORDER BY s.nomsite"
+            )->fetchAll();
+
+            $ok([
+                'pays'            => $pays,
+                'sites_sans_pays' => $sitesSansPays,
+                'sites_avec'      => $sitesAvec,
+                'villes'          => $villes,
+                'sans_audit'      => $sansAudit,
+            ]);
             break;
 
         // ----------------------------------------------------------------

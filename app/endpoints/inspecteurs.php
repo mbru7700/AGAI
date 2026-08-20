@@ -154,12 +154,80 @@ try {
                     SUM(categorie = 'stagiaire')   AS stagiaires,
                     SUM(categorie = 'titulaire')   AS titulaires,
                     SUM(categorie = 'exceptionnel') AS exceptionnels,
+                    SUM(categorie = 'externe')     AS externes,
                     (SELECT COUNT(*) FROM habilitation)                  AS habilitations,
                     (SELECT COUNT(DISTINCT iddomaine) FROM habilitation) AS domaines_couverts
                  FROM inspecteur"
             )->fetch();
             foreach ($row as $k => $v) { $row[$k] = (int) $v; }
             $ok(['stats' => $row]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Synthese pour les modales des KPI (categories + habilitations + domaines)
+        case 'synthese':
+            // Inspecteurs par categorie (avec detail nominatif)
+            $parCategorie = $db->query(
+                "SELECT i.idinspecteur, i.nominspecteur, i.preninspect, i.trigr_inspecteur,
+                        i.categorie, i.mailinspect, i.teleinspecter,
+                        (SELECT COUNT(*) FROM habilitation h WHERE h.idinspecteur = i.idinspecteur) AS nb_hab
+                 FROM inspecteur i
+                 ORDER BY i.categorie, i.nominspecteur, i.preninspect"
+            )->fetchAll();
+
+            // Habilitations regroupees PAR INSPECTEUR : ses domaines sont agreges
+            // (un domaine par ligne cote affichage), avec sa categorie et son type
+            // interne/externe. Plus lisible que le detail inspecteur x domaine.
+            $habilitations = $db->query(
+                "SELECT i.idinspecteur, i.nominspecteur, i.preninspect, i.trigr_inspecteur, i.categorie,
+                        COUNT(h.idhabilitation) AS nb_dom,
+                        GROUP_CONCAT(
+                            CONCAT(TRIM(d.nomdomaine),
+                                   '~', COALESCE(h.numero_habilitation,''),
+                                   '~', COALESCE(h.date_expiration,''))
+                            ORDER BY d.nomdomaine SEPARATOR '||'
+                        ) AS domaines
+                 FROM habilitation h
+                 JOIN inspecteur i ON i.idinspecteur = h.idinspecteur
+                 JOIN domaine d    ON d.iddomaine    = h.iddomaine
+                 GROUP BY i.idinspecteur
+                 ORDER BY (i.categorie = 'externe') ASC, i.nominspecteur, i.preninspect"
+            )->fetchAll();
+            // Découpage des domaines agrégés en tableau structuré
+            foreach ($habilitations as &$hRow) {
+                $doms = [];
+                foreach (explode('||', (string) $hRow['domaines']) as $chunk) {
+                    if ($chunk === '') { continue; }
+                    $parts = explode('~', $chunk);
+                    $doms[] = [
+                        'nomdomaine'      => $parts[0] ?? '',
+                        'numero'          => $parts[1] ?? '',
+                        'date_expiration' => ($parts[2] ?? '') ?: null,
+                    ];
+                }
+                $hRow['domaines'] = $doms;
+            }
+            unset($hRow);
+
+            // Domaines couverts : distinguer inspecteurs internes et externes.
+            $domaines = $db->query(
+                "SELECT d.iddomaine, d.nomdomaine, d.libel_domaine,
+                        COUNT(h.idhabilitation)        AS nb_hab,
+                        COUNT(DISTINCT h.idinspecteur) AS nb_insp,
+                        COUNT(DISTINCT CASE WHEN i.categorie = 'externe' THEN h.idinspecteur END) AS nb_externe,
+                        COUNT(DISTINCT CASE WHEN i.categorie <> 'externe' THEN h.idinspecteur END) AS nb_interne
+                 FROM domaine d
+                 JOIN habilitation h ON h.iddomaine    = d.iddomaine
+                 JOIN inspecteur   i ON i.idinspecteur = h.idinspecteur
+                 GROUP BY d.iddomaine
+                 ORDER BY nb_insp DESC, d.nomdomaine"
+            )->fetchAll();
+
+            $ok([
+                'par_categorie'  => $parCategorie,
+                'habilitations'  => $habilitations,
+                'domaines'       => $domaines,
+            ]);
             break;
 
         case 'check_domaine':
@@ -294,6 +362,11 @@ try {
             $fInsp = int_list($_POST['inspecteurs'] ?? []);
             $fDir  = int_list($_POST['directions'] ?? []);
             $fDom  = int_list($_POST['domaines'] ?? []);
+            // Filtre categorie : liste blanche stricte
+            $catsIn = $_POST['categories'] ?? [];
+            if (!is_array($catsIn)) { $catsIn = []; }
+            $catsValides = ['stagiaire', 'titulaire', 'exceptionnel', 'externe'];
+            $fCat = array_values(array_intersect($catsValides, array_map('strval', $catsIn)));
 
             $where  = [];
             $params = [];
@@ -301,6 +374,10 @@ try {
             if ($fInsp) {
                 $where[] = 'i.idinspecteur IN (' . implode(',', array_fill(0, count($fInsp), '?')) . ')';
                 $params  = array_merge($params, $fInsp);
+            }
+            if ($fCat) {
+                $where[] = 'i.categorie IN (' . implode(',', array_fill(0, count($fCat), '?')) . ')';
+                $params  = array_merge($params, $fCat);
             }
             if ($fDir) {
                 $where[] = 'i.codedirec IN (' . implode(',', array_fill(0, count($fDir), '?')) . ')';
@@ -363,13 +440,33 @@ try {
             $ok(['data' => $rows, 'count' => count($rows)]);
             break;
 
+        // Verifie si un agent (personnel) est deja enregistre comme inspecteur.
+        // On se base sur le matricule (numat) qui relie personnel -> inspecteur.
+        case 'check_personnel_inspecteur':
+            $numat = trim($_POST['numat'] ?? '');
+            if ($numat === '') { $ok(['exists' => false]); break; }
+            $st = $db->prepare(
+                "SELECT idinspecteur, TRIM(CONCAT(preninspect,' ',nominspecteur)) AS nom, categorie
+                 FROM inspecteur WHERE numatinspecteur = ? LIMIT 1"
+            );
+            $st->execute([(int) $numat]);
+            $row = $st->fetch();
+            $ok([
+                'exists'   => (bool) $row,
+                'nom'      => $row['nom'] ?? '',
+                'categorie'=> $row['categorie'] ?? '',
+            ]);
+            break;
+
         case 'users_available':
-            // Utilisateurs de role inspecteur/chef_inspecteur pas encore enregistres comme inspecteurs
+            // Utilisateurs de role inspecteur/chef_inspecteur pas encore enregistres comme inspecteurs.
+            // NB : on exclut les iduser NULL (inspecteurs externes) du sous-select,
+            // sinon "NOT IN (... NULL ...)" ne renverrait aucune ligne.
             $rows = $db->query(
                 "SELECT u.iduser, u.nom, u.prenom, u.matricule, u.email, u.role
                  FROM users u
                  WHERE u.role IN ('inspecteur','chef_inspecteur') AND u.is_active = 1
-                   AND u.iduser NOT IN (SELECT iduser FROM inspecteur)
+                   AND u.iduser NOT IN (SELECT iduser FROM inspecteur WHERE iduser IS NOT NULL)
                  ORDER BY u.nom, u.prenom"
             )->fetchAll();
             $ok(['data' => $rows]);
@@ -396,7 +493,88 @@ try {
                  ORDER BY h.date_expiration ASC"
             );
             $hb->execute([$id]);
-            $ok(['data' => $i, 'habilitations' => $hb->fetchAll()]);
+            $habs = $hb->fetchAll();
+            // Liste simple des ids de domaines (utile pour pre-cocher les domaines d'un externe)
+            $i['_domaine_ids'] = array_values(array_unique(array_map(
+                function ($h) { return (int) $h['iddomaine']; }, $habs
+            )));
+            $ok(['data' => $i, 'habilitations' => $habs]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Creation d'un inspecteur EXTERNE (autre ANAC venant en renfort).
+        // Insertion simple : pas de compte utilisateur, pas de direction, pas
+        // d'habilitation ni de fichier. Categorie forcee a 'externe'.
+        case 'create_externe':
+            $nom    = trim($_POST['nominspecteur'] ?? '');
+            $prenom = trim($_POST['preninspect'] ?? '');
+            $trigr  = trim($_POST['trigr_inspecteur'] ?? '');
+            $numat  = trim($_POST['numatinspecteur'] ?? '');
+            $tele   = trim($_POST['teleinspecter'] ?? '');
+            $mail   = trim($_POST['mailinspect'] ?? '');
+
+            // Validations serveur (ne jamais faire confiance au client)
+            if ($nom === '' || mb_strlen($nom) > 200)    { $fail('Le nom est requis (200 caracteres max).'); break; }
+            if ($prenom === '' || mb_strlen($prenom) > 50){ $fail('Le prenom est requis (50 caracteres max).'); break; }
+            if ($trigr === '' || mb_strlen($trigr) > 41) { $fail('Le trigramme est requis (41 caracteres max).'); break; }
+            if ($mail !== '' && !filter_var($mail, FILTER_VALIDATE_EMAIL)) { $fail('Adresse email invalide.'); break; }
+            if (mb_strlen($mail) > 100) { $fail('Email trop long.'); break; }
+            if (mb_strlen($tele) > 100) { $fail('Telephone trop long.'); break; }
+
+            // Matricule : facultatif pour un externe. NULL si vide, entier sinon.
+            $numatVal = null;
+            if ($numat !== '') {
+                if (!ctype_digit($numat)) { $fail('Le matricule doit etre numerique.'); break; }
+                $numatVal = (int) $numat;
+            }
+
+            // Anti-doublon leger : meme trigramme deja present
+            $stDup = $db->prepare("SELECT idinspecteur FROM inspecteur WHERE LOWER(trigr_inspecteur) = LOWER(?)");
+            $stDup->execute([$trigr]);
+            if ($stDup->fetch()) { $fail('Un inspecteur avec ce trigramme existe deja.'); break; }
+
+            // Domaines affectes (un externe est habilite a un/plusieurs domaines dans
+            // son ANAC d'origine, mais SANS numero, dates ni decision PDF cote AGAI).
+            $xDom = $_POST['ext_domaine'] ?? [];
+            if (!is_array($xDom)) { $xDom = []; }
+            $xDomIds = [];
+            foreach ($xDom as $dRaw) {
+                $idd = (int) $dRaw;
+                if ($idd > 0 && !in_array($idd, $xDomIds, true)) { $xDomIds[] = $idd; }
+            }
+            if (empty($xDomIds)) { $fail('Veuillez affecter au moins un domaine.'); break; }
+            // Securite : tous les domaines doivent exister
+            $validDomX = array_map('intval', $db->query("SELECT iddomaine FROM domaine")->fetchAll(PDO::FETCH_COLUMN));
+            foreach ($xDomIds as $idd) {
+                if (!in_array($idd, $validDomX, true)) { $fail('Un domaine selectionne est invalide.'); break 2; }
+            }
+
+            $db->beginTransaction();
+            try {
+                $ins = $db->prepare(
+                    "INSERT INTO inspecteur
+                        (iduser, nominspecteur, trigr_inspecteur, numatinspecteur, codedirec,
+                         preninspect, categorie, datenomine, teleinspecter, mailinspect, photoinspecter)
+                     VALUES (NULL, ?, ?, ?, NULL, ?, 'externe', NULL, ?, ?, NULL)"
+                );
+                $ins->execute([$nom, $trigr, $numatVal, $prenom, $tele, $mail]);
+                $newId = (int) $db->lastInsertId();
+
+                // Habilitations legeres : domaine seul, reste NULL
+                $insH = $db->prepare(
+                    "INSERT INTO habilitation
+                        (idinspecteur, iddomaine, numero_habilitation, date_habilitation, date_expiration, decision, observation)
+                     VALUES (?, ?, NULL, NULL, NULL, NULL, NULL)"
+                );
+                foreach ($xDomIds as $idd) { $insH->execute([$newId, $idd]); }
+
+                $db->commit();
+                Audit::log('create', 'inspecteurs', 'Creation inspecteur EXTERNE #' . $newId . ' (' . $prenom . ' ' . $nom . ')');
+                $ok(['message' => 'Inspecteur externe enregistre.', 'idinspecteur' => $newId]);
+            } catch (Throwable $e) {
+                $db->rollBack();
+                $fail('Erreur lors de l\'enregistrement : ' . $e->getMessage());
+            }
             break;
 
         case 'create':
@@ -408,21 +586,28 @@ try {
             $codedirec  = (int) ($_POST['codedirec'] ?? 0);
             $datenomine = trim($_POST['datenomine'] ?? '');
             $tele       = trim($_POST['teleinspecter'] ?? '');
-            $cats       = ['stagiaire', 'titulaire', 'exceptionnel'];
+            $cats       = ['stagiaire', 'titulaire', 'exceptionnel', 'externe'];
 
             if (!in_array($categorie, $cats, true)) { $fail('Categorie invalide.'); break; }
             if ($trigr === '' || mb_strlen($trigr) > 41) { $fail('Trigramme invalide.'); break; }
-            if ($codedirec <= 0) { $fail('Veuillez choisir une direction.'); break; }
-            $stD = $db->prepare("SELECT codedirec FROM direction_anac WHERE codedirec = ?");
-            $stD->execute([$codedirec]);
-            if (!$stD->fetch()) { $fail('Direction inconnue.'); break; }
+
+            $isExterne = ($categorie === 'externe');
+
+            // Un inspecteur externe n'a ni direction ANAC ni habilitations.
+            if (!$isExterne) {
+                if ($codedirec <= 0) { $fail('Veuillez choisir une direction.'); break; }
+                $stD = $db->prepare("SELECT codedirec FROM direction_anac WHERE codedirec = ?");
+                $stD->execute([$codedirec]);
+                if (!$stD->fetch()) { $fail('Direction inconnue.'); break; }
+            }
             // Date de nomination : facultative. NULL si vide, validee si fournie.
             if ($datenomine === '') {
                 $datenomine = null;
             } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $datenomine)) {
                 $fail('Date de nomination invalide.'); break;
             }
-            if ($tele === '' || mb_strlen($tele) > 100) { $fail('Telephone invalide.'); break; }
+            if (!$isExterne && ($tele === '' || mb_strlen($tele) > 100)) { $fail('Telephone invalide.'); break; }
+            if ($isExterne && mb_strlen($tele) > 100) { $fail('Telephone trop long.'); break; }
 
             // Lignes d'habilitation (tableaux paralleles, alignes par index)
             $hDom = $_POST['hab_domaine'] ?? [];
@@ -436,7 +621,9 @@ try {
             $habRows     = [];
             $habError    = '';
 
-            foreach ($hDom as $k => $dRaw) {
+            // Un inspecteur externe n'a pas d'habilitation : on ignore ce bloc.
+            if (!$isExterne) {
+              foreach ($hDom as $k => $dRaw) {
                 $idd = (int) $dRaw;
                 if ($idd <= 0) { continue; }
                 $num = trim((string) ($hNum[$k] ?? ''));
@@ -445,23 +632,22 @@ try {
                 $obs = trim((string) ($hObs[$k] ?? ''));
 
                 if ($isStagiaire) {
-                    // Stagiaire : domaine sans habilitation formelle -> numero vide
                     $num = '';
                 } elseif ($num === '' || mb_strlen($num) > 50) {
                     $habError = 'Le numero d\'habilitation est requis pour chaque domaine.'; break;
                 }
-                // Dates d'habilitation facultatives : NULL si vides, validees si fournies
                 if ($deb !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $deb)) { $habError = 'Date de debut d\'habilitation invalide.'; break; }
                 if ($fin !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $fin)) { $habError = 'Date d\'expiration invalide.'; break; }
                 $habRows[] = ['idd' => $idd, 'num' => $num, 'deb' => ($deb === '' ? null : $deb), 'fin' => ($fin === '' ? null : $fin), 'obs' => $obs];
-            }
-            if ($habError !== '') { $fail($habError); break; }
-            if (empty($habRows)) { $fail('Veuillez ajouter au moins un domaine.'); break; }
+              }
+              if ($habError !== '') { $fail($habError); break; }
+              if (empty($habRows)) { $fail('Veuillez ajouter au moins un domaine.'); break; }
 
-            // Securite : tous les domaines choisis doivent exister reellement
-            $validDom = array_map('intval', $db->query("SELECT iddomaine FROM domaine")->fetchAll(PDO::FETCH_COLUMN));
-            foreach ($habRows as $h) {
-                if (!in_array($h['idd'], $validDom, true)) { $fail('Un domaine selectionne est invalide. Merci de le re-selectionner.'); break 2; }
+              // Securite : tous les domaines choisis doivent exister reellement
+              $validDom = array_map('intval', $db->query("SELECT iddomaine FROM domaine")->fetchAll(PDO::FETCH_COLUMN));
+              foreach ($habRows as $h) {
+                  if (!in_array($h['idd'], $validDom, true)) { $fail('Un domaine selectionne est invalide. Merci de le re-selectionner.'); break 2; }
+              }
             }
 
             $db->beginTransaction();
@@ -496,10 +682,34 @@ try {
                     $stG->execute([$idinsp]);
                     if (!$stG->fetch()) { $db->rollBack(); $fail('Inspecteur introuvable.'); break; }
                     // On ne modifie pas l'utilisateur lie ni ses infos (nom/prenom/matricule/email)
-                    $upd = $db->prepare(
-                        "UPDATE inspecteur SET trigr_inspecteur=?, codedirec=?, categorie=?, datenomine=?, teleinspecter=? WHERE idinspecteur=?"
-                    );
-                    $upd->execute([$trigr, $codedirec, $categorie, $datenomine, $tele, $idinsp]);
+                    $codedirecVal = $isExterne ? null : $codedirec;
+                    if ($isExterne) {
+                        // Un externe n'a pas de compte : ses nom/prenom/matricule/email
+                        // lui sont propres et sont donc modifiables ici.
+                        $xNom  = trim($_POST['nominspecteur'] ?? '');
+                        $xPre  = trim($_POST['preninspect'] ?? '');
+                        $xMail = trim($_POST['mailinspect'] ?? '');
+                        $xNumR = trim($_POST['numatinspecteur'] ?? '');
+                        if ($xNom === '' || mb_strlen($xNom) > 200)  { $db->rollBack(); $fail('Nom requis.'); break; }
+                        if ($xPre === '' || mb_strlen($xPre) > 50)   { $db->rollBack(); $fail('Prenom requis.'); break; }
+                        if ($xMail !== '' && !filter_var($xMail, FILTER_VALIDATE_EMAIL)) { $db->rollBack(); $fail('Email invalide.'); break; }
+                        $xNum = null;
+                        if ($xNumR !== '') {
+                            if (!ctype_digit($xNumR)) { $db->rollBack(); $fail('Matricule numerique attendu.'); break; }
+                            $xNum = (int) $xNumR;
+                        }
+                        $upd = $db->prepare(
+                            "UPDATE inspecteur SET nominspecteur=?, preninspect=?, numatinspecteur=?, mailinspect=?,
+                                    trigr_inspecteur=?, codedirec=NULL, categorie='externe', datenomine=NULL, teleinspecter=?
+                             WHERE idinspecteur=?"
+                        );
+                        $upd->execute([$xNom, $xPre, $xNum, $xMail, $trigr, $tele, $idinsp]);
+                    } else {
+                        $upd = $db->prepare(
+                            "UPDATE inspecteur SET trigr_inspecteur=?, codedirec=?, categorie=?, datenomine=?, teleinspecter=? WHERE idinspecteur=?"
+                        );
+                        $upd->execute([$trigr, $codedirecVal, $categorie, $datenomine, $tele, $idinsp]);
+                    }
                     // Preserver les decisions deja attachees (matchees par domaine) avant reconstruction
                     $stOld = $db->prepare("SELECT iddomaine, decision FROM habilitation WHERE idinspecteur = ?");
                     $stOld->execute([$idinsp]);
@@ -509,16 +719,43 @@ try {
                     $db->prepare("DELETE FROM habilitation WHERE idinspecteur = ?")->execute([$idinsp]);
                 }
 
-                $insH = $db->prepare(
-                    "INSERT INTO habilitation
-                        (idinspecteur, iddomaine, numero_habilitation, date_habilitation, date_expiration, decision, observation)
-                     VALUES (?,?,?,?,?,?,?)"
-                );
+                // Habilitations : uniquement pour les inspecteurs internes.
                 $habOut = [];
-                foreach ($habRows as $h) {
-                    $dec = $oldDec[$h['idd']] ?? null;   // on reporte la decision deja attachee a ce domaine
-                    $insH->execute([$idinsp, $h['idd'], $h['num'], $h['deb'], $h['fin'], $dec, ($h['obs'] !== '' ? $h['obs'] : null)]);
-                    $habOut[] = ['idhabilitation' => (int) $db->lastInsertId(), 'iddomaine' => $h['idd']];
+                if (!$isExterne) {
+                    $insH = $db->prepare(
+                        "INSERT INTO habilitation
+                            (idinspecteur, iddomaine, numero_habilitation, date_habilitation, date_expiration, decision, observation)
+                         VALUES (?,?,?,?,?,?,?)"
+                    );
+                    foreach ($habRows as $h) {
+                        $dec = $oldDec[$h['idd']] ?? null;
+                        $insH->execute([$idinsp, $h['idd'], $h['num'], $h['deb'], $h['fin'], $dec, ($h['obs'] !== '' ? $h['obs'] : null)]);
+                        $habOut[] = ['idhabilitation' => (int) $db->lastInsertId(), 'iddomaine' => $h['idd']];
+                    }
+                } else {
+                    // Externe : habilitations legeres (domaine seul). On reconstruit depuis ext_domaine.
+                    $xDom = $_POST['ext_domaine'] ?? [];
+                    if (!is_array($xDom)) { $xDom = []; }
+                    $xDomIds = [];
+                    foreach ($xDom as $dRaw) {
+                        $idd = (int) $dRaw;
+                        if ($idd > 0 && !in_array($idd, $xDomIds, true)) { $xDomIds[] = $idd; }
+                    }
+                    if (empty($xDomIds)) { $db->rollBack(); $fail('Veuillez affecter au moins un domaine.'); break; }
+                    $validDomX = array_map('intval', $db->query("SELECT iddomaine FROM domaine")->fetchAll(PDO::FETCH_COLUMN));
+                    foreach ($xDomIds as $idd) {
+                        if (!in_array($idd, $validDomX, true)) { $db->rollBack(); $fail('Un domaine selectionne est invalide.'); break 2; }
+                    }
+                    $db->prepare("DELETE FROM habilitation WHERE idinspecteur = ?")->execute([$idinsp]);
+                    $insH = $db->prepare(
+                        "INSERT INTO habilitation
+                            (idinspecteur, iddomaine, numero_habilitation, date_habilitation, date_expiration, decision, observation)
+                         VALUES (?, ?, NULL, NULL, NULL, NULL, NULL)"
+                    );
+                    foreach ($xDomIds as $idd) {
+                        $insH->execute([$idinsp, $idd]);
+                        $habOut[] = ['idhabilitation' => (int) $db->lastInsertId(), 'iddomaine' => $idd];
+                    }
                 }
 
                 $db->commit();

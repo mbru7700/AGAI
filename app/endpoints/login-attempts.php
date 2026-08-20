@@ -207,6 +207,30 @@ case 'stats_only':
     $ok($s);
     break;
 
+// ================================================================
+// Maintenance manuelle : rotation des logs fichiers + purge login_attempts
+// + archivage/purge audit_logs. Action sensible : reservee aux administrateurs
+// (au-dela du guard cybersecurite deja applique en tete de fichier).
+case 'purger_logs':
+    if (Rbac::role() !== 'admin') {
+        $fail('Action reservee aux administrateurs.'); break;
+    }
+    $summary = LogRotator::runAll();
+    if (empty($summary['success'])) {
+        $fail($summary['message'] ?? 'Rotation deja en cours, reessayez dans un instant.');
+        break;
+    }
+    Audit::log(
+        'maintenance',
+        'cybersecurite',
+        'Purge/rotation manuelle des journaux : ' .
+        (count($summary['files_rotated']) . ' fichier(s) pivote(s), ' .
+         $summary['login_attempts_purged'] . ' tentative(s) purgee(s), ' .
+         $summary['audit_logs_archived'] . ' entree(s) audit archivee(s).')
+    );
+    $ok(['message' => 'Rotation et purge effectuees avec succes.', 'detail' => $summary]);
+    break;
+
 default: $fail('Action inconnue.');
 }} catch (Throwable $e) {
     error_log('login-attempts: '.$e->getMessage());

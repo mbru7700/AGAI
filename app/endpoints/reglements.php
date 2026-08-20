@@ -69,6 +69,62 @@ try {
             break;
 
         // ----------------------------------------------------------------
+        // Synthese pour les modales des KPI :
+        //  - domaines couverts (avec nb de reglements)
+        //  - reglements utilises en audits (avec nb de citations)
+        //  - reglements avec description
+        //  - reglements jamais utilises
+        case 'synthese':
+            // Domaines couverts : chaque domaine ayant au moins un reglement
+            $domaines = $db->query(
+                "SELECT d.iddomaine, d.nomdomaine, d.libel_domaine,
+                        COUNT(r.idreglement) AS nb_reg
+                 FROM domaine d
+                 JOIN reglement r ON r.iddomaine = d.iddomaine
+                 GROUP BY d.iddomaine
+                 ORDER BY nb_reg DESC, d.nomdomaine"
+            )->fetchAll();
+
+            // Reglements utilises en audits (avec nombre de citations)
+            $utilises = $db->query(
+                "SELECT r.idreglement, r.code_reglement, r.libelle_reglement,
+                        d.nomdomaine,
+                        COUNT(ar.idaudit_reglement) AS nb_cite,
+                        COUNT(DISTINCT ar.idaudit)  AS nb_audits
+                 FROM reglement r
+                 JOIN audit_reglement ar ON ar.idreglement = r.idreglement
+                 LEFT JOIN domaine d ON d.iddomaine = r.iddomaine
+                 GROUP BY r.idreglement
+                 ORDER BY nb_cite DESC, r.code_reglement"
+            )->fetchAll();
+
+            // Reglements avec description
+            $avecDesc = $db->query(
+                "SELECT r.idreglement, r.code_reglement, r.libelle_reglement, r.description, d.nomdomaine
+                 FROM reglement r
+                 LEFT JOIN domaine d ON d.iddomaine = r.iddomaine
+                 WHERE r.description IS NOT NULL AND TRIM(r.description) <> ''
+                 ORDER BY r.code_reglement"
+            )->fetchAll();
+
+            // Reglements jamais utilises
+            $jamais = $db->query(
+                "SELECT r.idreglement, r.code_reglement, r.libelle_reglement, d.nomdomaine
+                 FROM reglement r
+                 LEFT JOIN domaine d ON d.iddomaine = r.iddomaine
+                 WHERE NOT EXISTS (SELECT 1 FROM audit_reglement ar WHERE ar.idreglement = r.idreglement)
+                 ORDER BY r.code_reglement"
+            )->fetchAll();
+
+            $ok([
+                'domaines'  => $domaines,
+                'utilises'  => $utilises,
+                'avec_desc' => $avecDesc,
+                'jamais'    => $jamais,
+            ]);
+            break;
+
+        // ----------------------------------------------------------------
         // Detail complet : infos + audits ou ce reglement est vise
         case 'detail':
             $id = (int) ($_POST['idreglement'] ?? 0);

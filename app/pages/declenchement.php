@@ -32,6 +32,14 @@ if (!in_array($type, $TYPES, true) || !in_array($cadre, $CADRES, true)) {
     exit;
 }
 
+// Parametres de pre-remplissage transmis par le Programme PSC (facultatifs).
+// Validation stricte : entiers positifs, date au format AAAA-MM-JJ.
+$prefillOrga  = (isset($_GET['idorga'])     && ctype_digit((string)$_GET['idorga']))     ? (int)$_GET['idorga']     : 0;
+$prefillSite  = (isset($_GET['idsite'])     && ctype_digit((string)$_GET['idsite']))     ? (int)$_GET['idsite']     : 0;
+$prefillType  = (isset($_GET['idtypeorga']) && ctype_digit((string)$_GET['idtypeorga'])) ? (int)$_GET['idtypeorga'] : 0;
+$prefillProg  = (isset($_GET['idprog'])     && ctype_digit((string)$_GET['idprog']))     ? (int)$_GET['idprog']     : 0;
+$prefillDprev = (isset($_GET['dprev']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$_GET['dprev'])) ? $_GET['dprev'] : '';
+
 $pageTitle = 'Declenchement';
 $active    = 'audits';
 $pageIcon  = 'bi-flag';
@@ -125,7 +133,10 @@ require_once INCLUDES_PATH . '/layout_head.php';
     <div class="row g-3 mb-3">
       <div class="col-md-6">
         <label class="form-label">Responsable de l'audit <span class="text-danger">*</span></label>
-        <select id="d_resp" style="width:100%"></select>
+        <div class="d-flex gap-2 align-items-start">
+          <div style="flex:1 1 auto"><select id="d_resp" style="width:100%"></select></div>
+          <button type="button" class="btn btn-outline-primary add-btn" id="addInsp" title="Ajouter un inspecteur"><i class="bi bi-plus-lg"></i></button>
+        </div>
         <div class="form-text">Seuls les inspecteurs non stagiaires peuvent etre responsables.</div>
       </div>
       <div class="col-md-6">
@@ -285,6 +296,71 @@ require_once INCLUDES_PATH . '/layout_head.php';
   </div>
 </div>
 
+<!-- MODALE NOTIFICATION DIRECTEUR (inspecteurs ANAC internes uniquement) -->
+<div class="modal fade" id="dirModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:linear-gradient(135deg,#23408F,#1b3576)">
+        <h5 class="modal-title text-white"><i class="bi bi-person-badge me-2" style="color:#F3C300"></i>Notification du directeur</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <input type="hidden" id="dir_idinspecteur" value="">
+        <div class="alert alert-light py-2 small mb-3" style="border-left:4px solid #23408F">
+          <i class="bi bi-info-circle me-1"></i>Vous pouvez informer par email le directeur fonctionnel de l'inspecteur <b id="dir_inspNom"></b> de son affectation a cet acte de supervision.
+        </div>
+        <div id="dir_zoneTrouve" style="display:none">
+          <div class="mb-2">
+            <label class="form-label mb-1">Directeur fonctionnel</label>
+            <div class="p-2" style="background:#f5f7fa;border-radius:8px">
+              <div style="font-weight:700;color:#23408F" id="dir_nom">-</div>
+              <div class="small text-muted" id="dir_fonction">-</div>
+              <div class="small text-muted" id="dir_direction">-</div>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label mb-1">Email du directeur</label>
+            <input type="email" class="form-control" id="dir_email" maxlength="100" placeholder="prenom.nom@anac-gabon.com">
+            <div class="form-text">Si l'email est vide ou a corriger, saisissez-le : il sera enregistre pour les prochaines fois.</div>
+          </div>
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" id="dir_notifier" checked>
+            <label class="form-check-label" for="dir_notifier">Notifier ce directeur par email au declenchement</label>
+          </div>
+          <div class="form-check" style="background:#fff8e6;border:1px solid #f3e2a8;border-radius:8px;padding:8px 8px 8px 34px">
+            <input class="form-check-input" type="checkbox" id="dir_interim">
+            <label class="form-check-label" for="dir_interim"><i class="bi bi-arrow-left-right me-1" style="color:#b58a00"></i><b>Directeur absent</b> : notifier plutot l'interimaire</label>
+            <div class="form-text mb-0">Si le directeur est en conge, cochez pour choisir la personne qui assure l'interim.</div>
+          </div>
+        </div>
+        <div id="dir_zoneFallback" style="display:none">
+          <div class="alert alert-warning py-2 small"><i class="bi bi-exclamation-triangle me-1"></i>Aucun directeur n'a ete trouve automatiquement pour cet inspecteur. Vous pouvez le choisir dans la liste du personnel ANAC.</div>
+          <div class="mb-2">
+            <label class="form-label mb-1">Choisir dans le personnel ANAC</label>
+            <select id="dir_personnel" style="width:100%"></select>
+          </div>
+          <div id="dir_persDetail" class="p-2 mb-2" style="background:#f5f7fa;border-radius:8px;display:none">
+            <div class="small text-muted" id="dir_persFonction">-</div>
+            <div class="small text-muted" id="dir_persDirection">-</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label mb-1">Email</label>
+            <input type="email" class="form-control" id="dir_persEmail" maxlength="100" placeholder="prenom.nom@anac-gabon.com">
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="dir_persNotifier">
+            <label class="form-check-label" for="dir_persNotifier">Notifier cette personne par email au declenchement</label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Passer</button>
+        <button type="button" class="btn btn-anac" id="dir_valider"><i class="bi bi-check-lg me-1"></i>Valider</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <?php require_once INCLUDES_PATH . '/layout_foot.php'; ?>
 
 <script>
@@ -337,6 +413,14 @@ function buildStatutZone(){
 buildStatutZone();
 
 const TYPE_LABELS = {audit:'Audit', inspection_programmee:'Inspection programmee', inspection_non_programmee:'Inspection non programmee', demonstration:'Demonstration', test:'Test', investigation:'Investigation'};
+// Valeurs de pre-remplissage transmises par le Programme PSC
+const PREFILL = {
+  idorga: <?= (int)$prefillOrga ?>,
+  idsite: <?= (int)$prefillSite ?>,
+  idtypeorga: <?= (int)$prefillType ?>,
+  idprog: <?= (int)$prefillProg ?>,
+  dprev: <?= json_encode($prefillDprev) ?>
+};
 const CADRE_LABELS = {certification:'Certification', homologation:'Homologation', reconnaissance:'Reconnaissance', renouvellement:'Renouvellement', surveillance_continue:'Surveillance continue', traitement_evenement:"Traitement d'un evenement", fermeture_provisoire:'Fermeture provisoire', fermeture_definitive:'Fermeture definitive', delivrance_autorisation:"Delivrance d'une autorisation"};
 
 function post(url, data){ data = Object.assign({csrf_token: CSRF}, data); return $.post(url, data, null, 'json'); }
@@ -390,9 +474,77 @@ function loadLists(){
     (res.reglements || []).forEach(r => { (REG_BY_DOM[r.iddomaine] = REG_BY_DOM[r.iddomaine] || []).push(r); });
     RESP_READY = true;
     validateForm();
+    applyPrefill();
   });
 }
 loadLists();
+
+// Au retour sur cet onglet (apres avoir cree un inspecteur ailleurs), on met a
+// jour UNIQUEMENT la liste des inspecteurs, sans recharger le reste et sans
+// perdre la moindre donnee deja saisie. On ajoute seulement les inspecteurs
+// nouvellement crees aux listes deroulantes existantes (responsable + equipe).
+function majInspecteurs(){
+  if(!RESP_READY) return;
+  post(API_AUDITS, {action:'lists'}).done(function(res){
+    if(!res || !res.success || !Array.isArray(res.inspecteurs)) return;
+    const avant = new Set((INSP_ALL||[]).map(function(i){ return String(i.idinspecteur); }));
+    const nouveaux = res.inspecteurs.filter(function(i){ return !avant.has(String(i.idinspecteur)); });
+    if(!nouveaux.length) return;              // rien de nouveau : on ne touche a rien
+    INSP_ALL = res.inspecteurs;               // on garde la liste de reference a jour
+
+    // Construit les <option> a ajouter (uniquement les nouveaux)
+    const optsSup = nouveaux.map(function(i){
+      return '<option value="'+esc(i.idinspecteur)+'">'+esc(i.nom)
+           + (i.trigr_inspecteur?' ('+esc(i.trigr_inspecteur)+')':'')+'</option>';
+    }).join('');
+
+    // Responsable : on ajoute les nouveaux sans changer la valeur choisie
+    const $resp = $('#d_resp');
+    const valResp = $resp.val();
+    $resp.append(optsSup);
+    if(valResp){ $resp.val(valResp); }
+    $resp.trigger('change.select2');
+
+    // Chaque carte d'equipe : on ajoute les nouveaux a sa liste, choix preserve
+    $('.insp-sel').each(function(){
+      const $s = $(this);
+      const v = $s.val();
+      $s.append(optsSup);
+      if(v){ $s.val(v); }
+      $s.trigger('change.select2');
+    });
+  });
+}
+// visibilitychange est plus fiable que focus pour detecter le retour d'onglet
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible'){ majInspecteurs(); }
+});
+window.addEventListener('focus', majInspecteurs);
+
+/* Pre-remplissage depuis le Programme PSC (operateur ou site + type + date). */
+function applyPrefill(){
+  let changed=false;
+  // Date previsionnelle (approx. lundi de la semaine ISO transmise)
+  if(PREFILL.dprev && !$('#d_dprev').val()){ $('#d_dprev').val(PREFILL.dprev); changed=true; }
+  // Operateur (mode operateur)
+  if(PREFILL.idorga>0){
+    $('#d_orga').val(String(PREFILL.idorga)).trigger('change.select2');
+    $('#d_orga').trigger('change');
+    changed=true;
+  }
+  // Type d'activite (operateur)
+  if(PREFILL.idtypeorga>0){
+    $('#d_typeorga').val(String(PREFILL.idtypeorga)).trigger('change.select2');
+    changed=true;
+  }
+  // Site (mode site)
+  if(PREFILL.idsite>0){
+    $('#d_site').val(String(PREFILL.idsite)).trigger('change.select2');
+    $('#d_site').trigger('change');
+    changed=true;
+  }
+  if(changed){ validateForm(); }
+}
 
 /* ===== Equipe d'audit (1C) : inspecteurs par domaine habilite ===== */
 let REG_BY_DOM = {};
@@ -454,8 +606,115 @@ $(document).on('change', '.insp-sel', function(){
     if(!doms.length){ body.html('<div class="reg-empty">Aucun domaine habilite pour cet inspecteur.</div>'); validateForm(); return; }
     body.html(doms.map(domRow).join(''));
     validateForm();
+    // Notification du directeur : uniquement pour les inspecteurs ANAC (internes).
+    // Les inspecteurs externes (autres ANAC) n'ont pas de directeur fonctionnel ANAC.
+    const insp = (INSP_ALL||[]).find(function(x){ return String(x.idinspecteur)===String(id); });
+    const estExterne = insp && String(insp.categorie)==='externe';
+    if(!estExterne){ openDirModal(id, insp ? insp.nom : ''); }
   }).fail(()=>{ body.html('<div class="text-danger small">Echec de chargement.</div>'); });
   refreshRaBadges();
+});
+
+/* ===== Notification du directeur (inspecteurs ANAC internes) ===== */
+let DIR_NOTIFS = {}; // idinspecteur -> {idpersonnel, nom, email, notifier}
+let DIR_CTX = {}; // idinspecteur -> {codedirec, direction} pour le fallback / interim
+function openDirModal(idinspecteur, nomInsp){
+  $('#dir_idinspecteur').val(idinspecteur);
+  $('#dir_inspNom').text(nomInsp||'');
+  $('#dir_zoneTrouve, #dir_zoneFallback').hide();
+  $('#dir_email').val(''); $('#dir_notifier').prop('checked', true);
+  $('#dir_persEmail').val(''); $('#dir_persNotifier').prop('checked', false);
+  $('#dir_persDetail').hide();
+  $('#dir_interim').prop('checked', false);
+  // Recherche du directeur fonctionnel
+  post(API_AUDITS, {action:'insp_directeur', idinspecteur:idinspecteur}).done(function(res){
+    if(res && res.success){
+      DIR_CTX[idinspecteur] = {codedirec: res.codedirec||0, direction: res.direction||''};
+      if(res.trouve){
+        $('#dir_idinspecteur').data('idpersonnel', res.idpersonnel||'');
+        $('#dir_nom').text(res.nom||'-');
+        $('#dir_fonction').text(res.fonction||'-');
+        $('#dir_direction').text(res.direction||'-');
+        $('#dir_email').val(res.email||'');
+        $('#dir_zoneTrouve').show();
+      } else {
+        $('#dir_zoneFallback').show();
+        loadDirPersonnel(idinspecteur);
+      }
+    } else {
+      $('#dir_zoneFallback').show(); loadDirPersonnel(idinspecteur);
+    }
+    new bootstrap.Modal('#dirModal').show();
+  }).fail(function(){
+    $('#dir_zoneFallback').show(); loadDirPersonnel(idinspecteur);
+    new bootstrap.Modal('#dirModal').show();
+  });
+}
+function loadDirPersonnel(idinspecteur){
+  const ctx = DIR_CTX[idinspecteur] || {};
+  function build(list){
+    let opts = '<option value="">Choisir une personne...</option>';
+    (list||[]).forEach(function(p){
+      opts += '<option value="'+esc(p.idpersonnel)+'" data-fonction="'+esc(p.fonction||'')+'" data-direction="'+esc(p.direction||'')+'" data-email="'+esc(p.email||'')+'">'
+           + esc(p.nom||'') + (p.direction?(' - '+esc(p.direction)):'') + '</option>';
+    });
+    const $s = $('#dir_personnel');
+    if($s.hasClass('select2-hidden-accessible')) $s.select2('destroy');
+    $s.html(opts).select2({theme:'bootstrap-5', width:'100%', dropdownParent:$('#dirModal'), placeholder:'Choisir une personne...'});
+  }
+  post(API_AUDITS, {action:'personnel_direction', codedirec: ctx.codedirec||0}).done(function(res){
+    build((res && res.success) ? (res.personnel||[]) : []);
+  }).fail(function(){ build([]); });
+}
+$(document).on('change', '#dir_personnel', function(){
+  const opt = this.options[this.selectedIndex];
+  if(opt && opt.value){
+    $('#dir_persFonction').text(opt.getAttribute('data-fonction')||'-');
+    $('#dir_persDirection').text(opt.getAttribute('data-direction')||'-');
+    $('#dir_persEmail').val(opt.getAttribute('data-email')||'');
+    $('#dir_persDetail').show();
+    $('#dir_persNotifier').prop('checked', true);
+  } else { $('#dir_persDetail').hide(); }
+});
+/* Directeur absent -> choisir l'interimaire dans le personnel ANAC */
+$(document).on('change', '#dir_interim', function(){
+  const idinsp = $('#dir_idinspecteur').val();
+  if(this.checked){
+    // On masque le directeur trouve, on affiche la liste pour choisir l'interimaire
+    $('#dir_zoneTrouve').hide();
+    $('#dir_zoneFallback').show();
+    $('#dir_zoneFallback .alert-warning').html('<i class="bi bi-arrow-left-right me-1"></i>Le directeur est absent : choisissez la personne qui assure l\'interim de la Direction.');
+    loadDirPersonnel(idinsp);
+  } else {
+    $('#dir_zoneFallback').hide();
+    $('#dir_zoneTrouve').show();
+  }
+});
+$('#dir_valider').on('click', function(){
+  const idinsp = $('#dir_idinspecteur').val();
+  if(!idinsp){ bootstrap.Modal.getInstance(document.getElementById('dirModal')).hide(); return; }
+  let idpersonnel='', nom='', email='', notifier=false;
+  if($('#dir_zoneTrouve').is(':visible')){
+    idpersonnel = $('#dir_idinspecteur').data('idpersonnel') || '';
+    nom = $('#dir_nom').text();
+    email = ($('#dir_email').val()||'').trim();
+    notifier = $('#dir_notifier').is(':checked');
+    // Sauvegarde de l'email s'il a ete saisi/modifie
+    if(email && idpersonnel){ post(API_AUDITS, {action:'maj_email_directeur', idpersonnel:idpersonnel, email:email}); }
+  } else {
+    const opt = document.getElementById('dir_personnel');
+    idpersonnel = opt ? opt.value : '';
+    nom = opt && opt.selectedIndex>=0 ? opt.options[opt.selectedIndex].text : '';
+    email = ($('#dir_persEmail').val()||'').trim();
+    notifier = $('#dir_persNotifier').is(':checked');
+    if(email && idpersonnel){ post(API_AUDITS, {action:'maj_email_directeur', idpersonnel:idpersonnel, email:email}); }
+  }
+  if(notifier && email){
+    DIR_NOTIFS[idinsp] = {idpersonnel:idpersonnel, nom:nom, email:email, notifier:true};
+  } else {
+    delete DIR_NOTIFS[idinsp];
+  }
+  bootstrap.Modal.getInstance(document.getElementById('dirModal')).hide();
 });
 
 function domRow(d){
@@ -538,7 +797,11 @@ function populateRegSelect($sel, domId){
   $sel.trigger('change');
 }
 
-$(document).on('click', '.eq-remove', function(){ $(this).closest('.eq-card').remove(); refreshRaBadges(); validateForm(); });
+$(document).on('click', '.eq-remove', function(){
+  const idInsp = $(this).closest('.eq-card').attr('data-insp');
+  if(idInsp && DIR_NOTIFS[idInsp]){ delete DIR_NOTIFS[idInsp]; }
+  $(this).closest('.eq-card').remove(); refreshRaBadges(); validateForm();
+});
 
 function refreshRaBadges(){
   const ra = $('#d_resp').val();
@@ -671,6 +934,26 @@ function validateForm(){
 
 /* ---------- Bouton + : ajouter un operateur ---------- */
 $('#addOrga').on('click', function(){ $('#o_nom').val(''); $('#o_sigle').val(''); $('#o_dup').hide(); new bootstrap.Modal('#orgaModal').show(); });
+
+/* ---------- Bouton + : ajouter un inspecteur ---------- */
+// La creation d'un inspecteur requiert des donnees reglementaires (categorie,
+// direction, habilitations par domaine). On ouvre le module dedie Inspecteurs
+// dans un nouvel onglet ; au retour, les listes se rechargent automatiquement.
+$('#addInsp').on('click', function(){
+  Swal.fire({
+    icon:'info',
+    title:'Ajouter un inspecteur',
+    html:'La creation d\'un inspecteur (categorie, direction, habilitations par domaine) '
+       + 'se fait dans le module <b>Inspecteurs</b>. Il s\'ouvre dans un nouvel onglet.<br><br>'
+       + 'Une fois l\'inspecteur cree, revenez ici : la liste se mettra a jour automatiquement.',
+    showCancelButton:true,
+    confirmButtonText:'Ouvrir le module Inspecteurs',
+    cancelButtonText:'Annuler',
+    confirmButtonColor:'#23408F'
+  }).then(function(r){
+    if(r.isConfirmed){ window.open(AGAI_BASE + '/inspecteurs', '_blank'); }
+  });
+});
 let oDup=null;
 $('#o_nom').on('input', function(){
   clearTimeout(oDup); const nom=$(this).val().trim(); if(!nom){ $('#o_dup').hide(); return; }
@@ -730,6 +1013,19 @@ $('#siteForm').on('submit', function(e){
   }).fail(()=>{ btn.prop('disabled',false); Swal.fire({icon:'error',title:'Erreur',text:'Echec.',confirmButtonColor:'#23408F'}); });
 });
 
+/* Collecte les notifications directeur pour les inspecteurs reellement dans l'equipe */
+function gatherDirNotifs(eqInspList){
+  const uniques = Array.from(new Set((eqInspList||[]).map(String)));
+  const out = [];
+  uniques.forEach(function(idInsp){
+    const n = DIR_NOTIFS[idInsp];
+    if(n && n.notifier && n.email){
+      out.push({idinspecteur:idInsp, idpersonnel:n.idpersonnel||'', nom:n.nom||'', email:n.email});
+    }
+  });
+  return out;
+}
+
 /* ---------- Enregistrement du declenchement ---------- */
 $('#decForm').on('submit', function(e){
   e.preventDefault();
@@ -744,7 +1040,8 @@ $('#decForm').on('submit', function(e){
     idtypeorga:$('#d_typeorga').val() || 0, idsite:$('#d_site').val(),
     statut:$('#d_statut').val() || 1, date_previsionnelle:$('#d_dprev').val(),
     notif_mail:$('#d_notif').is(':checked') ? 1 : 0,
-    eq_inspecteur: team.eqInsp, eq_domaine: team.eqDom, eq_regs_json: JSON.stringify(team.eqRegs)
+    eq_inspecteur: team.eqInsp, eq_domaine: team.eqDom, eq_regs_json: JSON.stringify(team.eqRegs),
+    dir_notif_json: JSON.stringify(gatherDirNotifs(team.eqInsp))
   };
   const notifActive = $('#d_notif').is(':checked');
   const btn=$('#decSubmit'); const html=btn.html();

@@ -53,7 +53,7 @@ try {
         case 'list':
             $st = $db->query(
                 "SELECT u.iduser, u.matricule, u.email, u.nom, u.prenom, u.role,
-                        u.is_active, u.is_2fa_enabled, u.email_notifications, u.idorga,
+                        u.is_active, u.motif_desactivation, u.is_2fa_enabled, u.email_notifications, u.idorga,
                         o.nomorga, u.last_login
                  FROM users u
                  LEFT JOIN organisme o ON o.idorga = u.idorga
@@ -221,22 +221,73 @@ try {
             }
             if ($id === (int) $_SESSION['user_id'] && $active === 0) { $fail('Vous ne pouvez pas desactiver votre propre compte.'); break; }
 
+            // Un chef inspecteur ne peut pas desactiver un compte administrateur
+            if ($active === 0 && $sessionRole === 'chef_inspecteur') {
+                $stCur = $db->prepare("SELECT role FROM users WHERE iduser = ?");
+                $stCur->execute([$id]);
+                if ($stCur->fetchColumn() === 'admin') {
+                    $fail('Un chef inspecteur ne peut pas desactiver un compte administrateur.');
+                    break;
+                }
+            }
+
+            $motifUpdate = trim((string) ($_POST['motif'] ?? ''));
+            if ($active === 0 && mb_strlen($motifUpdate) > 500) {
+                $fail('Motif trop long (500 caracteres maximum).'); break;
+            }
+
             $st = $db->prepare(
                 "UPDATE users SET email=?, nom=?, prenom=?, role=?, idorga=?,
                         is_2fa_enabled=?, email_notifications=?, is_active=?, updated_at=NOW()
                  WHERE iduser=?"
             );
             $st->execute([$email, $nom, $prenom, $role, $idorga, $is2fa, $notif, $active, $id]);
+
+            // Motif de desactivation (optionnel) : coherent avec l'action toggle_active.
+            // Reactivation -> on efface l'ancien motif.
+            if ($active === 0) {
+                $db->prepare("UPDATE users SET motif_desactivation=? WHERE iduser=?")
+                   ->execute([$motifUpdate !== '' ? $motifUpdate : null, $id]);
+            } else {
+                $db->prepare("UPDATE users SET motif_desactivation=NULL WHERE iduser=?")->execute([$id]);
+            }
+
             Audit::log('update', 'users', "Modification utilisateur #$id ($email)");
             $ok(['message' => 'Utilisateur mis a jour.']);
             break;
 
         case 'toggle_active':
-            $id = (int) ($_POST['iduser'] ?? 0);
+            $id     = (int) ($_POST['iduser'] ?? 0);
             $active = ((int) ($_POST['active'] ?? 1)) === 1 ? 1 : 0;
-            if ($id === (int) $_SESSION['user_id'] && $active === 0) { $fail('Vous ne pouvez pas desactiver votre propre compte.'); break; }
-            $db->prepare("UPDATE users SET is_active=?, updated_at=NOW() WHERE iduser=?")->execute([$active, $id]);
-            Audit::log($active ? 'enable' : 'disable', 'users', "Compte #$id " . ($active ? 'active' : 'desactive'));
+            $motif  = trim((string) ($_POST['motif'] ?? ''));
+
+            if ($id === (int) $_SESSION['user_id'] && $active === 0) {
+                $fail('Vous ne pouvez pas desactiver votre propre compte.'); break;
+            }
+
+            $stT = $db->prepare("SELECT role, nom, prenom FROM users WHERE iduser = ?");
+            $stT->execute([$id]);
+            $target = $stT->fetch();
+            if (!$target) { $fail('Utilisateur introuvable.'); break; }
+
+            // Un chef inspecteur ne peut pas desactiver un compte administrateur
+            if ($active === 0 && $sessionRole === 'chef_inspecteur' && $target['role'] === 'admin') {
+                $fail('Un chef inspecteur ne peut pas desactiver un compte administrateur.');
+                break;
+            }
+
+            if ($active === 0 && mb_strlen($motif) > 500) {
+                $fail('Motif trop long (500 caracteres maximum).'); break;
+            }
+
+            $db->prepare("UPDATE users SET is_active=?, motif_desactivation=?, updated_at=NOW() WHERE iduser=?")
+               ->execute([$active, $active === 0 ? ($motif !== '' ? $motif : null) : null, $id]);
+
+            $targetNom = trim(($target['prenom'] ?? '') . ' ' . ($target['nom'] ?? ''));
+            $desc = "Compte #$id ($targetNom) " . ($active ? 'reactive' : 'desactive');
+            if ($active === 0 && $motif !== '') { $desc .= " - Motif : $motif"; }
+            Audit::log($active ? 'enable' : 'disable', 'users', $desc);
+
             $ok(['message' => 'Statut mis a jour.']);
             break;
 

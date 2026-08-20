@@ -12,10 +12,10 @@ Rbac::guardPage('audits');
 $csrf      = Security::generateCSRF();
 $role      = Rbac::role();
 $uid       = (int) ($_SESSION['user_id'] ?? 0);
-$pageTitle = 'Mes audits';
+$pageTitle = 'Revue documentaire';
 $active    = 'mes-audits';
 $isCI      = in_array($role, ['admin','chef_inspecteur','consultant'], true);
-$titre     = $isCI ? 'Audits et revues documentaires' : 'Mes audits - Revues documentaires';
+$titre     = 'Revue documentaire';
 require_once INCLUDES_PATH . '/layout_head.php';
 ?>
 <style>
@@ -45,7 +45,21 @@ table.tbl tbody tr:hover{background:#fafcff;}
 .prog-lbl{font-size:.78rem;font-weight:700;}
 .prog-lbl.complete{color:#1E9C4B;} .prog-lbl.partial{color:#b58a00;} .prog-lbl.empty2{color:#9aa7bd;}
 /* Boutons revue */
-.btn-revue-saisir{background:linear-gradient(135deg,#23408F,#1b3576);color:#fff !important;border:none;border-radius:8px;padding:5px 12px;font-size:.79rem;font-weight:600;display:inline-flex;align-items:center;gap:5px;text-decoration:none;transition:all .15s;}
+.btn-revue-saisir{background:linear-gradient(135deg,#23408F,#1b3576);color:#fff !important;border:none;border-radius:8px;padding:5px 12px;font-size:.79rem;font-weight:600;display:inline-flex;align-items:center;gap:5px;text-decoration:none;transition:all .15s;cursor:pointer;}
+.mode-card{background:#fff;border:2px solid #e6ebf3;border-radius:14px;padding:20px 18px;height:100%;cursor:pointer;transition:.16s;text-align:center;position:relative;}
+.mode-card:hover{border-color:#23408F;transform:translateY(-3px);box-shadow:0 10px 24px rgba(35,64,143,.14);}
+.mode-card-ic{width:58px;height:58px;margin:0 auto 12px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.7rem;color:#fff;}
+.mc-blue{background:linear-gradient(135deg,#23408F,#1b3576);}
+.mc-red{background:linear-gradient(135deg,#D32F2F,#b02525);}
+.mode-card-t{font-weight:800;color:#2C3E50;font-size:1.05rem;margin-bottom:6px;}
+.mode-card-s{font-size:.82rem;color:#6b7a90;line-height:1.45;min-height:52px;}
+.mode-card-go{margin-top:12px;font-weight:700;font-size:.85rem;color:#23408F;}
+.mode-card:hover .mode-card-go{text-decoration:underline;}
+.mode-card-lock{display:none;margin-top:10px;font-size:.75rem;font-weight:700;color:#D32F2F;}
+.mode-card.locked{opacity:.5;cursor:not-allowed;filter:grayscale(.4);}
+.mode-card.locked:hover{transform:none;box-shadow:none;border-color:#e6ebf3;}
+.mode-card.locked .mode-card-go{display:none;}
+.mode-card.locked .mode-card-lock{display:block;}
 .btn-revue-saisir:hover{background:linear-gradient(135deg,#1b3576,#13276a);transform:translateY(-1px);box-shadow:0 3px 8px rgba(35,64,143,.3);}
 .btn-revue-continuer{background:linear-gradient(135deg,#b58a00,#9a7500);color:#fff !important;border:none;border-radius:8px;padding:5px 12px;font-size:.79rem;font-weight:600;display:inline-flex;align-items:center;gap:5px;text-decoration:none;transition:all .15s;}
 .btn-revue-continuer:hover{background:linear-gradient(135deg,#9a7500,#7d5f00);transform:translateY(-1px);box-shadow:0 3px 8px rgba(181,138,0,.3);}
@@ -58,6 +72,23 @@ table.tbl tbody tr:hover{background:#fafcff;}
   <div>
     <h1><i class="bi bi-clipboard-check me-2" style="color:var(--anac-primary)"></i><?php echo Security::escape($titre); ?></h1>
     <div class="sub">Suivi des actes de supervision et gestion des revues documentaires.</div>
+  </div>
+</div>
+
+<div class="fnc-card mb-3" style="border-left:4px solid #1E9C4B;background:#fff;border:1px solid #eef1f6;border-radius:12px">
+  <div id="guideRevueToggle" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:11px 15px;user-select:none">
+    <i class="bi bi-info-circle" style="color:#1E9C4B"></i>
+    <b style="color:#1E9C4B">Comment fonctionne la revue documentaire ?</b>
+    <i class="bi bi-chevron-down ms-auto" id="guideRevueChevron" style="color:#1E9C4B;transition:transform .2s"></i>
+  </div>
+  <div id="guideRevueBody" style="display:none;padding:0 15px 13px;font-size:.83rem;color:#1e3a5f;line-height:1.6">
+    Cliquez sur <b>Traiter la revue</b> pour, au choix, <b>saisir</b> le formulaire (6 rubriques) ou <b>joindre</b> un PDF.
+    Chaque inspecteur redige sa propre revue ; les autres la consultent seulement.
+    <div class="mt-2 p-2" style="background:#fff8e6;border-left:4px solid #F3C300;border-radius:6px;color:#7a5c00">
+      <i class="bi bi-exclamation-triangle me-1"></i><b>Important :</b> les membres de l'equipe doivent <b>s'accorder sur le mode de traitement</b> de la revue (saisie <b>ou</b> PDF joint).
+      Les inspecteurs de l'equipe traitent leur revue <b>avant</b> le Responsable d'Audit (RA). Des qu'un mode est choisi, <b>toute l'equipe suit le meme mode</b>.
+      Quand le RA traite sa revue, l'acte est <b>cloture</b> : plus aucune saisie n'est possible, uniquement la consultation et l'impression PDF.
+    </div>
   </div>
 </div>
 
@@ -134,9 +165,11 @@ table.tbl tbody tr:hover{background:#fafcff;}
     <thead>
       <tr>
         <th>N Audit</th>
+        <th>N Revue</th>
         <th>Nature / Cadre</th>
         <th>Operateur</th>
         <th>Responsable (RA)</th>
+        <th>Membres</th>
         <th>Date prev.</th>
         <th>Statut</th>
         <th>Revue documentaire</th>
@@ -144,7 +177,7 @@ table.tbl tbody tr:hover{background:#fafcff;}
       </tr>
     </thead>
     <tbody id="tbody">
-      <tr><td colspan="8" class="empty"><span class="spinner-border spinner-border-sm me-2"></span>Chargement...</td></tr>
+      <tr><td colspan="10" class="empty"><span class="spinner-border spinner-border-sm me-2"></span>Chargement...</td></tr>
     </tbody>
   </table>
 </div>
@@ -177,6 +210,92 @@ table.tbl tbody tr:hover{background:#fafcff;}
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-3" id="listModalBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE : choix du mode de traitement -->
+<div class="modal fade" id="modalMode" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="border:none;border-radius:16px;overflow:hidden">
+      <div class="modal-header" style="background:linear-gradient(135deg,#23408F,#1b3576);border:none">
+        <h5 class="modal-title text-white"><i class="bi bi-clipboard2-check me-2" style="color:#F3C300"></i>Comment traiter la revue documentaire ?</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="background:#f5f7fa;padding:22px">
+        <input type="hidden" id="modeIdAudit"><input type="hidden" id="modeNumAudit">
+        <div class="alert border py-2 small mb-3" style="background:#fff8e6;border-left:4px solid #F3C300 !important;color:#7a5c00">
+          <i class="bi bi-exclamation-triangle me-1"></i><b>Important :</b> les inspecteurs de l'equipe doivent traiter leur revue <b>avant</b> le Responsable d'Audit (RA).
+          Des qu'un mode est choisi (saisie ou PDF), <b>toute l'equipe suit le meme mode</b>. Quand le <b>RA</b> traite sa revue, l'acte est <b>cloture</b> : plus aucune saisie n'est possible.
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="mode-card" id="cardTexte" role="button" tabindex="0">
+              <div class="mode-card-ic mc-blue"><i class="bi bi-pencil-square"></i></div>
+              <div class="mode-card-t">Saisir en ligne</div>
+              <div class="mode-card-s">Renseignez les <b>6 rubriques</b> de la revue directement dans l'application.</div>
+              <div class="mode-card-go"><i class="bi bi-arrow-right-circle me-1"></i>Ouvrir le formulaire</div>
+              <div class="mode-card-lock"><i class="bi bi-lock-fill me-1"></i>Indisponible : l'equipe a choisi le PDF</div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="mode-card" id="cardPdf" role="button" tabindex="0">
+              <div class="mode-card-ic mc-red"><i class="bi bi-file-earmark-pdf"></i></div>
+              <div class="mode-card-t">Joindre un PDF</div>
+              <div class="mode-card-s">Vous avez deja redige la revue ? <b>Televersez le PDF</b> (10 Mo maximum).</div>
+              <div class="mode-card-go"><i class="bi bi-arrow-right-circle me-1"></i>Choisir le fichier</div>
+              <div class="mode-card-lock"><i class="bi bi-lock-fill me-1"></i>Indisponible : l'equipe a choisi la saisie</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE : depot du PDF -->
+<div class="modal fade" id="modalPdf" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border:none;border-radius:14px">
+      <div class="modal-header" style="background:linear-gradient(135deg,#D32F2F,#b02525);border:none">
+        <h5 class="modal-title text-white"><i class="bi bi-file-earmark-pdf me-2" style="color:#fff"></i>Joindre le PDF de la revue</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="pdfIdAudit">
+        <div id="pdfDejaJoints" class="mb-3" style="display:none">
+          <div style="font-size:.78rem;font-weight:700;color:#23408F;text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px">
+            <i class="bi bi-collection me-1"></i>Documents deja joints par l'equipe
+          </div>
+          <div id="pdfDejaListe" class="d-flex flex-column gap-2"></div>
+          <hr>
+        </div>
+        <label class="form-label fw-bold">Document PDF de la revue documentaire</label>
+        <input type="file" class="form-control" id="pdfFile" accept="application/pdf">
+        <div class="form-text mt-1">PDF uniquement, 10 Mo maximum. Ce document fera foi comme votre revue.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button type="button" class="btn btn-anac" id="btnUploadPdf"><i class="bi bi-upload me-1"></i>Joindre</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE : consultation d'un PDF de revue -->
+<div class="modal fade" id="modalPdfView" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content" style="border:none;border-radius:14px;overflow:hidden">
+      <div class="modal-header" style="background:linear-gradient(135deg,#23408F,#1b3576);border:none">
+        <h5 class="modal-title text-white"><i class="bi bi-file-earmark-pdf me-2" style="color:#F3C300"></i><span id="pdfViewTitre">Revue documentaire (PDF)</span></h5>
+        <div class="ms-auto d-flex gap-2 align-items-center">
+          <a href="#" id="pdfViewDl" target="_blank" class="btn btn-sm btn-light"><i class="bi bi-box-arrow-up-right me-1"></i>Ouvrir dans un onglet</a>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+      </div>
+      <div class="modal-body" style="padding:0;background:#525659">
+        <iframe id="pdfViewFrame" src="" style="width:100%;height:78vh;border:none"></iframe>
+      </div>
     </div>
   </div>
 </div>
@@ -241,21 +360,30 @@ function revueBtn(a){
   const nb=Number(a.nb_revues||0), tot=Number(a.nb_equipe||0);
   const complet=(tot>0&&nb>=tot);
   const url=AGAI_BASE+'/revue?audit='+esc(a.idaudit);
-  if(complet){
+  const modeAudit=String(a.mode_audit||'');       // 'texte', 'pdf' ou ''
+  const raTraite=Number(a.ra_a_traite||0)>0;       // le RA a cloture ?
+  const estRA=String(a.est_ra)==='1';
+
+  // Revue complete (le RA a traite, ou tous ont saisi) : consultation seule
+  if(complet || raTraite){
     return '<a href="'+url+'" class="btn-revue-consulter">'
       +'<i class="bi bi-eye" style="font-size:.8rem"></i>Consulter'
       +'</a>'
       +'<div style="font-size:.67rem;color:#1E9C4B;font-weight:700;margin-top:3px"><i class="bi bi-check-circle me-1"></i>Revue complete</div>';
   }
+  // En cours : au moins une revue existe -> bouton Poursuivre (mode deja fixe)
   if(nb>0){
-    return '<a href="'+url+'" class="btn-revue-continuer">'
-      +'<i class="bi bi-pencil-fill" style="font-size:.75rem"></i>Continuer'
-      +'</a>'
-      +'<div style="font-size:.67rem;color:#b58a00;font-weight:700;margin-top:3px"><i class="bi bi-clock me-1"></i>En cours de saisie</div>';
+    return '<button type="button" class="btn-revue-continuer btn-traiter" '
+      + 'data-id="'+esc(a.idaudit)+'" data-num="'+esc(a.num_audit||'')+'" data-mode="'+esc(modeAudit)+'" data-ra="'+(estRA?1:0)+'">'
+      +'<i class="bi bi-pencil-fill" style="font-size:.75rem"></i>Poursuivre'
+      +'</button>'
+      +'<div style="font-size:.67rem;color:#b58a00;font-weight:700;margin-top:3px"><i class="bi bi-clock me-1"></i>En cours ('+(modeAudit==='pdf'?'PDF joint':'saisie')+')</div>';
   }
-  return '<a href="'+url+'" class="btn-revue-saisir">'
-    +'<i class="bi bi-pencil-square" style="font-size:.78rem"></i>Saisir'
-    +'</a>'
+  // Rien fait : bouton Traiter la revue -> ouvre la modale de choix
+  return '<button type="button" class="btn-revue-saisir btn-traiter" '
+    + 'data-id="'+esc(a.idaudit)+'" data-num="'+esc(a.num_audit||'')+'" data-mode="" data-ra="'+(estRA?1:0)+'" title="Saisir ou joindre la revue documentaire">'
+    +'<i class="bi bi-pencil-square" style="font-size:.78rem"></i>Traiter la revue'
+    +'</button>'
     +'<div style="font-size:.67rem;color:#9aa7bd;margin-top:3px"><i class="bi bi-dash-circle me-1"></i>Non saisie</div>';
 }
 
@@ -266,16 +394,27 @@ function rowHtml(a){
   const nb=Number(a.nb_revues||0), tot=Number(a.nb_equipe||0);
   const hasPdf=a.mon_pdf&&String(a.mon_pdf).trim().length>0;
   const pdfInsp=a.pdf_idinspecteur||0;
+  const modeAudit=String(a.mode_audit||'');
+  const aContenu=Number(a.nb_revues||0)>0;
 
-  const pdfBtn=hasPdf
-    ?'<button class="btn btn-sm btn-outline-danger btn-pdf" data-audit="'+esc(a.idaudit)+'" data-insp="'+esc(pdfInsp)+'" title="Voir le PDF joint"><i class="bi bi-file-pdf me-1"></i>PDF</button>'
-    :'<button class="btn btn-sm btn-outline-secondary" disabled title="Aucun PDF"><i class="bi bi-file-pdf"></i></button>';
+  var pdfBtn;
+  if(hasPdf){
+    // Mode PDF : consulter le document joint
+    pdfBtn='<button class="btn btn-sm btn-outline-danger btn-pdf" data-audit="'+esc(a.idaudit)+'" data-insp="'+esc(pdfInsp)+'" title="Voir le PDF joint"><i class="bi bi-file-pdf me-1"></i>PDF</button>';
+  } else if(modeAudit==='texte' && aContenu){
+    // Mode saisie : imprimer le PDF genere depuis les 6 rubriques
+    pdfBtn='<a class="btn btn-sm btn-outline-danger" href="'+AGAI_BASE+'/revue?audit='+esc(a.idaudit)+'&print=1" title="Imprimer la revue en PDF"><i class="bi bi-printer me-1"></i>PDF</a>';
+  } else {
+    pdfBtn='<button class="btn btn-sm btn-outline-secondary" disabled title="Revue non traitee"><i class="bi bi-file-pdf"></i></button>';
+  }
 
   return '<tr>'
     +'<td><b style="color:#23408F;font-size:.88rem">'+esc(a.num_audit||'')+'</b></td>'
+    +'<td style="font-size:.82rem;font-weight:600;color:#1E9C4B">'+(a.num_revue?esc(a.num_revue):'<span style="color:#c0c8d4">-</span>')+'</td>'
     +'<td><div style="font-weight:600;font-size:.86rem">'+type+'</div><div class="text-muted" style="font-size:.76rem">'+esc(a.cadre||'')+'</div></td>'
     +'<td style="font-size:.84rem">'+esc(a.operateur||'-')+'</td>'
     +'<td style="font-size:.84rem;color:#D32F2F;font-weight:600">'+esc(a.ra_nom||'-')+raTag+'</td>'
+    +'<td style="font-size:.78rem;color:#5b6b85;max-width:180px">'+esc(a.membres||'-')+'</td>'
     +'<td style="font-size:.84rem">'+fmtDate(a.date_previsionnelle)+'</td>'
     +'<td><span class="s-badge '+st.c+'">'+esc(st.t)+'</span></td>'
     +'<td>'
@@ -305,7 +444,7 @@ function render(){
   const list=getFiltered();
   updateStats(list);
   if(!list.length){
-    $('#tbody').html('<tr><td colspan="8" class="empty"><i class="bi bi-inbox me-2"></i>Aucun audit.</td></tr>');
+    $('#tbody').html('<tr><td colspan="10" class="empty"><i class="bi bi-inbox me-2"></i>Aucun audit.</td></tr>');
     $('#resCount').text(''); return;
   }
   $('#tbody').html(list.map(rowHtml).join(''));
@@ -345,7 +484,7 @@ function showListModal(type){
         +'<td><span class="s-badge '+st.c+'">'+esc(st.t)+'</span></td>'
         +'<td style="text-align:right">'
         +'<a href="'+AGAI_BASE+'/revue?audit='+esc(a.idaudit)+'" class="btn btn-xs btn-anac" style="padding:3px 8px;font-size:.78rem">'
-        +(nb>0&&tot>0&&nb>=tot?'<i class="bi bi-eye me-1"></i>Consulter':'<i class="bi bi-pencil-square me-1"></i>Saisir')
+        +(nb>0&&tot>0&&nb>=tot?'<i class="bi bi-eye me-1"></i>Consulter':'<i class="bi bi-pencil-square me-1"></i>Traiter la revue')
         +'</a></td></tr>';
     });
     h+='</tbody></table></div>';
@@ -377,10 +516,102 @@ $('#btnReset').on('click',function(){
 });
 
 /* ===== DEMARRAGE ===== */
-apiPost({action:'mes_audits'}).done(function(res){
-  if(!res.success){ $('#tbody').html('<tr><td colspan="8" class="empty">'+esc(res.message||'Erreur')+'</td></tr>'); return; }
-  ALL=res.data||[]; render();
-}).fail(function(){ $('#tbody').html('<tr><td colspan="8" class="empty">Echec.</td></tr>'); });
+$('#guideRevueToggle').on('click',function(){
+  $('#guideRevueBody').slideToggle(180);
+  $('#guideRevueChevron').css('transform', $('#guideRevueBody').is(':visible')?'rotate(0deg)':'rotate(-90deg)');
+});
+
+function chargerAudits(){
+  return apiPost({action:'mes_audits'}).done(function(res){
+    if(!res.success){ $('#tbody').html('<tr><td colspan="10" class="empty">'+esc(res.message||'Erreur')+'</td></tr>'); return; }
+    ALL=res.data||[]; render();
+  }).fail(function(){ $('#tbody').html('<tr><td colspan="10" class="empty">Echec.</td></tr>'); });
+}
+chargerAudits();
+
+/* Clic sur "Traiter la revue" / "Poursuivre" : ouvre la modale de choix.
+   Le mode deja adopte par l'equipe grise l'option opposee. */
+$(document).on('click','.btn-traiter',function(){
+  const id=$(this).attr('data-id'), num=$(this).attr('data-num'), mode=String($(this).attr('data-mode')||'');
+  $('#modeIdAudit').val(id); $('#modeNumAudit').val(num);
+  // Reactiver les deux cartes puis verrouiller selon le mode
+  $('#cardTexte,#cardPdf').removeClass('locked');
+  if(mode==='pdf'){ $('#cardTexte').addClass('locked'); }
+  else if(mode==='texte'){ $('#cardPdf').addClass('locked'); }
+  new bootstrap.Modal('#modalMode').show();
+});
+
+/* Choix "Saisir en ligne" -> redirige vers le formulaire de revue */
+$('#cardTexte').on('click',function(){
+  if($(this).hasClass('locked')) return;
+  const id=$('#modeIdAudit').val();
+  window.location.href = AGAI_BASE + '/revue?audit=' + encodeURIComponent(id);
+});
+
+/* Choix "Joindre un PDF" -> petite modale de depot */
+$('#cardPdf').on('click',function(){
+  if($(this).hasClass('locked')) return;
+  const id=$('#modeIdAudit').val();
+  bootstrap.Modal.getInstance(document.getElementById('modalMode')).hide();
+  $('#pdfIdAudit').val(id); $('#pdfFile').val('');
+  chargerPdfJoints(id);
+  new bootstrap.Modal('#modalPdf').show();
+});
+
+/* Liste des PDF deja joints par l'equipe (consultation) */
+function chargerPdfJoints(idaudit){
+  $('#pdfDejaJoints').hide(); $('#pdfDejaListe').html('');
+  apiPost({action:'pdfs_audit',idaudit:idaudit}).done(function(res){
+    if(!res.success || !res.pdfs || !res.pdfs.length) return;
+    var h='';
+    res.pdfs.forEach(function(p){
+      var estRA=Number(p.est_ra)===1;
+      var url=API_REV+'?serve=1&idaudit='+encodeURIComponent(idaudit)+'&idinsp='+encodeURIComponent(p.idinspecteur);
+      h+='<div class="d-flex align-items-center gap-2 p-2" style="background:#f5f7fa;border:1px solid #eef1f6;border-radius:8px">'
+        +'<i class="bi bi-file-earmark-pdf text-danger"></i>'
+        +'<div style="flex:1;font-size:.83rem">'+esc(p.nom||'-')
+        +(estRA?' <span style="background:#D32F2F;color:#fff;font-size:.62rem;font-weight:700;padding:.05rem .35rem;border-radius:8px">RA</span>':'')
+        +(Number(p.est_consolide)===1?' <span style="background:#1E9C4B;color:#fff;font-size:.62rem;font-weight:700;padding:.05rem .35rem;border-radius:8px">Final</span>':'')
+        +'</div>'
+        +'<button type="button" class="btn btn-sm btn-outline-primary btn-voir-pdf-joint" data-url="'+esc(url)+'" data-nom="'+esc(p.nom||'')+'"><i class="bi bi-eye me-1"></i>Voir</button>'
+        +'</div>';
+    });
+    $('#pdfDejaListe').html(h);
+    $('#pdfDejaJoints').show();
+  });
+}
+
+/* Ouvre un PDF joint dans la modale de visualisation */
+$(document).on('click','.btn-voir-pdf-joint',function(){
+  var url=$(this).attr('data-url'), nom=$(this).attr('data-nom')||'';
+  $('#pdfViewFrame').attr('src',url);
+  $('#pdfViewDl').attr('href',url);
+  $('#pdfViewTitre').text('Revue documentaire'+(nom?' - '+nom:''));
+  new bootstrap.Modal('#modalPdfView').show();
+});
+$(document).on('hidden.bs.modal','#modalPdfView',function(){ $('#pdfViewFrame').attr('src',''); });
+
+/* Envoi du PDF */
+$('#btnUploadPdf').on('click',function(){
+  const id=$('#pdfIdAudit').val();
+  const f=$('#pdfFile')[0].files[0];
+  if(!f){ Swal.fire({icon:'info',title:'Aucun fichier',text:'Choisissez un PDF a joindre.',confirmButtonColor:'#23408F'}); return; }
+  if(f.type!=='application/pdf'){ Swal.fire({icon:'error',title:'Format invalide',text:'Seuls les PDF sont acceptes.',confirmButtonColor:'#23408F'}); return; }
+  if(f.size>10*1024*1024){ Swal.fire({icon:'error',title:'Fichier trop lourd',text:'10 Mo maximum.',confirmButtonColor:'#23408F'}); return; }
+  const fd=new FormData();
+  fd.append('csrf_token',CSRF); fd.append('action','upload_revue');
+  fd.append('idaudit',id); fd.append('fichier',f);
+  Swal.fire({title:'Envoi en cours',allowOutsideClick:false,didOpen:function(){Swal.showLoading();}});
+  $.ajax({url:API_REV,method:'POST',data:fd,processData:false,contentType:false,dataType:'json'})
+   .done(function(res){
+      Swal.close();
+      if(!res||!res.success){ Swal.fire({icon:'error',title:'Echec',text:(res&&res.message)||'Envoi impossible.',confirmButtonColor:'#23408F'}); return; }
+      bootstrap.Modal.getInstance(document.getElementById('modalPdf')).hide();
+      Swal.fire({icon:'success',title:'PDF joint',timer:1400,showConfirmButton:false});
+      chargerAudits();
+   })
+   .fail(function(){ Swal.close(); Swal.fire({icon:'error',title:'Echec de la requete',confirmButtonColor:'#23408F'}); });
+});
 
 (function(){
   let v='0'; try{v=localStorage.getItem('agai_stats_mesaudits')||'0';}catch(e){}

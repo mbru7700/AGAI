@@ -26,6 +26,9 @@ table.tbl tbody td{padding:10px 12px;border-bottom:1px solid #f1f4f9;vertical-al
 table.tbl tbody tr:hover{background:#fafcff;}
 .empty{padding:36px;text-align:center;color:#9aa7bd;}
 .b-tag{display:inline-block;padding:.18rem .55rem;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap;margin:.1rem;}
+.kpi-info{font-size:.72rem;color:#b0bccd;cursor:help;margin-left:2px;vertical-align:middle;}
+.kpi-info:hover{color:#23408F;}
+.kpi-note{background:#eef3fb;border:1px solid #d5e1f5;border-radius:8px;padding:8px 12px;font-size:.8rem;color:#3a4a63;margin-bottom:10px;}
 .b-blue{background:#e8f0fe;color:#23408F;} .b-green{background:#d1e7dd;color:#0a5c36;}
 .b-gold{background:#fff3cd;color:#856404;} .b-muted{background:#f1f4f9;color:#7b8aa0;}
 .b-purple{background:#f0e6ff;color:#5a189a;} .b-red{background:#f8d7da;color:#842029;}
@@ -61,11 +64,11 @@ table.tbl tbody tr:hover{background:#fafcff;}
 <div id="statsPanel" class="mb-3" style="display:none">
   <div class="row g-3">
     <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-journal-text"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Reglements</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-grid-3x3-gap-fill"></i></div><div><div class="stat-num" id="st_dom">0</div><div class="stat-lbl">Domaines couverts</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-gold"><i class="bi bi-clipboard-check-fill"></i></div><div><div class="stat-num" id="st_aud">0</div><div class="stat-lbl">Utilises en audits</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-purple"><i class="bi bi-shield-check-fill"></i></div><div><div class="stat-num" id="st_cite">0</div><div class="stat-lbl">Citations totales</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-dark"><i class="bi bi-check2-circle"></i></div><div><div class="stat-num" id="st_avec">0</div><div class="stat-lbl">Avec description</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-red"><i class="bi bi-journal-x"></i></div><div><div class="stat-num" id="st_jamais">0</div><div class="stat-lbl">Jamais utilises</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-dom" style="cursor:pointer"><div class="stat-ic ic-green"><i class="bi bi-grid-3x3-gap-fill"></i></div><div><div class="stat-num" id="st_dom">0</div><div class="stat-lbl">Domaines couverts <i class="bi bi-info-circle-fill kpi-info" title="Nombre de domaines OACI ayant au moins un reglement rattache. Cliquez pour voir chaque domaine et son nombre de reglements."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-util" style="cursor:pointer"><div class="stat-ic ic-gold"><i class="bi bi-clipboard-check-fill"></i></div><div><div class="stat-num" id="st_aud">0</div><div class="stat-lbl">Utilises en audits <i class="bi bi-info-circle-fill kpi-info" title="Nombre de reglements DISTINCTS cites dans au moins un audit. Un reglement cite dans plusieurs audits n'est compte qu'une fois ici. Cliquez pour le detail."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-cite" style="cursor:pointer"><div class="stat-ic ic-purple"><i class="bi bi-shield-check-fill"></i></div><div><div class="stat-num" id="st_cite">0</div><div class="stat-lbl">Citations totales <i class="bi bi-info-circle-fill kpi-info" title="Nombre total de citations de reglements dans les audits. Un reglement cite dans 3 audits compte pour 3 citations : ce chiffre est donc superieur ou egal a 'Utilises en audits'. Cliquez pour le detail."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-desc" style="cursor:pointer"><div class="stat-ic ic-dark"><i class="bi bi-check2-circle"></i></div><div><div class="stat-num" id="st_avec">0</div><div class="stat-lbl">Avec description <i class="bi bi-info-circle-fill kpi-info" title="Nombre de reglements dont le champ description est renseigne. Cliquez pour la liste."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-jamais" style="cursor:pointer"><div class="stat-ic ic-red"><i class="bi bi-journal-x"></i></div><div><div class="stat-num" id="st_jamais">0</div><div class="stat-lbl">Jamais utilises <i class="bi bi-info-circle-fill kpi-info" title="Reglements definis mais jamais cites dans un audit. Utile pour identifier ceux a integrer aux futures activites de supervision. Cliquez pour la liste."></i></div></div></div></div>
   </div>
 </div>
 
@@ -160,6 +163,21 @@ table.tbl tbody tr:hover{background:#fafcff;}
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- MODALE : detail des KPI -->
+<div class="modal fade" id="kpiModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-list-check me-2" style="color:#23408F"></i><span id="kpiModalTitle"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" id="kpiModalBody">
+        <div class="text-center py-4"><span class="spinner-border text-primary"></span></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -306,6 +324,80 @@ $('#btnReset').on('click',function(){
   render();
 });
 
+/* ===== MODALES DETAIL DES KPI ===== */
+let SYNTHESE=null;
+function withSynthese(cb){
+  if(SYNTHESE){ cb(SYNTHESE); return; }
+  apiPost({action:'synthese'}).done(res => {
+    if(!res.success){ $('#kpiModalBody').html('<div class="alert alert-danger">'+esc(res.message||'Erreur')+'</div>'); return; }
+    SYNTHESE=res; cb(res);
+  }).fail(()=>{ $('#kpiModalBody').html('<div class="alert alert-danger">Echec de chargement.</div>'); });
+}
+function openKpi(kind){
+  $('#kpiModalBody').html('<div class="text-center py-4"><span class="spinner-border text-primary"></span></div>');
+  new bootstrap.Modal('#kpiModal').show();
+  withSynthese(function(s){
+    let h='';
+    if(kind==='dom'){
+      $('#kpiModalTitle').text('Domaines couverts par des reglements');
+      const list=s.domaines||[]; let tot=0; list.forEach(x=>tot+=Number(x.nb_reg));
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Chaque domaine OACI ayant au moins un reglement rattache, avec le nombre de reglements. Le total des reglements correspond au KPI "Reglements".</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Aucun domaine couvert.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.84rem"><thead><tr style="background:#f5f7fa"><th>Domaine</th><th>Libelle</th><th class="text-center">Reglements</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td><span class="b-tag b-blue">'+esc(x.nomdomaine||'')+'</span></td><td>'+esc((x.libel_domaine||'').trim()||'-')+'</td><td class="text-center"><span class="b-tag b-green">'+x.nb_reg+'</span></td></tr>'; });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="2" style="font-weight:800;color:#23408F">Total : '+list.length+' domaine(s)</td><td class="text-center" style="font-weight:800;color:#23408F">'+tot+'</td></tr></tfoot></table>';
+      }
+    } else if(kind==='util'){
+      $('#kpiModalTitle').text('Reglements utilises en audits');
+      const list=s.utilises||[]; let totCite=0; list.forEach(x=>totCite+=Number(x.nb_cite));
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Reglements cites dans au moins un audit. La colonne "Citations" indique combien de fois chacun a ete cite ; leur cumul (<b>'+totCite+'</b>) correspond au KPI "Citations totales", tandis que le nombre de lignes correspond au KPI "Utilises en audits".</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Aucun reglement utilise.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.83rem"><thead><tr style="background:#f5f7fa"><th>Code</th><th>Libelle</th><th>Domaine</th><th class="text-center">Citations</th><th class="text-center">Audits</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td><span class="b-tag b-purple">'+esc(x.code_reglement||'')+'</span></td><td style="max-width:260px">'+esc((x.libelle_reglement||'').trim()||'-')+'</td><td>'+esc(x.nomdomaine||'-')+'</td><td class="text-center"><span class="b-tag b-gold">'+x.nb_cite+'</span></td><td class="text-center">'+x.nb_audits+'</td></tr>'; });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="3" style="font-weight:800;color:#23408F">Total : '+list.length+' reglement(s), '+totCite+' citation(s)</td><td class="text-center" style="font-weight:800;color:#23408F">'+totCite+'</td><td></td></tr></tfoot></table>';
+      }
+    } else if(kind==='cite'){
+      $('#kpiModalTitle').text('Citations totales des reglements');
+      const list=s.utilises||[]; let totCite=0; list.forEach(x=>totCite+=Number(x.nb_cite));
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Une citation = une occurrence d\'un reglement dans un audit. Le meme reglement peut etre cite dans plusieurs audits (plusieurs citations). Le total ci-dessous est le KPI "Citations totales".</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Aucune citation.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.83rem"><thead><tr style="background:#f5f7fa"><th>Code</th><th>Domaine</th><th class="text-center">Citations</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td><span class="b-tag b-purple">'+esc(x.code_reglement||'')+'</span></td><td>'+esc(x.nomdomaine||'-')+'</td><td class="text-center"><span class="b-tag b-gold">'+x.nb_cite+'</span></td></tr>'; });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="2" style="font-weight:800;color:#23408F">TOTAL des citations</td><td class="text-center" style="font-weight:800;color:#23408F">'+totCite+'</td></tr></tfoot></table>';
+      }
+    } else if(kind==='desc'){
+      $('#kpiModalTitle').text('Reglements avec description');
+      const list=s.avec_desc||[];
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Reglements dont le champ description est renseigne.</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Aucun reglement avec description.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.83rem"><thead><tr style="background:#f5f7fa"><th>Code</th><th>Libelle</th><th>Domaine</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td><span class="b-tag b-blue">'+esc(x.code_reglement||'')+'</span></td><td style="max-width:320px">'+esc((x.libelle_reglement||'').trim()||'-')+'</td><td>'+esc(x.nomdomaine||'-')+'</td></tr>'; });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="3" style="font-weight:800;color:#23408F">Total : '+list.length+' reglement(s) documente(s)</td></tr></tfoot></table>';
+      }
+    } else {
+      $('#kpiModalTitle').text('Reglements jamais utilises');
+      const list=s.jamais||[];
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Reglements definis mais jamais cites dans un audit. A considerer pour les futures activites de supervision.</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Tous les reglements ont ete utilises.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.83rem"><thead><tr style="background:#f5f7fa"><th>Code</th><th>Libelle</th><th>Domaine</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td><span class="b-tag b-red">'+esc(x.code_reglement||'')+'</span></td><td style="max-width:320px">'+esc((x.libelle_reglement||'').trim()||'-')+'</td><td>'+esc(x.nomdomaine||'-')+'</td></tr>'; });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="3" style="font-weight:800;color:#23408F">Total : '+list.length+' reglement(s) jamais utilise(s)</td></tr></tfoot></table>';
+      }
+    }
+    $('#kpiModalBody').html(h);
+  });
+}
+$(document).on('click','.kpi-dom',function(){ openKpi('dom'); });
+$(document).on('click','.kpi-util',function(){ openKpi('util'); });
+$(document).on('click','.kpi-cite',function(){ openKpi('cite'); });
+$(document).on('click','.kpi-desc',function(){ openKpi('desc'); });
+$(document).on('click','.kpi-jamais',function(){ openKpi('jamais'); });
+
 /* ===== MODALE VOIR DETAIL ===== */
 $(document).on('click','.act-view',function(){
   const id=$(this).data('id');
@@ -406,7 +498,7 @@ $('#regForm').on('submit',function(e){
     if(res.success){
       bootstrap.Modal.getInstance(document.getElementById('regModal')).hide();
       Swal.fire({icon:'success',title:'Enregistre',text:res.message,timer:1600,showConfirmButton:false,timerProgressBar:true});
-      loadList(); loadStats();
+      SYNTHESE=null; loadList(); loadStats();
     } else { Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); }
   }).fail(()=>{ btn.prop('disabled',false).html(html); Swal.fire({icon:'error',text:'Echec.',confirmButtonColor:'#23408F'}); });
 });
@@ -421,7 +513,7 @@ $(document).on('click','.act-del',function(){
   }).then(r=>{
     if(!r.isConfirmed) return;
     apiPost({action:'delete',idreglement:id}).done(res=>{
-      if(res.success){ Swal.fire({icon:'success',timer:1400,showConfirmButton:false}); loadList(); loadStats(); }
+      if(res.success){ Swal.fire({icon:'success',timer:1400,showConfirmButton:false}); SYNTHESE=null; loadList(); loadStats(); }
       else { Swal.fire({icon:'error',title:'Impossible',text:res.message,confirmButtonColor:'#23408F'}); }
     });
   });

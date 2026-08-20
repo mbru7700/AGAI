@@ -73,6 +73,12 @@ table.tbl tbody tr:hover{background:#fafcff;}
 .qre-table thead th.q-head{text-align:left;padding-left:10px;}
 .radio-box{display:flex;justify-content:center;align-items:center;}
 .radio-box input[type=radio]{width:18px;height:18px;cursor:pointer;accent-color:#23408F;}
+/* Choix du mode de soumission QRE */
+.qre-choix-card{border:2px solid #eef1f6;border-radius:14px;padding:20px 14px;text-align:center;cursor:pointer;transition:all .18s;height:100%;background:#fff;}
+.qre-choix-card:hover{border-color:#23408F;box-shadow:0 8px 20px rgba(35,64,143,.16);transform:translateY(-3px);}
+.qre-choix-ic{width:54px;height:54px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.5rem;margin:0 auto 12px;}
+.qre-choix-title{font-weight:800;color:#2C3E50;font-size:.95rem;margin-bottom:5px;}
+.qre-choix-desc{font-size:.78rem;color:#7b8aa0;line-height:1.4;}
 /* Impression */
 @media print{
   .no-print{display:none!important;}
@@ -286,6 +292,76 @@ table.tbl tbody tr:hover{background:#fafcff;}
       <tr><td colspan="8" class="empty"><span class="spinner-border spinner-border-sm me-2"></span>Chargement...</td></tr>
     </tbody>
   </table>
+</div>
+
+<!-- ===================== MODALE : Choix du mode de soumission ===================== -->
+<div class="modal fade" id="qreChoixModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:linear-gradient(135deg,#23408F,#1b3576)">
+        <h5 class="modal-title text-white"><i class="bi bi-ui-checks-grid me-2" style="color:#F3C300"></i>Questionnaire de Retour d'Experience</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="mb-3 text-center text-muted" style="font-size:.86rem">Comment souhaitez-vous soumettre le QRE pour l'audit <strong id="qc_num" style="color:#23408F"></strong> ?</div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="qre-choix-card" id="qcSaisie">
+              <div class="qre-choix-ic" style="background:#23408F"><i class="bi bi-pencil-square"></i></div>
+              <div class="qre-choix-title">Saisir en ligne</div>
+              <div class="qre-choix-desc">Remplir le questionnaire directement dans l'application, question par question.</div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="qre-choix-card" id="qcFichier">
+              <div class="qre-choix-ic" style="background:#1E9C4B"><i class="bi bi-upload"></i></div>
+              <div class="qre-choix-title">Joindre le formulaire</div>
+              <div class="qre-choix-desc">Le formulaire a deja ete rempli a la main : televersez le document scanne ou photographie.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODALE : Joindre un formulaire deja rempli ===================== -->
+<div class="modal fade" id="qreFichierModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" id="qreFichierForm">
+      <div class="modal-header" style="background:linear-gradient(135deg,#1E9C4B,#146633)">
+        <h5 class="modal-title text-white"><i class="bi bi-upload me-2"></i>Joindre le formulaire QRE</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <input type="hidden" id="qf_idaudit">
+        <input type="hidden" id="qf_idorga">
+        <div class="mb-2">
+          <label class="form-label fw-bold" style="font-size:.81rem">Operateur</label>
+          <input type="text" class="form-control form-control-sm" id="qf_nomorga" readonly style="background:#f8fafc;font-weight:700;color:#23408F">
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-bold" style="font-size:.81rem">Activite(s) auditee(s) <span class="text-danger">*</span></label>
+          <textarea class="form-control form-control-sm" id="qf_activites" rows="2" maxlength="500" placeholder="Decrivez les activites auditees..." required></textarea>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-md-6">
+            <label class="form-label fw-bold" style="font-size:.81rem">Date</label>
+            <input type="date" class="form-control form-control-sm" id="qf_date">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold" style="font-size:.81rem">Fichier <span class="text-danger">*</span></label>
+            <input type="file" class="form-control form-control-sm" id="qf_fichier" accept=".pdf,.jpg,.jpeg,.png" required>
+          </div>
+        </div>
+        <div class="small text-muted" style="font-size:.74rem"><i class="bi bi-info-circle me-1"></i>Formats acceptes : PDF, JPG, PNG - 10 Mo maximum.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn" style="background:#1E9C4B;color:#fff" id="qf_submit"><i class="bi bi-upload me-1"></i>Televerser et enregistrer</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- ===================== MODALE : Formulaire QRE ===================== -->
@@ -710,9 +786,10 @@ $('#fAudit,#fOrga,#fQre,#fType').on('change',function(){render();});
 $('#btnReset').on('click',function(){ $('#fAudit,#fOrga,#fType').val('').trigger('change'); $('#fQre').val(''); render(); });
 
 /* ===== RENDU TABLEAU ===== */
-function qreTag(a){ return a.idqre
-  ?'<span class="tag-ok"><i class="bi bi-check-circle"></i>'+fmtDate(a.qre_date)+'</span>'
-  :'<span class="tag-non"><i class="bi bi-hourglass-split"></i>Non soumis</span>';
+function qreTag(a){
+  if(!a.idqre) return '<span class="tag-non"><i class="bi bi-hourglass-split"></i>Non soumis</span>';
+  if(a.qre_fichier) return '<span class="tag-ok" style="background:#e8f0fe;color:#23408F"><i class="bi bi-file-earmark-check"></i>'+fmtDate(a.qre_date)+' (fichier)</span>';
+  return '<span class="tag-ok"><i class="bi bi-check-circle"></i>'+fmtDate(a.qre_date)+'</span>';
 }
 function actionsHtml(a){
   let html='';
@@ -751,17 +828,81 @@ function loadList(){
   }).fail(function(){ $('#tbody').html('<tr><td colspan="8" class="empty">Echec.</td></tr>'); });
 }
 
-/* ===== OUVRIR FORMULAIRE ===== */
+/* ===== CHOIX DU MODE DE SOUMISSION ===== */
+let QRE_PENDING = null;
 $(document).on('click','.btn-fill-qre',function(){
-  const id=$(this).data('id'), orga=$(this).data('orga');
-  const idorga=$(this).data('idorga'), site=$(this).data('site');
-  $('#q_idaudit').val(id); $('#q_idorga').val(idorga);
-  $('#q_nomorga').val(orga); $('#q_lieu').val(site);
+  QRE_PENDING = {
+    id: $(this).data('id'), num: $(this).data('num'),
+    orga: $(this).data('orga'), idorga: $(this).data('idorga'), site: $(this).data('site')
+  };
+  $('#qc_num').text(QRE_PENDING.num || '');
+  new bootstrap.Modal('#qreChoixModal').show();
+});
+
+/* ===== OUVRIR FORMULAIRE (saisie en ligne) ===== */
+$('#qcSaisie').on('click', function(){
+  const p = QRE_PENDING; if(!p) return;
+  bootstrap.Modal.getInstance(document.getElementById('qreChoixModal')).hide();
+  $('#q_idaudit').val(p.id); $('#q_idorga').val(p.idorga);
+  $('#q_nomorga').val(p.orga); $('#q_lieu').val(p.site);
   $('#q_date').val(new Date().toISOString().substring(0,10));
   $('#q_activites').val(''); $('#q_autres').val(''); $('#q_mail').prop('checked',false);
   $('#qreForm input[type=radio]').prop('checked',false);
-  new bootstrap.Modal('#qreModal').show();
-  setTimeout(function(){ $('#q_activites').focus(); },400);
+  setTimeout(function(){
+    new bootstrap.Modal('#qreModal').show();
+    setTimeout(function(){ $('#q_activites').focus(); },400);
+  }, 300);
+});
+
+/* ===== OUVRIR JOINDRE LE FORMULAIRE (fichier deja rempli a la main) ===== */
+$('#qcFichier').on('click', function(){
+  const p = QRE_PENDING; if(!p) return;
+  bootstrap.Modal.getInstance(document.getElementById('qreChoixModal')).hide();
+  $('#qf_idaudit').val(p.id); $('#qf_idorga').val(p.idorga);
+  $('#qf_nomorga').val(p.orga);
+  $('#qf_activites').val(''); $('#qf_date').val(new Date().toISOString().substring(0,10));
+  $('#qf_fichier').val('');
+  setTimeout(function(){ new bootstrap.Modal('#qreFichierModal').show(); }, 300);
+});
+
+/* ===== SOUMETTRE (fichier joint) ===== */
+$('#qreFichierForm').on('submit', function(e){
+  e.preventDefault();
+  const fInput = document.getElementById('qf_fichier');
+  if(!fInput.files.length){ Swal.fire({icon:'warning',title:'Fichier requis',confirmButtonColor:'#23408F'}); return; }
+  const file = fInput.files[0];
+  const maxSize = 10*1024*1024;
+  if(file.size > maxSize){ Swal.fire({icon:'warning',title:'Fichier trop volumineux',text:'10 Mo maximum.',confirmButtonColor:'#23408F'}); return; }
+  const ext = file.name.split('.').pop().toLowerCase();
+  if(['pdf','jpg','jpeg','png'].indexOf(ext)<0){ Swal.fire({icon:'warning',title:'Format non autorise',text:'Utilisez PDF, JPG ou PNG.',confirmButtonColor:'#23408F'}); return; }
+  if(!$('#qf_activites').val().trim()){ Swal.fire({icon:'warning',title:'Activites requises',confirmButtonColor:'#23408F'}); return; }
+
+  const fd = new FormData();
+  fd.append('action','save_fichier');
+  fd.append('csrf_token', CSRF);
+  fd.append('idaudit', $('#qf_idaudit').val());
+  fd.append('idorga', $('#qf_idorga').val());
+  fd.append('activites', $('#qf_activites').val().trim());
+  fd.append('date_qre', $('#qf_date').val());
+  fd.append('fichier', file);
+
+  const btn=$('#qf_submit'), html=btn.html();
+  btn.prop('disabled',true).html('<span class="spinner-border spinner-border-sm me-1"></span>Televersement...');
+  $.ajax({ url: API, type:'POST', data: fd, processData:false, contentType:false, dataType:'json' })
+    .done(function(res){
+      btn.prop('disabled',false).html(html);
+      if(res.success){
+        bootstrap.Modal.getInstance(document.getElementById('qreFichierModal')).hide();
+        Swal.fire({icon:'success',title:'QRE enregistre',text:res.message,confirmButtonColor:'#23408F',timer:2200,timerProgressBar:true});
+        loadList(); loadStats();
+      } else {
+        Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'});
+      }
+    })
+    .fail(function(){
+      btn.prop('disabled',false).html(html);
+      Swal.fire({icon:'error',title:'Erreur',text:'Echec technique lors du televersement.',confirmButtonColor:'#23408F'});
+    });
 });
 
 /* ===== SOUMETTRE ===== */
@@ -800,6 +941,29 @@ $(document).on('click','.btn-voir-qre',function(){
   apiPost({action:'get',idqre:idqre}).done(function(res){
     if(!res.success){ $('#viewQreBody').html('<div class="alert alert-danger">'+esc(res.message)+'</div>'); return; }
     const q=res.data;
+
+    // QRE soumis par fichier joint (formulaire deja rempli a la main) : vue dediee
+    if(q.fichier_joint){
+      const url=API+'?action=serve&idqre='+encodeURIComponent(idqre);
+      const ext=String(q.fichier_joint).split('.').pop().toLowerCase();
+      const isImg=['jpg','jpeg','png'].indexOf(ext)>=0;
+      let hf='<div style="text-align:center;margin-bottom:14px">'
+        +'<span class="tag-ok" style="font-size:.82rem;padding:5px 14px"><i class="bi bi-file-earmark-check me-1"></i>Formulaire joint (deja rempli a la main)</span>'
+        +'</div>'
+        +'<div style="border:1px solid #eef1f6;border-radius:10px;padding:10px 14px;margin-bottom:14px;background:#f8fafc">'
+        +'<div class="row g-2">'
+        +'<div class="col-md-6"><div class="small text-muted">Operateur</div><div style="font-weight:700;color:#23408F">'+esc(q.nomorga||'-')+'</div></div>'
+        +'<div class="col-md-6"><div class="small text-muted">N Audit</div><div style="font-weight:700;color:#23408F">'+esc(q.num_audit||'-')+'</div></div>'
+        +'<div class="col-md-6"><div class="small text-muted">Activite(s) auditee(s)</div><div>'+esc(q.activites_auditees||'-')+'</div></div>'
+        +'<div class="col-md-6"><div class="small text-muted">Date</div><div>'+fmtDate(q.date_qre)+'</div></div>'
+        +'</div></div>';
+      hf += isImg
+        ? '<div style="text-align:center"><img src="'+url+'" style="max-width:100%;border:1px solid #eef1f6;border-radius:8px" alt="Formulaire QRE"></div>'
+        : '<iframe src="'+url+'" style="width:100%;height:60vh;border:1px solid #eef1f6;border-radius:8px"></iframe>';
+      hf += '<div class="text-center mt-3"><a href="'+url+'" class="btn btn-sm btn-outline-primary" download><i class="bi bi-download me-1"></i>Telecharger</a></div>';
+      $('#viewQreBody').html(hf);
+      return;
+    }
     const NOTE_COLORS={TB:'#d1fae5|#065f46',B:'#dbeafe|#1e40af',M:'#fef3c7|#92400e',TM:'#fee2e2|#991b1b'};
     function noteCell(v){
       if(!v) return '<span class="text-muted">-</span>';

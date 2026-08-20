@@ -19,9 +19,8 @@ $menu = [
     // 1. Tableau de bord
     ['dashboard', 'Tableau de bord', 'bi-speedometer2', 'dashboard', 'dashboard', true],
 
-    // 2. Donnees de structures (groupe)
-    ['structures', 'Donnees de structures', 'bi-diagram-3', 'GROUP', 'inspecteurs', true, [
-        ['inspecteurs',    'Inspecteurs',          'bi-person-badge',   'inspecteurs',    'inspecteurs',    true],
+    // 2. Donnees de structures (groupe) - Inspecteur a ete deplace vers Gestion Supervision
+    ['structures', 'Donnees de structures', 'bi-diagram-3', 'GROUP', 'domaines', true, [
         ['exploitants',    'Operateurs',           'bi-buildings',      'exploitants',    'exploitants',    true],
         ['domaines',       'Domaines',             'bi-grid-3x3-gap',   'domaines',       'domaines',       true],
         ['sousdomaines',   'Sous-domaines',        'bi-diagram-2',      'sousdomaines',   'sousdomaines',   true],
@@ -30,9 +29,10 @@ $menu = [
         ['sites',          "Sites d'inspection",   'bi-geo-alt',        'sites',          'sites',          true],
     ]],
 
-    // 3. Gestion Supervision (groupe) - anciennement "Gestion des audits"
-    //    Correctif : chaque enfant est garde sur SON propre module (et non 'audits').
+    // 3. Gestion Supervision (groupe) - Inspecteur + Programme PSC + supervision
     ['audits_group', 'Gestion Supervision', 'bi-clipboard-check', 'GROUP', 'audits', true, [
+        ['inspecteurs',    'Inspecteur',                 'bi-person-badge',          'inspecteurs',   'inspecteurs',   true],
+        ['programme_psc',  'Programme PSC',              'bi-calendar3-week',        'programme-psc', 'programme_psc', true],
         ['audits',         'Audits et inspections',      'bi-clipboard-check',       'audits',        'audits',        true],
         ['mes_audits',     'Revue documentaire',         'bi-file-text',             'mes-audits',    'revue_doc',     true],
         ['notifications',  'Notifications',              'bi-bell',                  'notifications', 'notifications', true],
@@ -42,22 +42,28 @@ $menu = [
 
     // 4. Non-conformites (groupe)
     ['nc_group', 'Non-conformites', 'bi-exclamation-triangle', 'GROUP', 'nonconformites', true, [
-        ['ouverture_nc', 'Ouverture NC', 'bi-folder-plus',     'ouverture-nc', 'ouverture_nc', true],
-        ['suivi_nc',     'Suivi NC',     'bi-clipboard-check', 'suivi-nc',     'suivi_nc',     true],
+        ['ouverture_nc', 'Fiches de non-conformite', 'bi-clipboard-check', 'ouverture-nc', 'ouverture_nc', true],
+        ['suivi_nc',      'Suivi FNC',                 'bi-list-check',      'suivi-nc',     'suivi_nc',     true],
+        ['alertes_fnc',   'Alertes FNC',               'bi-bell',            'alertes-fnc',  'alertes_fnc',  true],
     ]],
 
     // 5. Analyse des donnees (groupe)
     ['analyse_group', 'Analyse des donnees', 'bi-graph-up', 'GROUP', 'analyse_psc', true, [
-        ['analyse_psc', 'Analyse PSC',                 'bi-bar-chart',    'analyse-psc', 'analyse_psc', false],
-        ['analyse_fnc', 'Analyse FNC',                 'bi-pie-chart',    'analyse-fnc', 'analyse_fnc', false],
-        ['mise_oeuvre', 'Mise en oeuvre reglementaire','bi-shield-check', 'mise-oeuvre', 'mise_oeuvre', false],
+        ['analyse_psc', 'Analyse PSC',                 'bi-bar-chart',    'analyse-psc', 'analyse_psc', true],
+        ['analyse_fnc', 'Analyse FNC',                 'bi-pie-chart',    'analyse-fnc', 'analyse_fnc', true],
+        ['profil_risque','Profil de risque',           'bi-shield-exclamation', 'profil-risque', 'profil_risque', true],
+        ['archivage',   'Archivage',                   'bi-archive',      'archivage',   'archivage',   true],
+        ['mise_oeuvre', 'Taux de conformite reglementaire','bi-shield-check', 'mise-oeuvre', 'mise_oeuvre', false],
     ]],
+
+    // 5bis. Bilan supervision
+    ['bilan_supervision', 'Bilan supervision', 'bi-clipboard-data', 'bilan-supervision', 'bilan_supervision', false],
 
     // 6. Gestion des utilisateurs (admin + chef_inspecteur)
     ['users', 'Gestion des utilisateurs', 'bi-people', 'users', 'users', true],
 
     // 7. Cybersecurite AGAI (groupe)
-    ['cybersecu', 'Cybersecurite AGAI', 'bi-shield-lock', 'GROUP', 'cybersecurite', true, [
+    ['cybersecu', 'Securité', 'bi-shield-lock', 'GROUP', 'cybersecurite', true, [
         ['parametres',     'Parametres',              'bi-gear',               'parametres',    'parametres',   true],
         ['login_attempts', 'Tentatives de connexion', 'bi-shield-exclamation', 'login-attempts','cybersecurite',true],
         ['audit_logs',     'Journal des evenements',  'bi-journal-text',       'audit-logs',    'cybersecurite',true],
@@ -192,8 +198,8 @@ table.dataTable thead th{background:#f4f7fb;color:var(--anac-text);font-size:.82
                 if ($active === $c[0] || $active === $c[3]) { $hasActive = true; break; }
             }
             // Detection specifique groupe supervision
-            if ($key === 'audits_group' && in_array($active, ['audits','mes-audits','revue','notifications','rapports','qre'], true)) $hasActive = true;
-            if ($key === 'nc_group'     && in_array($active, ['ouverture_nc','suivi_nc','nonconformites'], true)) $hasActive = true;
+            if ($key === 'audits_group' && in_array($active, ['audits','mes-audits','revue','notifications','rapports','qre','inspecteurs','programme_psc','programme-psc'], true)) $hasActive = true;
+            if ($key === 'nc_group'     && in_array($active, ['ouverture_nc','suivi_nc','nonconformites','alertes_fnc'], true)) $hasActive = true;
     ?>
         <a class="group-toggle<?php echo $hasActive ? ' has-active' : ''; ?>" data-bs-toggle="collapse" href="#grp_<?php echo $key; ?>" role="button" aria-expanded="<?php echo $hasActive ? 'true' : 'false'; ?>">
           <i class="bi <?php echo $icon; ?>"></i><span><?php echo $label; ?></span><i class="bi bi-chevron-down caret"></i>
@@ -202,12 +208,13 @@ table.dataTable thead th{background:#f4f7fb;color:var(--anac-text);font-size:.82
           <?php foreach ($visibleChildren as [$ck, $cl, $ci, $cr, $cm, $cb]):
               $isChildActive = ($active === $ck || $active === $cr) ? ' active' : '';
               // Cas speciaux : cle PHP <> route URL
-              if ($ck === 'mes_audits'    && $active === 'mes-audits')    $isChildActive = ' active';
-              if ($ck === 'notifications' && $active === 'notifications') $isChildActive = ' active';
-              if ($ck === 'login_attempts'&& $active === 'login-attempts')$isChildActive = ' active';
-              if ($ck === 'audit_logs'    && $active === 'audit-logs')    $isChildActive = ' active';
-              if ($ck === 'ouverture_nc'  && $active === 'ouverture_nc')  $isChildActive = ' active';
-              if ($ck === 'suivi_nc'      && $active === 'suivi_nc')      $isChildActive = ' active';
+              if ($ck === 'mes_audits'     && $active === 'mes-audits')     $isChildActive = ' active';
+              if ($ck === 'notifications'  && $active === 'notifications')  $isChildActive = ' active';
+              if ($ck === 'login_attempts' && $active === 'login-attempts') $isChildActive = ' active';
+              if ($ck === 'audit_logs'     && $active === 'audit-logs')     $isChildActive = ' active';
+              if ($ck === 'ouverture_nc'   && $active === 'ouverture_nc')   $isChildActive = ' active';
+              if ($ck === 'suivi_nc'       && $active === 'suivi_nc')       $isChildActive = ' active';
+              if ($ck === 'programme_psc'  && $active === 'programme_psc')  $isChildActive = ' active';
           ?>
             <?php if ($cb): ?>
               <a class="<?php echo trim($isChildActive); ?>" href="<?php echo SITE_URL . '/' . $cr; ?>">

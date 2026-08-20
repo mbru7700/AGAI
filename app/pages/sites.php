@@ -26,6 +26,9 @@ table.tbl tbody td{padding:10px 12px;border-bottom:1px solid #f1f4f9;vertical-al
 table.tbl tbody tr:hover{background:#fafcff;}
 .empty{padding:36px;text-align:center;color:#9aa7bd;}
 .b-tag{display:inline-block;padding:.18rem .55rem;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap;margin:.1rem;}
+.kpi-info{font-size:.72rem;color:#b0bccd;cursor:help;margin-left:2px;vertical-align:middle;}
+.kpi-info:hover{color:#23408F;}
+.kpi-note{background:#eef3fb;border:1px solid #d5e1f5;border-radius:8px;padding:8px 12px;font-size:.8rem;color:#3a4a63;margin-bottom:10px;}
 .b-blue{background:#e8f0fe;color:#23408F;} .b-green{background:#d1e7dd;color:#0a5c36;}
 .b-gold{background:#fff3cd;color:#856404;} .b-muted{background:#f1f4f9;color:#7b8aa0;}
 .b-purple{background:#f0e6ff;color:#5a189a;} .b-red{background:#f8d7da;color:#842029;}
@@ -59,11 +62,11 @@ table.tbl tbody tr:hover{background:#fafcff;}
 <div id="statsPanel" class="mb-3" style="display:none">
   <div class="row g-3">
     <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-geo-alt-fill"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Sites</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-flag-fill"></i></div><div><div class="stat-num" id="st_pays">0</div><div class="stat-lbl">Pays couverts</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-gold"><i class="bi bi-clipboard-check-fill"></i></div><div><div class="stat-num" id="st_aud">0</div><div class="stat-lbl">Sites avec audits</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-purple"><i class="bi bi-hash"></i></div><div><div class="stat-num" id="st_total_aud">0</div><div class="stat-lbl">Audits planifies</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-dark"><i class="bi bi-map-fill"></i></div><div><div class="stat-num" id="st_villes">0</div><div class="stat-lbl">Villes distinctes</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-red"><i class="bi bi-geo-alt"></i></div><div><div class="stat-num" id="st_sans">0</div><div class="stat-lbl">Sans audit</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-pays" style="cursor:pointer"><div class="stat-ic ic-green"><i class="bi bi-flag-fill"></i></div><div><div class="stat-num" id="st_pays">0</div><div class="stat-lbl">Pays couverts <i class="bi bi-info-circle-fill kpi-info" title="Nombre de pays distincts ou se trouve au moins un site d'inspection. Cliquez pour voir chaque pays et son nombre de sites."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-avec" style="cursor:pointer"><div class="stat-ic ic-gold"><i class="bi bi-clipboard-check-fill"></i></div><div><div class="stat-num" id="st_aud">0</div><div class="stat-lbl">Sites avec audits <i class="bi bi-info-circle-fill kpi-info" title="Nombre de sites DISTINCTS ayant au moins un audit. Un site audite plusieurs fois n'est compte qu'une fois ici. Cliquez pour le detail."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-planif" style="cursor:pointer"><div class="stat-ic ic-purple"><i class="bi bi-hash"></i></div><div><div class="stat-num" id="st_total_aud">0</div><div class="stat-lbl">Audits planifies <i class="bi bi-info-circle-fill kpi-info" title="Nombre total d'audits rattaches a un site. Un site audite 5 fois compte pour 5 : ce chiffre est donc superieur ou egal a 'Sites avec audits'. Cliquez pour le detail par site."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-villes" style="cursor:pointer"><div class="stat-ic ic-dark"><i class="bi bi-map-fill"></i></div><div><div class="stat-num" id="st_villes">0</div><div class="stat-lbl">Villes distinctes <i class="bi bi-info-circle-fill kpi-info" title="Nombre de villes differentes ou se trouvent les sites d'inspection. Cliquez pour la liste."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-sans" style="cursor:pointer"><div class="stat-ic ic-red"><i class="bi bi-geo-alt"></i></div><div><div class="stat-num" id="st_sans">0</div><div class="stat-lbl">Sans audit <i class="bi bi-info-circle-fill kpi-info" title="Sites d'inspection enregistres mais jamais audites. Utile pour identifier ceux a couvrir lors des prochaines activites de supervision. Cliquez pour la liste."></i></div></div></div></div>
   </div>
 </div>
 
@@ -156,6 +159,21 @@ table.tbl tbody tr:hover{background:#fafcff;}
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- MODALE : detail des KPI -->
+<div class="modal fade" id="kpiModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-list-check me-2" style="color:#23408F"></i><span id="kpiModalTitle"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" id="kpiModalBody">
+        <div class="text-center py-4"><span class="spinner-border text-primary"></span></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -288,6 +306,82 @@ $('#btnReset').on('click',function(){
 });
 
 /* ===== MODALE VOIR DETAIL ===== */
+/* ===== MODALES DETAIL DES KPI ===== */
+let SYNTHESE=null;
+function withSynthese(cb){
+  if(SYNTHESE){ cb(SYNTHESE); return; }
+  apiPost({action:'synthese'}).done(res => {
+    if(!res.success){ $('#kpiModalBody').html('<div class="alert alert-danger">'+esc(res.message||'Erreur')+'</div>'); return; }
+    SYNTHESE=res; cb(res);
+  }).fail(()=>{ $('#kpiModalBody').html('<div class="alert alert-danger">Echec de chargement.</div>'); });
+}
+function openKpi(kind){
+  $('#kpiModalBody').html('<div class="text-center py-4"><span class="spinner-border text-primary"></span></div>');
+  new bootstrap.Modal('#kpiModal').show();
+  withSynthese(function(s){
+    let h='';
+    if(kind==='pays'){
+      $('#kpiModalTitle').text('Pays couverts');
+      const list=s.pays||[]; let tot=0; list.forEach(x=>tot+=Number(x.nb_sites));
+      const sansPays=Number(s.sites_sans_pays||0);
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Chaque pays distinct ou se trouve au moins un site, avec son nombre de sites. Le nombre de lignes correspond au KPI "Pays couverts". Les sites dont le pays n\'est pas renseigne sont regroupes en fin de liste et n\'entrent pas dans le decompte des pays.</div>';
+      if(!list.length && !sansPays){ h+='<div class="text-center text-muted py-4">Aucun pays couvert.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.85rem"><thead><tr style="background:#f5f7fa"><th>Pays</th><th class="text-center">Sites</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td style="font-weight:600"><i class="bi bi-flag me-1" style="color:#1E9C4B"></i>'+esc(x.nompays||'-')+'</td><td class="text-center"><span class="b-tag b-green">'+x.nb_sites+'</span></td></tr>'; });
+        if(sansPays>0){ h+='<tr><td style="font-style:italic;color:#8a97ab"><i class="bi bi-question-circle me-1"></i>Sans pays renseigne</td><td class="text-center"><span class="b-tag b-muted">'+sansPays+'</span></td></tr>'; }
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td style="font-weight:800;color:#23408F">'+list.length+' pays couvert(s)</td><td class="text-center" style="font-weight:800;color:#23408F">'+(tot+sansPays)+' site(s)</td></tr></tfoot></table>';
+      }
+    } else if(kind==='avec'){
+      $('#kpiModalTitle').text('Sites avec audits');
+      const list=s.sites_avec||[]; let totAud=0; list.forEach(x=>totAud+=Number(x.nb_aud));
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Sites ayant au moins un audit. La colonne "Audits" indique combien d\'audits par site ; leur cumul (<b>'+totAud+'</b>) correspond au KPI "Audits planifies", tandis que le nombre de lignes correspond au KPI "Sites avec audits".</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Aucun site audite.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.84rem"><thead><tr style="background:#f5f7fa"><th>OACI</th><th>Site</th><th>Ville</th><th>Pays</th><th class="text-center">Audits</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td><span class="b-tag b-blue">'+esc(x.indicateur_oaci||'')+'</span></td><td style="font-weight:600">'+esc(x.nomsite||'-')+'</td><td>'+esc(x.ville||'-')+'</td><td>'+esc(x.nompays||'-')+'</td><td class="text-center"><span class="b-tag b-gold">'+x.nb_aud+'</span></td></tr>'; });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="4" style="font-weight:800;color:#23408F">Total : '+list.length+' site(s), '+totAud+' audit(s)</td><td class="text-center" style="font-weight:800;color:#23408F">'+totAud+'</td></tr></tfoot></table>';
+      }
+    } else if(kind==='planif'){
+      $('#kpiModalTitle').text('Audits planifies par site');
+      const list=s.sites_avec||[]; let totAud=0; list.forEach(x=>totAud+=Number(x.nb_aud));
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Un site peut concentrer plusieurs audits. Le total ci-dessous est le KPI "Audits planifies" (superieur ou egal au nombre de sites audites).</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Aucun audit planifie.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.84rem"><thead><tr style="background:#f5f7fa"><th>Site</th><th>Ville</th><th class="text-center">Nb audits</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td style="font-weight:600"><span class="b-tag b-blue">'+esc(x.indicateur_oaci||'')+'</span> '+esc(x.nomsite||'-')+'</td><td>'+esc(x.ville||'-')+'</td><td class="text-center"><span class="b-tag b-purple">'+x.nb_aud+'</span></td></tr>'; });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="2" style="font-weight:800;color:#23408F">TOTAL des audits</td><td class="text-center" style="font-weight:800;color:#23408F">'+totAud+'</td></tr></tfoot></table>';
+      }
+    } else if(kind==='villes'){
+      $('#kpiModalTitle').text('Villes distinctes');
+      const list=s.villes||[]; let tot=0; list.forEach(x=>tot+=Number(x.nb_sites));
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Chaque ville distincte ou se trouvent des sites d\'inspection, avec son nombre de sites.</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Aucune ville renseignee.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.85rem"><thead><tr style="background:#f5f7fa"><th>Ville</th><th class="text-center">Sites</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td style="font-weight:600"><i class="bi bi-geo-alt me-1" style="color:#23408F"></i>'+esc(x.ville||'-')+'</td><td class="text-center"><span class="b-tag b-blue">'+x.nb_sites+'</span></td></tr>'; });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td style="font-weight:800;color:#23408F">Total : '+list.length+' ville(s)</td><td class="text-center" style="font-weight:800;color:#23408F">'+tot+'</td></tr></tfoot></table>';
+      }
+    } else {
+      $('#kpiModalTitle').text('Sites sans audit');
+      const list=s.sans_audit||[];
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Sites d\'inspection enregistres mais jamais audites. A considerer pour les prochaines activites de supervision.</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Tous les sites ont ete audites.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.84rem"><thead><tr style="background:#f5f7fa"><th>OACI</th><th>Site</th><th>Ville</th><th>Pays</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td><span class="b-tag b-red">'+esc(x.indicateur_oaci||'')+'</span></td><td style="font-weight:600">'+esc(x.nomsite||'-')+'</td><td>'+esc(x.ville||'-')+'</td><td>'+esc(x.nompays||'-')+'</td></tr>'; });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="4" style="font-weight:800;color:#23408F">Total : '+list.length+' site(s) sans audit</td></tr></tfoot></table>';
+      }
+    }
+    $('#kpiModalBody').html(h);
+  });
+}
+$(document).on('click','.kpi-pays',function(){ openKpi('pays'); });
+$(document).on('click','.kpi-avec',function(){ openKpi('avec'); });
+$(document).on('click','.kpi-planif',function(){ openKpi('planif'); });
+$(document).on('click','.kpi-villes',function(){ openKpi('villes'); });
+$(document).on('click','.kpi-sans',function(){ openKpi('sans'); });
+
 $(document).on('click','.act-view',function(){
   const id=$(this).data('id');
   const row=ROWS.find(s=>String(s.idsite)===String(id));
@@ -384,7 +478,7 @@ $('#siteForm').on('submit',function(e){
     if(res.success){
       bootstrap.Modal.getInstance(document.getElementById('siteModal')).hide();
       Swal.fire({icon:'success',title:'Enregistre',text:res.message,timer:1600,showConfirmButton:false,timerProgressBar:true});
-      loadList(); loadStats();
+      SYNTHESE=null; loadList(); loadStats();
     } else { Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); }
   }).fail(()=>{ btn.prop('disabled',false).html(html); Swal.fire({icon:'error',text:'Echec.',confirmButtonColor:'#23408F'}); });
 });
@@ -398,7 +492,7 @@ $(document).on('click','.act-del',function(){
   }).then(r=>{
     if(!r.isConfirmed) return;
     apiPost({action:'delete',idsite:id}).done(res=>{
-      if(res.success){ Swal.fire({icon:'success',timer:1400,showConfirmButton:false}); loadList(); loadStats(); }
+      if(res.success){ Swal.fire({icon:'success',timer:1400,showConfirmButton:false}); SYNTHESE=null; loadList(); loadStats(); }
       else { Swal.fire({icon:'error',title:'Impossible',text:res.message,confirmButtonColor:'#23408F'}); }
     });
   });

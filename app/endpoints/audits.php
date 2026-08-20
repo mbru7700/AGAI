@@ -206,9 +206,17 @@ try {
         // Listes de support : exploitants, inspecteurs, domaines, sites...
         // ----------------------------------------------------------------
         case 'lists':
+            // Operateurs geres dans AGAI uniquement (champ gere_agai = 'AGAI').
+            // Detection de la colonne pour rester compatible si elle est absente.
+            $filtreAgai = '';
+            try {
+                if ($db->query("SHOW COLUMNS FROM organisme LIKE 'gere_agai'")->fetch()) {
+                    $filtreAgai = " AND gere_agai = 'AGAI'";
+                }
+            } catch (\Throwable $e) { $filtreAgai = ''; }
             $exploitants = $db->query(
                 "SELECT MIN(idorga) AS idorga, nomorga, MAX(trigrorganisme) AS trigrorganisme
-                 FROM organisme WHERE idorga > 0 AND TRIM(nomorga) <> ''
+                 FROM organisme WHERE idorga > 0 AND TRIM(nomorga) <> ''" . $filtreAgai . "
                  GROUP BY nomorga ORDER BY nomorga"
             )->fetchAll();
             $inspecteurs = $db->query(
@@ -260,6 +268,139 @@ try {
             $stD->execute([$iid]);
             $domaines = $stD->fetchAll();
             $ok(['domaines' => $domaines]);
+            break;
+
+        // ================================================================
+        // DIRECTEUR FONCTIONNEL D'UN INSPECTEUR (notification de mission)
+        // ----------------------------------------------------------------
+        // Chaine de liaison :
+        //   inspecteur.codedirec -> service_anac.codedirec -> personnel_anac
+        //   (dont la fonction codefct est un poste de "Directeur")
+        //   -> fonction_anac (libelle). On prend le 1er directeur trouve
+        //   (plus petit idpersonnel) pour eviter les doublons de la meme
+        //   direction. Si aucun directeur, le front proposera une liste
+        //   deroulante du personnel de la direction (action personnel_direction).
+        // ----------------------------------------------------------------
+        case 'insp_directeur':
+            $iid = (int) ($_POST['idinspecteur'] ?? 0);
+            if ($iid <= 0) { $fail('Inspecteur invalide.'); break; }
+
+            // Codes fonction identifiant un directeur (fournis par l'ANAC)
+            $codesDir = [17, 38, 50, 62, 64, 72, 87, 132];
+            $inDir    = implode(',', array_map('intval', $codesDir));
+
+            // Direction de l'inspecteur
+            $stI = $db->prepare(
+                "SELECT i.codedirec, TRIM(REPLACE(REPLACE(d.libdirec,'\n',''),'\r','')) AS libdirec
+                 FROM inspecteur i
+                 LEFT JOIN direction_anac d ON d.codedirec = i.codedirec
+                 WHERE i.idinspecteur = ?"
+            );
+            $stI->execute([$iid]);
+            $insp = $stI->fetch();
+            if (!$insp) { $fail('Inspecteur introuvable.'); break; }
+            $codedirec = (int) $insp['codedirec'];
+
+            // Recherche du directeur de cette direction (1er trouve)
+            $stDir = $db->prepare(
+                "SELECT p.idpersonnel, p.nomag, p.prenag, p.email_anac, f.libfct
+                 FROM personnel_anac p
+                 JOIN service_anac  s ON s.codeserv = p.codeserv
+                 JOIN fonction_anac f ON f.codefct  = p.codefct
+                 WHERE s.codedirec = ? AND p.codefct IN ($inDir)
+                 ORDER BY p.idpersonnel ASC
+                 LIMIT 1"
+            );
+            $stDir->execute([$codedirec]);
+            $dir = $stDir->fetch();
+
+            if ($dir) {
+                $ok([
+                    'trouve'       => true,
+                    'codedirec'    => $codedirec,
+                    'direction'    => $insp['libdirec'],
+                    'idpersonnel'  => (int) $dir['idpersonnel'],
+                    'nom'          => trim(($dir['prenag'] ?? '') . ' ' . ($dir['nomag'] ?? '')),
+                    'fonction'     => $dir['libfct'],
+                    'email'        => trim((string) $dir['email_anac']),
+                ]);
+            } else {
+                // Pas de directeur enregistre : le front proposera une liste du personnel
+                $ok([
+                    'trouve'    => false,
+                    'codedirec' => $codedirec,
+                    'direction' => $insp['libdirec'],
+                ]);
+            }
+            break;
+
+        // ----------------------------------------------------------------
+        // Liste du personnel pour choix manuel du directeur.
+        // On tente d'abord le personnel de la direction de l'inspecteur ; si
+        // cette direction n'a aucun agent rattache (service_anac incomplet),
+        // on retombe sur TOUT le personnel ANAC, en affichant la direction de
+        // chacun pour faciliter le choix.
+        case 'personnel_direction':
+            $codedirec = (int) ($_POST['codedirec'] ?? 0);
+
+            $rows = [];
+            if ($codedirec > 0) {
+                $stP = $db->prepare(
+                    "SELECT p.idpersonnel, p.nomag, p.prenag, p.email_anac,
+                            COALESCE(f.libfct,'') AS libfct,
+                            TRIM(REPLACE(REPLACE(COALESCE(dir.libdirec,''),'\n',''),'\r','')) AS direction
+                     FROM personnel_anac p
+                     JOIN service_anac  s ON s.codeserv = p.codeserv
+                     LEFT JOIN fonction_anac  f   ON f.codefct  = p.codefct
+                     LEFT JOIN direction_anac dir ON dir.codedirec = s.codedirec
+                     WHERE s.codedirec = ?
+                     ORDER BY p.nomag, p.prenag"
+                );
+                $stP->execute([$codedirec]);
+                $rows = $stP->fetchAll();
+            }
+
+            // Repli : aucune personne dans cette direction -> tout le personnel ANAC
+            $fallback = false;
+            if (empty($rows)) {
+                $fallback = true;
+                $rows = $db->query(
+                    "SELECT p.idpersonnel, p.nomag, p.prenag, p.email_anac,
+                            COALESCE(f.libfct,'') AS libfct,
+                            TRIM(REPLACE(REPLACE(COALESCE(dir.libdirec,''),'\n',''),'\r','')) AS direction
+                     FROM personnel_anac p
+                     LEFT JOIN service_anac   s   ON s.codeserv   = p.codeserv
+                     LEFT JOIN fonction_anac  f   ON f.codefct    = p.codefct
+                     LEFT JOIN direction_anac dir ON dir.codedirec = s.codedirec
+                     ORDER BY p.nomag, p.prenag"
+                )->fetchAll();
+            }
+
+            $out = array_map(function ($p) {
+                return [
+                    'idpersonnel' => (int) $p['idpersonnel'],
+                    'nom'         => trim(($p['prenag'] ?? '') . ' ' . ($p['nomag'] ?? '')),
+                    'fonction'    => $p['libfct'],
+                    'direction'   => $p['direction'] ?? '',
+                    'email'       => trim((string) $p['email_anac']),
+                ];
+            }, $rows);
+            $ok(['personnel' => $out, 'fallback' => $fallback]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Mise a jour de l'email d'un agent dans personnel_anac (email manquant)
+        case 'maj_email_directeur':
+            $idpers = (int) ($_POST['idpersonnel'] ?? 0);
+            $email  = trim((string) ($_POST['email'] ?? ''));
+            if ($idpers <= 0) { $fail('Agent invalide.'); break; }
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) { $fail('Adresse email invalide.'); break; }
+            if (mb_strlen($email) > 250) { $fail('Adresse email trop longue.'); break; }
+
+            $stU = $db->prepare("UPDATE personnel_anac SET email_anac = ? WHERE idpersonnel = ?");
+            $stU->execute([$email, $idpers]);
+            Audit::log('update', 'personnel', "Email directeur #$idpers mis a jour : $email");
+            $ok(['message' => 'Email enregistre.', 'email' => $email]);
             break;
 
         // ----------------------------------------------------------------
@@ -503,6 +644,19 @@ try {
             $dferm = nd($_POST['date_fermeture'] ?? '');
             if (!$estFerme) { $dferm = null; }
 
+            // Securite (OWASP - ne jamais faire confiance au client) : le delai
+            // d'execution est RECALCULE cote serveur a partir des deux dates.
+            // Delai = Date realisation - Date previsionnelle (en jours).
+            if ($dprev && $dreal) {
+                try {
+                    $p = new \DateTime($dprev);
+                    $r = new \DateTime($dreal);
+                    $delai = (int) $p->diff($r)->format('%r%a');
+                } catch (\Throwable $e) { /* on garde la valeur transmise en repli */ }
+            } else {
+                $delai = null;
+            }
+
             // Equipe d'inspecteurs par domaine (tableaux paralleles).
             // Reglements : soit par ligne (eq_regs_json, declenchement), soit a plat (modale).
             $eqIns = $_POST['eq_inspecteur'] ?? [];
@@ -552,15 +706,24 @@ try {
             // Controle serveur : en modification, on est moins strict (habilitations peuvent etre expirees)
             // On avertit mais on n'empeche pas si c'est une modification (isUpdate=true)
             foreach ($equipe as $e) {
+                // 1) L'habilitation (inspecteur x domaine) existe-t-elle ?
+                //    Un inspecteur EXTERNE a une habilitation sans date d'expiration (NULL),
+                //    ce qui est valide : on ne doit pas la confondre avec une absence d'habilitation.
+                $hbEx = $db->prepare("SELECT COUNT(*) FROM habilitation WHERE idinspecteur = ? AND iddomaine = ?");
+                $hbEx->execute([$e['insp'], $e['dom']]);
+                $existe = (int) $hbEx->fetchColumn() > 0;
+                // 2) Date d'expiration la plus lointaine (NULL pour un externe)
                 $hb = $db->prepare("SELECT MAX(date_expiration) FROM habilitation WHERE idinspecteur = ? AND iddomaine = ?");
                 $hb->execute([$e['insp'], $e['dom']]);
                 $de = $hb->fetchColumn();
                 if (!$isUpdate) {
-                    // En creation : strict
-                    if ($de === false || $de === null) {
+                    // En creation : l'habilitation doit exister
+                    if (!$existe) {
                         $fail('Un inspecteur de l\'equipe n\'est pas habilite sur le domaine selectionne.'); break 2;
                     }
-                    if ($de < date('Y-m-d')) {
+                    // Si une date d'expiration est renseignee (inspecteur interne), elle ne doit pas etre depassee.
+                    // Une date NULL (inspecteur externe) est acceptee : pas d'echeance formelle.
+                    if ($de !== null && $de !== false && $de < date('Y-m-d')) {
                         $fail('Habilitation expiree pour un inspecteur sur le domaine selectionne.'); break 2;
                     }
                 }
@@ -828,6 +991,104 @@ try {
                 Audit::log('mail', 'audits', 'Notifications audit #' . $auditId . ' : ' . $mailsSent . ' envoyee(s), ' . $mailsFailed . ' echec(s).');
             }
 
+            // ---- Notifications des DIRECTEURS fonctionnels (independant de notif_mail) ----
+            // Le front envoie dir_notif_json : [{idinspecteur, idpersonnel|null, nom, email}, ...]
+            // Un directeur par inspecteur au maximum, seulement ceux coches.
+            $dirSent = 0; $dirFailed = 0;
+            $dirJson = $_POST['dir_notif_json'] ?? '';
+            if (!$isUpdate && $auditId > 0 && is_string($dirJson) && $dirJson !== '' && $dirJson !== '[]') {
+                $dirList = json_decode($dirJson, true);
+                if (is_array($dirList) && $dirList) {
+
+                    // Contexte commun (operateur, site, date) recalcule ici pour etre
+                    // disponible meme si notif_mail (inspecteurs) etait desactive.
+                    $moisFrD = ['', 'janvier','fevrier','mars','avril','mai','juin',
+                                'juillet','aout','septembre','octobre','novembre','decembre'];
+                    $datePrevFr = '';
+                    if ($dprev) {
+                        $dtD = \DateTime::createFromFormat('Y-m-d', $dprev);
+                        if ($dtD) { $datePrevFr = $dtD->format('d') . ' ' . $moisFrD[(int) $dtD->format('n')] . ' ' . $dtD->format('Y'); }
+                    }
+
+                    $stOrgD = $db->prepare("SELECT nomorga FROM organisme WHERE idorga = ?");
+                    $stOrgD->execute([$idorga]);
+                    $nomOrgaD = (string) ($stOrgD->fetchColumn() ?: '');
+
+                    $siteNomD = '';
+                    if (!empty($idsiteVal)) {
+                        $stSiD = $db->prepare("SELECT TRIM(CONCAT(COALESCE(indicateur_oaci,''),' ',COALESCE(nomsite,''))) AS s FROM site WHERE idsite = ?");
+                        $stSiD->execute([$idsiteVal]);
+                        $siteNomD = (string) ($stSiD->fetchColumn() ?: '');
+                    }
+                    if ($siteNomD === '') { $siteNomD = (string) $site; }
+
+                    // Signataire : chef inspecteur connecte (meme logique que la lettre de designation).
+                    // Recalcule ici car ce bloc peut s'executer meme si notif_mail (inspecteurs) est desactive.
+                    $uidD  = (int) ($_SESSION['user_id'] ?? 0);
+                    $stCID = $db->prepare(
+                        "SELECT TRIM(CONCAT(COALESCE(preninspect,''),' ',COALESCE(nominspecteur,''))) AS nomci
+                         FROM inspecteur WHERE iduser = ? LIMIT 1"
+                    );
+                    $stCID->execute([$uidD]);
+                    $rowCID = $stCID->fetch();
+                    $ciSigD = ($rowCID && trim($rowCID['nomci']) !== '')
+                        ? trim($rowCID['nomci'])
+                        : trim(($_SESSION['user']['prenom'] ?? '') . ' ' . ($_SESSION['user']['nom'] ?? ''));
+
+                    // Domaines par inspecteur (pour personnaliser le message)
+                    $domsParInsp = [];
+                    $stDD = $db->prepare(
+                        "SELECT e.idinspecteur, GROUP_CONCAT(DISTINCT d.nomdomaine SEPARATOR ', ') AS doms
+                         FROM audit_equipe e JOIN domaine d ON d.iddomaine = e.iddomaine
+                         WHERE e.idaudit = ? GROUP BY e.idinspecteur"
+                    );
+                    $stDD->execute([$auditId]);
+                    foreach ($stDD->fetchAll() as $rowDD) {
+                        $domsParInsp[(int) $rowDD['idinspecteur']] = (string) $rowDD['doms'];
+                    }
+
+                    $mailerD = isset($mailer) ? $mailer : new Mailer();
+                    $insTrace = $db->prepare(
+                        "INSERT INTO audit_notif_directeur
+                            (idaudit, idinspecteur, idpersonnel, nom_directeur, email, envoye, date_envoi)
+                         VALUES (?,?,?,?,?,?,?)"
+                    );
+
+                    foreach ($dirList as $d) {
+                        $iidD   = (int) ($d['idinspecteur'] ?? 0);
+                        $emailD = trim((string) ($d['email'] ?? ''));
+                        $nomD   = trim((string) ($d['nom'] ?? ''));
+                        $idpers = isset($d['idpersonnel']) && $d['idpersonnel'] !== null ? (int) $d['idpersonnel'] : null;
+
+                        if ($iidD <= 0 || !filter_var($emailD, FILTER_VALIDATE_EMAIL)) { continue; }
+
+                        // Nom de l'inspecteur concerne
+                        $stInD = $db->prepare("SELECT TRIM(CONCAT(COALESCE(preninspect,''),' ',COALESCE(nominspecteur,''))) AS n FROM inspecteur WHERE idinspecteur = ?");
+                        $stInD->execute([$iidD]);
+                        $inspNomD = (string) ($stInD->fetchColumn() ?: '');
+
+                        $sentD = $mailerD->sendNotifDirecteur($emailD, $nomD, [
+                            'directeur'   => $nomD,
+                            'inspecteur'  => $inspNomD,
+                            'domaine'     => $domsParInsp[$iidD] ?? '',
+                            'date_prev'   => $datePrevFr,
+                            'operateur'   => $nomOrgaD,
+                            'site'        => $siteNomD,
+                            'num_audit'   => $num,
+                            'ci_nom'      => $ciSigD,
+                            'agai_url'    => SITE_URL,
+                        ]);
+                        $sentD ? $dirSent++ : $dirFailed++;
+
+                        $insTrace->execute([
+                            $auditId, $iidD, $idpers, $nomD, $emailD,
+                            $sentD ? 1 : 0, $sentD ? date('Y-m-d H:i:s') : null,
+                        ]);
+                    }
+                    Audit::log('mail', 'audits', "Notifications directeurs audit #$auditId : $dirSent envoyee(s), $dirFailed echec(s).");
+                }
+            }
+
             $notifMsg = '';
             if ($notifMail && !$isUpdate) {
                 if ($nbInserted === 0) {
@@ -841,6 +1102,17 @@ try {
                 }
             }
 
+            $dirMsg = '';
+            if (!$isUpdate && ($dirSent > 0 || $dirFailed > 0)) {
+                if ($dirFailed > 0 && $dirSent === 0) {
+                    $dirMsg = 'Erreur : aucun directeur notifie (' . $dirFailed . ' echec(s)).';
+                } elseif ($dirFailed > 0) {
+                    $dirMsg = $dirSent . ' directeur(s) notifie(s), ' . $dirFailed . ' echec(s).';
+                } else {
+                    $dirMsg = $dirSent . ' directeur(s) notifie(s) par mail.';
+                }
+            }
+
             $ok([
                 'message'    => $isUpdate ? 'Audit mis a jour.' : 'Audit enregistre.',
                 'idaudit'    => $auditId,
@@ -848,6 +1120,7 @@ try {
                 'equipe_msg' => $equipeMsg,
                 'nb_equipe'  => $nbInserted,
                 'notif_msg'  => $notifMsg,
+                'dir_msg'    => $dirMsg,
             ]);
             break;
 

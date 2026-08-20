@@ -69,18 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* ------------------------------------------------------------
- * Jeton CSRF + domaines OACI
+ * Jeton CSRF
  * ---------------------------------------------------------- */
 $csrf_token = Security::generateCSRF();
-
-try {
-    $db   = Database::getInstance();
-    $stmt = $db->prepare("SELECT * FROM domaine ORDER BY nomdomaine");
-    $stmt->execute();
-    $domaines = $stmt->fetchAll();
-} catch (Throwable $e) {
-    $domaines = [];
-}
 
 $logo = ASSETS_URL . '/images/Logo-ANAC-CERTIFICATION.png';
 ?>
@@ -90,8 +81,8 @@ $logo = ASSETS_URL . '/images/Logo-ANAC-CERTIFICATION.png';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#23408F">
-    <meta name="description" content="AGAI - Système de Suivi de l'Exécution du Programme de Surveillance Continue de la Sécurité Aérienne - ANAC Gabon.">
-    <title>AGAI · Surveillance Continue de la Sécurité Aérienne · ANAC Gabon</title>
+    <meta name="description" content="AGAI - Plateforme nationale de suivi de l'exécution des activités de Supervision de la sécurité et la sûreté de l'Aviation Civile du Gabon - ANAC Gabon.">
+    <title>AGAI · Supervision de la Sécurité et la Sûreté de l'Aviation Civile · ANAC Gabon</title>
 
     <link rel="icon" href="<?php echo ASSETS_URL; ?>/images/faviconLOGOANAC.ico" type="image/x-icon">
 
@@ -309,17 +300,20 @@ $logo = ASSETS_URL . '/images/Logo-ANAC-CERTIFICATION.png';
         .sec-icon { width:60px;height:60px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;margin-bottom:16px; }
 
         .domaine-card {
-            background:var(--anac-card); border-radius:14px; padding:18px 10px; text-align:center;
+            background:var(--anac-card); border-radius:14px; padding:22px 14px; text-align:center;
             box-shadow:var(--shadow-sm); transition:all .25s; height:100%;
             border:1px solid #eef2f7;
         }
         .domaine-card:hover { transform:translateY(-5px); box-shadow:var(--shadow-md); }
-        .domaine-code {
+        .domaine-icon {
             display:inline-flex; align-items:center; justify-content:center;
-            width:48px;height:48px;border-radius:12px; margin-bottom:10px;
-            background:rgba(35,64,143,.1); color:var(--anac-primary); font-weight:700; font-size:1.05rem;
+            width:64px; height:64px; border-radius:50%; margin-bottom:12px;
+            font-size:1.6rem; color:#fff;
         }
-        .domaine-name { font-size:.82rem; color:var(--anac-text); font-weight:600; line-height:1.25; }
+        .domaine-code {
+            font-weight:800; font-size:.95rem; letter-spacing:1px; color:var(--anac-text); margin-bottom:2px;
+        }
+        .domaine-name { font-size:.82rem; color:var(--anac-muted); font-weight:600; line-height:1.25; }
 
         /* ===================== FAQ ===================== */
         .faq-item { background:var(--anac-card); border-radius:12px; margin-bottom:14px; box-shadow:var(--shadow-sm); overflow:hidden; border:1px solid #eef2f7; }
@@ -402,15 +396,16 @@ $logo = ASSETS_URL . '/images/Logo-ANAC-CERTIFICATION.png';
         <div class="container hero-content">
             <div class="row align-items-center g-5">
                 <div class="col-lg-6" data-aos="fade-right">
-                    <span class="hero-badge"><i class="bi bi-shield-check"></i> Système sécurisé · OACI · USOAP · SSP</span>
-                    <h1>Surveillance Continue de la<br><span class="accent">Sécurité Aérienne</span></h1>
+                    <span class="hero-badge"><i class="bi bi-shield-check"></i> Système Sécurité : ANAC</span>
+                    <h1>Supervision de la sécurité et<br>la sûreté de <span class="accent">l'Aviation Civile</span></h1>
                     <p class="lead">
-                        Plateforme nationale de suivi de l'exécution du programme de surveillance
-                        de la sécurité aérienne du Gabon : audits, inspections, non-conformités
-                        et actions correctives, en temps réel.
+                        Plateforme nationale de suivi de l'exécution des activités de Supervision
+                        de la sécurité et la sûreté de l'Aviation Civile du Gabon en temps réel.
                     </p>
                     <div class="checks">
                         <span><i class="bi bi-check-circle-fill"></i>Audits &amp; inspections</span>
+                        <span><i class="bi bi-check-circle-fill"></i>Contrôle</span>
+                        <span><i class="bi bi-check-circle-fill"></i>Gestion des rapports</span>
                         <span><i class="bi bi-check-circle-fill"></i>Non-conformités</span>
                         <span><i class="bi bi-check-circle-fill"></i>Suivi temps réel</span>
                     </div>
@@ -474,7 +469,7 @@ $logo = ASSETS_URL . '/images/Logo-ANAC-CERTIFICATION.png';
     <div class="stat-strip">
         <div class="container">
             <div class="row">
-                <div class="col-6 col-md-3"><div class="stat-box"><i class="bi bi-diagram-3 fs-3"></i><div class="num"><?php echo max(8, count($domaines)); ?></div><div class="lbl">Domaines critiques OACI</div></div></div>
+                <div class="col-6 col-md-3"><div class="stat-box"><i class="bi bi-diagram-3 fs-3"></i><div class="num">07</div><div class="lbl">Domaines critiques OACI</div></div></div>
                 <div class="col-6 col-md-3"><div class="stat-box"><i class="bi bi-clipboard-check fs-3"></i><div class="num">100%</div><div class="lbl">Traçabilité des actions</div></div></div>
                 <div class="col-6 col-md-3"><div class="stat-box"><i class="bi bi-shield-lock fs-3"></i><div class="num">2FA</div><div class="lbl">Double authentification</div></div></div>
                 <div class="col-6 col-md-3"><div class="stat-box"><i class="bi bi-clock-history fs-3"></i><div class="num">24/7</div><div class="lbl">Surveillance continue</div></div></div>
@@ -492,7 +487,7 @@ $logo = ASSETS_URL . '/images/Logo-ANAC-CERTIFICATION.png';
             <div class="row g-4">
                 <?php
                 $features = [
-                    ['bi-clipboard-check', "Programmation d'audits", "Planification et suivi des audits et inspections selon les exigences OACI."],
+                    ['bi-clipboard-check', "Programmation d'audits/Inspections", "Planification et suivi des audits et inspections selon les exigences OACI."],
                     ['bi-exclamation-triangle', "Gestion des non-conformités", "Suivi complet des écarts avec catégorisation Critique · Majeur · Mineur."],
                     ['bi-people', "Gestion des inspecteurs", "Habilitations, domaines de compétence et suivi des qualifications."],
                     ['bi-clock-history', "Traçabilité complète", "Historique des modifications et journalisation de toutes les actions."],
@@ -520,7 +515,7 @@ $logo = ASSETS_URL . '/images/Logo-ANAC-CERTIFICATION.png';
         <div class="container py-4">
             <div class="text-center mb-5" data-aos="fade-up">
                 <h2 class="section-title">Nos <span class="hl">objectifs</span></h2>
-                <p class="section-sub">AGAI répond aux besoins spécifiques de la supervision de la sécurité aérienne.</p>
+                <p class="section-sub">AGAI répond aux besoins spécifiques de la supervision de la sécurité et de la sûreté de l'aviation civile.</p>
             </div>
             <div class="row g-4">
                 <?php
@@ -593,33 +588,28 @@ $logo = ASSETS_URL . '/images/Logo-ANAC-CERTIFICATION.png';
                 <p class="section-sub">Les domaines critiques de supervision selon les normes de l'OACI.</p>
             </div>
             <div class="row g-3 justify-content-center" data-aos="fade-up">
-                <?php if (!empty($domaines)): ?>
-                    <?php foreach ($domaines as $domaine): ?>
-                    <div class="col-lg-3 col-md-4 col-6">
-                        <div class="domaine-card">
-                            <div class="domaine-code"><?php echo Security::escape($domaine['nomdomaine']); ?></div>
-                            <div class="domaine-name"><?php echo Security::escape($domaine['libel_domaine']); ?></div>
-                        </div>
+                <?php
+                // Liste fixe des 7 domaines critiques affiches sur la page publique
+                // (independante de la table `domaine` utilisee dans le module de gestion interne).
+                $domainesOaci = [
+                    ['AGA',   'Aérodromes',                       'bi-buildings',       'var(--anac-primary)'],
+                    ['ANS',   'Services de Navigation Aérienne',  'bi-diagram-3',       'var(--anac-secondary)'],
+                    ['AVSEC', 'Sûreté de l\'Aviation',            'bi-shield-lock-fill','var(--anac-primary-d)'],
+                    ['FAL',   'Facilitation',                     'bi-globe',           'var(--anac-gold)'],
+                    ['AIR',   'Navigabilité',                     'bi-tools',           'var(--anac-primary)'],
+                    ['OPS',   'Opérations Aériennes',             'bi-airplane-fill',   'var(--anac-secondary)'],
+                    ['PEL',   'Licences du Personnel',            'bi-person-badge',    'var(--anac-primary-d)'],
+                ];
+                foreach ($domainesOaci as $dom):
+                ?>
+                <div class="col-lg-3 col-md-4 col-6">
+                    <div class="domaine-card">
+                        <div class="domaine-icon" style="background:<?php echo $dom[3]; ?>;"><i class="bi <?php echo $dom[2]; ?>"></i></div>
+                        <div class="domaine-code"><?php echo $dom[0]; ?></div>
+                        <div class="domaine-name"><?php echo $dom[1]; ?></div>
                     </div>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <?php
-                    $defaultDomaines = [
-                        'LEG' => 'Législation aéronautique', 'ORG' => "Organisation de l'autorité",
-                        'PEL' => 'Personnel technique', 'OPS' => 'Opérations aériennes',
-                        'AIR' => 'Navigabilité', 'AIG' => 'Enquêtes accidents',
-                        'ANS' => 'Navigation aérienne', 'AGA' => 'Aérodromes',
-                    ];
-                    foreach ($defaultDomaines as $code => $name):
-                    ?>
-                    <div class="col-lg-3 col-md-4 col-6">
-                        <div class="domaine-card">
-                            <div class="domaine-code"><?php echo $code; ?></div>
-                            <div class="domaine-name"><?php echo $name; ?></div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
             </div>
         </div>
     </section>
@@ -640,6 +630,12 @@ $logo = ASSETS_URL . '/images/Logo-ANAC-CERTIFICATION.png';
                         ["Que faire si je ne reçois pas le code OTP ?", "Vérifiez vos spams. Si le code n'arrive pas, utilisez la fonction « Renvoyer le code » sur la page de vérification."],
                         ["Les opérateurs ont-ils accès au système ?", "Oui, chaque opérateur dispose de sa propre session. Ils reçoivent les notifications par email et peuvent consulter leurs audits et répondre aux actions correctives."],
                         ["Comment signaler une non-conformité ?", "Après connexion, allez dans le menu « Non-conformités » puis « Nouvelle fiche » et renseignez les champs requis."],
+                        ["Que se passe-t-il après plusieurs échecs de connexion ?", "Après 5 tentatives échouées, le compte est verrouillé par mesure de sécurité. Seul un administrateur ou le chef inspecteur peut le réactiver manuellement."],
+                        ["Mon compte a été désactivé, que faire ?", "Contactez un administrateur ou le chef inspecteur ANAC : ils peuvent vous indiquer le motif et réactiver votre accès si nécessaire."],
+                        ["J'ai oublié mon mot de passe, comment faire ?", "Contactez un administrateur : il peut générer un nouveau mot de passe temporaire, envoyé automatiquement sur votre email professionnel."],
+                        ["Quels sont les différents profils utilisateurs ?", "AGAI distingue cinq profils : Administrateur, Chef inspecteur, Inspecteur, Opérateur et Consultant, chacun avec des droits d'accès adaptés à son rôle."],
+                        ["AGAI fonctionne-t-il sur tablette et mobile ?", "Oui, l'interface est entièrement responsive et s'adapte automatiquement aux ordinateurs, tablettes et smartphones."],
+                        ["Que signifient les domaines AVSEC et FAL ?", "AVSEC désigne la sûreté de l'aviation (protection contre les actes d'intervention illicite) et FAL la facilitation du transport aérien : deux domaines complémentaires à la sécurité (safety) au sens strict."],
                     ];
                     foreach ($faqs as $faq):
                     ?>
@@ -663,7 +659,7 @@ $logo = ASSETS_URL . '/images/Logo-ANAC-CERTIFICATION.png';
                 <div class="col-lg-4 col-md-6">
                     <img src="<?php echo $logo; ?>" alt="ANAC Gabon" class="footer-logo" onerror="this.style.display='none'">
                     <p style="color:rgba(255,255,255,.7);">Agence Nationale de l'Aviation Civile du Gabon<br>
-                        <span style="color:rgba(255,255,255,.45);">Système de Surveillance Continue de la Sécurité Aérienne</span></p>
+                        <span style="color:rgba(255,255,255,.45);">Supervision de la sécurité et la sûreté de l'Aviation Civile</span></p>
                     <div class="social-links d-flex gap-2 mt-3">
                         <a href="#" aria-label="Facebook"><i class="bi bi-facebook"></i></a>
                         <a href="#" aria-label="X"><i class="bi bi-twitter-x"></i></a>

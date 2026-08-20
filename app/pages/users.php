@@ -39,6 +39,31 @@ require_once INCLUDES_PATH . '/layout_head.php';
   #userModal .modal-body{ padding:1.25rem 1.5rem; }
   #userModal .modal-body::-webkit-scrollbar{ width:8px; }
   #userModal .modal-body::-webkit-scrollbar-thumb{ background:#cfd6e2; border-radius:8px; }
+
+  /* ===== En-tete du tableau en bleu ANAC ===== */
+  #usersTable thead th{
+    background:var(--anac-primary) !important;
+    color:#fff !important;
+    border-color:var(--anac-primary) !important;
+    text-transform:uppercase;
+    letter-spacing:.4px;
+    font-size:.78rem;
+    vertical-align:middle;
+    padding:12px 10px;
+  }
+  #usersTable thead th:first-child{ border-top-left-radius:10px; }
+  #usersTable thead th:last-child{ border-top-right-radius:10px; }
+  /* Fleches de tri visibles sur fond bleu */
+  #usersTable thead th.sorting:before,#usersTable thead th.sorting:after,
+  #usersTable thead th.sorting_asc:before,#usersTable thead th.sorting_asc:after,
+  #usersTable thead th.sorting_desc:before,#usersTable thead th.sorting_desc:after{
+    color:#fff !important; opacity:.55;
+  }
+  #usersTable thead th.sorting_asc:after,#usersTable thead th.sorting_desc:before{ opacity:1 !important; }
+
+  /* ===== Barre de filtres ===== */
+  .filter-bar .form-label{ font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; color:#6b7a90; margin-bottom:4px; font-weight:700; }
+  .filter-bar .select2-container--bootstrap-5 .select2-selection{ min-height:38px; }
 </style>
 
 <!-- Bouton de bascule : l'utilisateur choisit d'afficher ou masquer les stats -->
@@ -58,13 +83,57 @@ require_once INCLUDES_PATH . '/layout_head.php';
   <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-shield-lock-fill"></i></div><div><div class="stat-num" id="st_2fa">0</div><div class="stat-lbl">2FA active</div></div></div></div>
 </div>
 
+<!-- ===== BARRE DE FILTRES (Select2) ===== -->
+<div class="card-anac p-3 mb-3 filter-bar">
+  <div class="row g-2 align-items-end">
+    <div class="col-6 col-md-3">
+      <label class="form-label" for="f_role">Role</label>
+      <select id="f_role" class="form-select form-select-sm">
+        <option value="">Tous les roles</option>
+        <?php foreach ($roles as $val => $lib): ?>
+          <option value="<?php echo Security::escape($val); ?>"><?php echo Security::escape($lib); ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="col-6 col-md-3">
+      <label class="form-label" for="f_orga">Organisme</label>
+      <select id="f_orga" class="form-select form-select-sm">
+        <option value="">Tous les organismes</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label" for="f_2fa">2FA</label>
+      <select id="f_2fa" class="form-select form-select-sm">
+        <option value="">Toutes</option>
+        <option value="1">Activee</option>
+        <option value="0">Desactivee</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label" for="f_statut">Statut</label>
+      <select id="f_statut" class="form-select form-select-sm">
+        <option value="">Tous</option>
+        <option value="1">Actif</option>
+        <option value="0">Inactif</option>
+      </select>
+    </div>
+    <div class="col-12 col-md-2 d-grid">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="btnResetFilters">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Reinitialiser
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="card-anac p-3 p-md-4">
   <div class="table-responsive">
     <table id="usersTable" class="table table-hover align-middle" style="width:100%">
       <thead>
         <tr>
+          <th>Id</th>
           <th>Matricule</th><th>Nom &amp; prenom</th><th>Email</th><th>Role</th>
           <th>Organisme</th><th>2FA</th><th>Statut</th><th class="text-end">Actions</th>
+          <th>_role</th><th>_orga</th><th>_2fa</th><th>_statut</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -472,7 +541,7 @@ function apiPost(url, data){
   return $.post(url, data, null, 'json');
 }
 
-/* ---------- Select2 ---------- */
+/* ---------- Select2 (modale) ---------- */
 function initSelect2(){
   $('#u_idorga').select2({ theme:'bootstrap-5', dropdownParent: $('#userModal'), placeholder:'Choisir un organisme', allowClear:true, width:'100%' });
   $('#u_personnel').select2({ theme:'bootstrap-5', dropdownParent: $('#userModal'), placeholder:'Rechercher un agent...', width:'100%' });
@@ -574,6 +643,46 @@ function checkMatricule(){
   });
 }
 
+/* ---------- Filtres Select2 (au-dessus du tableau) ---------- */
+function initFilters(){
+  $('#f_role').select2({ theme:'bootstrap-5', width:'100%' });
+  $('#f_orga').select2({ theme:'bootstrap-5', width:'100%' });
+  $('#f_2fa').select2({ theme:'bootstrap-5', width:'100%', minimumResultsForSearch: Infinity });
+  $('#f_statut').select2({ theme:'bootstrap-5', width:'100%', minimumResultsForSearch: Infinity });
+
+  // Indices des colonnes masquees servant aux filtres exacts :
+  // 9 = role (cle), 10 = organisme (nom), 11 = 2FA (1/0), 12 = statut (1/0)
+  function applyExact(colIdx, value){
+    if(!table) return;
+    if(value === ''){ table.column(colIdx).search(''); }
+    else { table.column(colIdx).search('^' + $.fn.dataTable.util.escapeRegex(value) + '$', true, false); }
+    table.draw();
+  }
+  $('#f_role').on('change',   function(){ applyExact(9,  this.value); });
+  $('#f_orga').on('change',   function(){ applyExact(10, this.value); });
+  $('#f_2fa').on('change',    function(){ applyExact(11, this.value); });
+  $('#f_statut').on('change', function(){ applyExact(12, this.value); });
+
+  $('#btnResetFilters').on('click', function(){
+    $('#f_role,#f_orga,#f_2fa,#f_statut').val('').trigger('change.select2');
+    if(table){ table.columns([9,10,11,12]).search(''); table.search(''); table.draw(); }
+  });
+}
+
+/* Remplit la liste deroulante des organismes a partir des donnees chargees */
+function populateOrgaFilter(data){
+  const current = $('#f_orga').val();
+  const orgs = [...new Set(data.map(u => u.nomorga).filter(Boolean))].sort((a,b)=> a.localeCompare(b));
+  const $f = $('#f_orga');
+  $f.empty();
+  $f.append(new Option('Tous les organismes', ''));          // option par defaut
+  orgs.forEach(o => $f.append(new Option(o, o)));            // value brute (pas d'entites HTML)
+  // Conserver la selection courante si elle existe encore
+  if(current && orgs.includes(current)){ $f.val(current); }
+  else { $f.val(''); }
+  $f.trigger('change.select2');
+}
+
 /* ---------- DataTable ---------- */
 let table;
 function loadTable(){
@@ -583,7 +692,9 @@ function loadTable(){
       const rows = res.data.map(u => {
         const role = ROLE_LABELS[u.role] || u.role;
         const twofa = u.is_2fa_enabled == 1 ? '<span class="badge-soft b-green">Activee</span>' : '<span class="badge-soft b-gold">Desactivee</span>';
-        const statut = u.is_active == 1 ? '<span class="badge-soft b-green">Actif</span>' : '<span class="badge-soft b-red">Inactif</span>';
+        const statut = u.is_active == 1
+          ? '<span class="badge-soft b-green">Actif</span>'
+          : '<span class="badge-soft b-red" title="'+esc(u.motif_desactivation||'Aucun motif renseigne')+'">Inactif</span>';
         const orga = u.nomorga ? esc(u.nomorga) : '<span class="text-muted">-</span>';
         const actions = `
           <div class="btn-group btn-group-sm">
@@ -593,18 +704,38 @@ function loadTable(){
             <button class="btn ${u.is_active==1?'btn-outline-dark':'btn-outline-success'} act-active" data-id="${u.iduser}" data-on="${u.is_active}" title="Activer/Desactiver"><i class="bi bi-power"></i></button>
             <button class="btn btn-outline-danger act-del" data-id="${u.iduser}" data-name="${esc(u.prenom+' '+u.nom)}" title="Supprimer"><i class="bi bi-trash"></i></button>
           </div>`;
-        return [ esc(u.matricule), esc(u.prenom+' '+u.nom), esc(u.email), `<span class="badge-soft b-blue">${esc(role)}</span>`, orga, twofa, statut, actions ];
+        return [
+          parseInt(u.iduser, 10),                                  // 0  Id (masque) -> tri DESC
+          esc(u.matricule),                                        // 1  Matricule
+          esc(u.prenom+' '+u.nom),                                 // 2  Nom & prenom
+          esc(u.email),                                            // 3  Email
+          `<span class="badge-soft b-blue">${esc(role)}</span>`,   // 4  Role (affichage)
+          orga,                                                    // 5  Organisme (affichage)
+          twofa,                                                   // 6  2FA (affichage)
+          statut,                                                  // 7  Statut (affichage)
+          actions,                                                 // 8  Actions
+          (u.role || ''),                                          // 9  _role (cle brute, filtre)
+          (u.nomorga || ''),                                       // 10 _orga (nom brut, filtre)
+          String(u.is_2fa_enabled),                                // 11 _2fa  (1/0, filtre)
+          String(u.is_active)                                      // 12 _statut(1/0, filtre)
+        ];
       });
-      if(table){ table.clear(); table.rows.add(rows); table.draw(); }
+      if(table){ table.clear(); table.rows.add(rows); table.draw(false); }
       else {
         table = $('#usersTable').DataTable({
           data: rows,
-          columnDefs:[{targets:7, orderable:false, className:'text-end'}],
-          order:[[1,'asc']], pageLength:10,
+          columnDefs:[
+            { targets:[0,9,10,11,12], visible:false },     // colonnes techniques masquees
+            { targets:0, type:'num' },                     // l'Id se trie numeriquement
+            { targets:8, orderable:false, className:'text-end' }
+          ],
+          order:[[0,'desc']],     // <<< tri par iduser DESC (les plus recents d'abord)
+          pageLength:10,
           /* Traduction francaise integree : aucune dependance Internet (fonctionne en reseau ferme) */
           language: DT_FR
         });
       }
+      populateOrgaFilter(res.data);
       if($('#statsPanel').is(':visible')){ loadStats(); }
     })
     .fail(() => Swal.fire({icon:'error',title:'Connexion',text:'Impossible de joindre le serveur.',confirmButtonColor:'#23408F'}));
@@ -754,9 +885,30 @@ $(document).on('click', '.act-2fa', function(){
 /* ---------- Activer / desactiver ---------- */
 $(document).on('click', '.act-active', function(){
   const id=$(this).data('id'), on=$(this).data('on')==1;
-  apiPost(API_USERS, {action:'toggle_active', iduser:id, active: on?0:1}).then(res => {
-    if(res.success){ loadTable(); } else { Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); }
-  });
+
+  if (on) {
+    // Desactivation : le motif est journalise ET affiche a la personne concernee
+    // a sa prochaine tentative de connexion (distinct du verrouillage brute-force).
+    Swal.fire({
+      title:'Desactiver ce compte ?',
+      input:'text',
+      inputPlaceholder:'Motif (ex : conge, depart, suspension...)',
+      icon:'warning',
+      showCancelButton:true,
+      cancelButtonText:'Annuler',
+      confirmButtonColor:'#23408F',
+      confirmButtonText:'Desactiver'
+    }).then(r => {
+      if (!r.isConfirmed) return;
+      apiPost(API_USERS, {action:'toggle_active', iduser:id, active:0, motif:r.value||''}).then(res => {
+        if(res.success){ loadTable(); } else { Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); }
+      });
+    });
+  } else {
+    apiPost(API_USERS, {action:'toggle_active', iduser:id, active:1}).then(res => {
+      if(res.success){ loadTable(); } else { Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); }
+    });
+  }
 });
 
 /* ---------- Supprimer ---------- */
@@ -852,5 +1004,6 @@ $('#btnToggleStats').on('click', function(){ setStatsVisible($('#statsPanel').is
 /* Restaurer le choix precedent de l'utilisateur */
 (function(){ let v = '0'; try { v = localStorage.getItem('agai_stats_users') || '0'; } catch(e){} if(v === '1'){ setStatsVisible(true); } })();
 
+initFilters();
 loadTable();
 </script>

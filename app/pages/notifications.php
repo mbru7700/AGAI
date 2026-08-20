@@ -119,7 +119,7 @@ table.tbl tbody tr:hover{background:#fafcff;}
 
 <!-- KPI masquables -->
 <div id="statsPanel" class="row g-3 mb-3" style="display:none">
-  <div class="col-6 col-md-3"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-clipboard-check-fill"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Audits eligibles</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-clipboard-check-fill"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Audits a notifier</div></div></div></div>
   <div class="col-6 col-md-3"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-envelope-check-fill"></i></div><div><div class="stat-num" id="st_joint">0</div><div class="stat-lbl">Lettres jointes</div></div></div></div>
   <div class="col-6 col-md-3"><div class="stat-card"><div class="stat-ic ic-gold"><i class="bi bi-send-fill"></i></div><div><div class="stat-num" id="st_envoye">0</div><div class="stat-lbl">Envoyees par mail</div></div></div></div>
   <div class="col-6 col-md-3"><div class="stat-card"><div class="stat-ic ic-dark"><i class="bi bi-hourglass-split"></i></div><div><div class="stat-num" id="st_attente">0</div><div class="stat-lbl">En attente</div></div></div></div>
@@ -445,8 +445,31 @@ $('#up_envoyer_mail').on('change',function(){
     const email=pendingEmail.emailorga||'';
     $('#up_email_display').html(email
       ?('<i class="bi bi-envelope-fill me-1"></i>'+esc(email))
-      :'<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Email non renseigne - vous serez invite a le saisir</span>');
+      :'<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Email non renseigne - saisissez-le dans la fenetre</span>');
     $('#up_mail_preview').show();
+    // Si l'operateur n'a pas d'email, on ouvre tout de suite la fenetre de saisie
+    // (au lieu d'attendre la soumission), pour que l'utilisateur le renseigne.
+    if(!email){
+      const idorga=$('#up_idorga').val();
+      $('#emailModalOrga').text(pendingEmail.nomorga||$('#up_orga_info').text().replace('Operateur : ','')||'Cet operateur');
+      $('#new_email').val('');
+      const em=new bootstrap.Modal('#emailModal'); em.show();
+      $('#btnConfirmEmail').off('click').on('click',function(){
+        const val=$('#new_email').val().trim();
+        if(!val||!val.includes('@')){ Swal.fire({icon:'warning',title:'Email invalide',confirmButtonColor:'#23408F'}); return; }
+        apiPost({action:'update_email',idorga:idorga,emailorga:val}).done(function(r){
+          if(r.success){
+            pendingEmail.has_email=true; pendingEmail.emailorga=val;
+            $('#up_email_display').html('<i class="bi bi-envelope-fill me-1"></i>'+esc(val));
+            em.hide();
+          } else { Swal.fire({icon:'error',text:r.message,confirmButtonColor:'#23408F'}); }
+        });
+      });
+      // Si l'utilisateur ferme sans saisir, on decoche la case
+      $('#emailModal').off('hidden.bs.modal.autodecoche').on('hidden.bs.modal.autodecoche',function(){
+        if(!pendingEmail.emailorga){ $('#up_envoyer_mail').prop('checked',false); $('#up_mail_preview').hide(); }
+      });
+    }
   } else {
     $('#up_mail_preview').hide();
   }

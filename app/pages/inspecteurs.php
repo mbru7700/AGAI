@@ -26,7 +26,11 @@ require_once INCLUDES_PATH . '/layout_head.php';
     <h1><i class="bi bi-person-badge me-2" style="color:var(--anac-primary)"></i>Inspecteurs</h1>
     <div class="sub">Inspecteurs, categories et habilitations par domaine.</div>
   </div>
-  <button class="btn btn-anac" id="btnNew"><i class="bi bi-plus-lg me-2"></i>Nouvel inspecteur</button>
+  <div class="d-flex gap-2 flex-wrap">
+    <button class="btn btn-outline-danger" id="btnExpPdf" type="button" title="Imprimer la liste en PDF"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+    <button class="btn btn-outline-success" id="btnExpXls" type="button" title="Exporter la liste en Excel"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+    <button class="btn btn-anac" id="btnNew"><i class="bi bi-plus-lg me-2"></i>Nouvel inspecteur</button>
+  </div>
 </div>
 
 <style>
@@ -36,6 +40,8 @@ require_once INCLUDES_PATH . '/layout_head.php';
   .badge-soft{display:inline-block;padding:.25rem .6rem;border-radius:20px;font-size:.74rem;font-weight:600;white-space:nowrap;}
   .b-green{background:rgba(30,156,75,.12);color:#1E9C4B;}
   .b-gold{background:rgba(243,195,0,.18);color:#b58a00;}
+  .b-ext{background:rgba(30,156,75,.16);color:#177a3a;border:1px solid rgba(30,156,75,.35);}
+  .b-dark{background:rgba(44,62,80,.12);color:#2C3E50;}
   .b-blue{background:rgba(35,64,143,.10);color:#23408F;}
   .b-dom{background:#eef2f9;color:#23408F;margin:1px 2px;}
   .res-count{font-size:.85rem;color:#6b7a90;}
@@ -90,11 +96,12 @@ require_once INCLUDES_PATH . '/layout_head.php';
 <div id="statsPanel" class="mb-3" style="display:none;">
   <div class="row g-3 mb-2">
     <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-person-badge-fill"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Total inspecteurs</div></div></div></div>
-    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-gold"><i class="bi bi-mortarboard-fill"></i></div><div><div class="stat-num" id="st_stagiaires">0</div><div class="stat-lbl">Stagiaires</div></div></div></div>
-    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-patch-check-fill"></i></div><div><div class="stat-num" id="st_titulaires">0</div><div class="stat-lbl">Titulaires</div></div></div></div>
-    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-star-fill"></i></div><div><div class="stat-num" id="st_exceptionnels">0</div><div class="stat-lbl">Exceptionnels</div></div></div></div>
-    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-dark"><i class="bi bi-shield-fill-check"></i></div><div><div class="stat-num" id="st_habilitations">0</div><div class="stat-lbl">Habilitations</div></div></div></div>
-    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-diagram-3-fill"></i></div><div><div class="stat-num" id="st_domaines">0</div><div class="stat-lbl">Domaines couverts</div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card kpi-cat" data-cat="stagiaire" style="cursor:pointer"><div class="stat-ic ic-gold"><i class="bi bi-mortarboard-fill"></i></div><div><div class="stat-num" id="st_stagiaires">0</div><div class="stat-lbl">Stagiaires <i class="bi bi-info-circle-fill kpi-info" title="Inspecteurs ANAC en formation : domaines enregistres sans numero ni dates d'habilitation. Cliquez pour la liste."></i></div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card kpi-cat" data-cat="titulaire" style="cursor:pointer"><div class="stat-ic ic-green"><i class="bi bi-patch-check-fill"></i></div><div><div class="stat-num" id="st_titulaires">0</div><div class="stat-lbl">Titulaires <i class="bi bi-info-circle-fill kpi-info" title="Inspecteurs ANAC pleinement habilites (numero et dates d'habilitation par domaine). Cliquez pour la liste."></i></div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card kpi-cat" data-cat="exceptionnel" style="cursor:pointer"><div class="stat-ic ic-blue"><i class="bi bi-star-fill"></i></div><div><div class="stat-num" id="st_exceptionnels">0</div><div class="stat-lbl">Exceptionnels <i class="bi bi-info-circle-fill kpi-info" title="Inspecteurs ANAC habilites a titre exceptionnel. Cliquez pour la liste."></i></div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card kpi-cat" data-cat="externe" style="cursor:pointer"><div class="stat-ic ic-green"><i class="bi bi-globe2"></i></div><div><div class="stat-num" id="st_externes">0</div><div class="stat-lbl">Externes <i class="bi bi-info-circle-fill kpi-info" title="Inspecteurs d'autres ANAC venant en renfort : domaines affectes sans formalisme ANAC (ni numero, ni dates, ni decision). Cliquez pour la liste."></i></div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card kpi-hab" style="cursor:pointer"><div class="stat-ic ic-dark"><i class="bi bi-shield-fill-check"></i></div><div><div class="stat-num" id="st_habilitations">0</div><div class="stat-lbl">Habilitations <i class="bi bi-info-circle-fill kpi-info" title="Nombre total de couples inspecteur x domaine. Un inspecteur habilite sur plusieurs domaines compte pour plusieurs habilitations. Cliquez pour le detail."></i></div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-2"><div class="stat-card kpi-dom" style="cursor:pointer"><div class="stat-ic ic-green"><i class="bi bi-diagram-3-fill"></i></div><div><div class="stat-num" id="st_domaines">0</div><div class="stat-lbl">Domaines couverts <i class="bi bi-info-circle-fill kpi-info" title="Nombre de domaines distincts sur lesquels au moins un inspecteur est habilite. Cliquez pour le detail."></i></div></div></div></div>
   </div>
   <!-- Stats habilitations par etat d'expiration (1 ligne par habilitation, pas par inspecteur) -->
   <div class="row g-3">
@@ -137,17 +144,26 @@ require_once INCLUDES_PATH . '/layout_head.php';
 <!-- Barre de filtres dynamiques -->
 <div class="filter-bar mb-3">
   <div class="row g-3 align-items-end">
-    <div class="col-12 col-md-4">
+    <div class="col-12 col-md-3">
       <label class="form-label mb-1"><i class="bi bi-person me-1"></i>Inspecteur</label>
       <select id="f_inspecteur" class="form-select" multiple></select>
     </div>
-    <div class="col-12 col-md-4">
+    <div class="col-12 col-md-3">
       <label class="form-label mb-1"><i class="bi bi-shield-shaded me-1"></i>Domaine</label>
       <select id="f_domaine" class="form-select" multiple></select>
     </div>
-    <div class="col-12 col-md-3">
+    <div class="col-12 col-md-2">
       <label class="form-label mb-1"><i class="bi bi-diagram-3 me-1"></i>Direction</label>
       <select id="f_direction" class="form-select" multiple></select>
+    </div>
+    <div class="col-12 col-md-3">
+      <label class="form-label mb-1"><i class="bi bi-mortarboard me-1"></i>Categorie</label>
+      <select id="f_categorie" class="form-select" multiple>
+        <option value="exceptionnel">Exceptionnel</option>
+        <option value="titulaire">Titulaire</option>
+        <option value="stagiaire">Stagiaire</option>
+        <option value="externe">Externe</option>
+      </select>
     </div>
     <div class="col-12 col-md-1 d-grid">
       <button class="btn btn-outline-secondary" id="btnResetFilters" title="Reinitialiser les filtres"><i class="bi bi-arrow-counterclockwise"></i></button>
@@ -178,6 +194,111 @@ require_once INCLUDES_PATH . '/layout_head.php';
   </div>
 </div>
 
+<!-- ===== MODALE CHOIX TYPE INSPECTEUR (Interne / Externe) ===== -->
+<div class="modal fade" id="typeChoiceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:linear-gradient(135deg,#23408F,#1b3576)">
+        <h5 class="modal-title text-white"><i class="bi bi-person-plus me-2" style="color:#F3C300"></i>Type d'inspecteur</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p class="text-muted mb-3" style="font-size:.88rem">Choisissez le type d'inspecteur a enregistrer :</p>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <button type="button" class="btn w-100 h-100 p-3 choice-btn" id="choiceInterne"
+                    style="border:2px solid #23408F;border-radius:14px;background:#f7f9fc;text-align:left">
+              <div style="font-size:1.6rem;color:#23408F"><i class="bi bi-building-fill-check"></i></div>
+              <div style="font-weight:700;color:#23408F;margin-top:6px">Inspecteur interne</div>
+              <div class="text-muted" style="font-size:.78rem;line-height:1.3;margin-top:4px">Inspecteur ANAC Gabon avec compte utilisateur, direction, categorie et habilitations par domaine.</div>
+            </button>
+          </div>
+          <div class="col-md-6">
+            <button type="button" class="btn w-100 h-100 p-3 choice-btn" id="choiceExterne"
+                    style="border:2px solid #1E9C4B;border-radius:14px;background:#f5fbf7;text-align:left">
+              <div style="font-size:1.6rem;color:#1E9C4B"><i class="bi bi-globe2"></i></div>
+              <div style="font-weight:700;color:#1E9C4B;margin-top:6px">Inspecteur externe</div>
+              <div class="text-muted" style="font-size:.78rem;line-height:1.3;margin-top:4px">Inspecteur d'une autre ANAC venant en renfort. Enregistrement simple, sans compte ni habilitation.</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODALE INSPECTEUR EXTERNE ===== -->
+<div class="modal fade" id="externeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form id="externeForm" class="modal-content">
+      <div class="modal-header" style="background:linear-gradient(135deg,#1E9C4B,#177a3a)">
+        <h5 class="modal-title text-white"><i class="bi bi-globe2 me-2" style="color:#F3C300"></i><span id="externeTitle">Nouvel inspecteur externe</span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3">
+        <input type="hidden" id="x_idinspecteur" value="">
+        <div class="alert alert-light py-2 small mb-3" style="border-left:4px solid #1E9C4B">
+          <i class="bi bi-info-circle me-1"></i>Inspecteur d'une autre autorite de l'aviation civile venant renforcer l'equipe. Aucun compte, aucune habilitation ANAC.
+        </div>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Nom <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="x_nom" maxlength="200" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Prenom <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="x_prenom" maxlength="50" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Trigramme <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="x_trigr" maxlength="41" placeholder="ex : JKD" style="text-transform:uppercase" required>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Matricule</label>
+            <input type="text" class="form-control" id="x_numat" maxlength="4" placeholder="facultatif" inputmode="numeric">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Categorie</label>
+            <input type="text" class="form-control" value="Externe (autre ANAC)" readonly style="background:#eef7f1;font-weight:600;color:#177a3a">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Telephone</label>
+            <input type="text" class="form-control" id="x_tele" maxlength="100" placeholder="ex : +241 ...">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" class="form-control" id="x_mail" maxlength="100" placeholder="prenom.nom@anac-xxx.org">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Domaine(s) d'habilitation <span class="text-danger">*</span></label>
+            <select id="x_domaines" class="form-select" multiple style="width:100%"></select>
+            <div class="form-text"><i class="bi bi-info-circle me-1"></i>Domaines sur lesquels l'inspecteur externe intervient (aucun numero, date ni decision requis).</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Annuler</button>
+        <button type="submit" class="btn" id="externeSubmit" style="background:#1E9C4B;color:#fff"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== MODALE DETAIL KPI ===== -->
+<div class="modal fade" id="kpiModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-list-check me-2" style="color:#23408F"></i><span id="kpiModalTitle"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" id="kpiModalBody">
+        <div class="text-center py-4"><span class="spinner-border text-primary"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ===== MODALE INSPECTEUR ===== -->
 <div class="modal fade" id="inspModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
@@ -194,7 +315,7 @@ require_once INCLUDES_PATH . '/layout_head.php';
           <label class="form-label">Utilisateur inspecteur <span class="text-danger">*</span></label>
           <div class="d-flex gap-2 align-items-start">
             <div class="flex-grow-1"><select id="i_iduser" class="form-select" style="width:100%"></select></div>
-            <?php if ($myRole === 'admin'): ?>
+            <?php if ($myRole === 'admin' || $myRole === 'chef_inspecteur'): ?>
             <button type="button" class="btn btn-success" id="btnNewUser" title="Creer un nouvel utilisateur inspecteur"><i class="bi bi-plus-lg"></i></button>
             <?php endif; ?>
           </div>
@@ -234,7 +355,7 @@ require_once INCLUDES_PATH . '/layout_head.php';
             <span class="insp-avatar" id="photoPreview" style="width:64px;height:64px;font-size:1.2rem;">IN</span>
             <div class="flex-grow-1">
               <input type="file" class="form-control form-control-sm" id="i_photo" accept="image/jpeg,image/png,image/webp">
-              <div class="form-text" id="photoNote">JPEG, PNG ou WEBP, 2 Mo maximum. La photo est enregistree avec l'inspecteur.</div>
+              <div class="form-text" id="photoNote">JPEG, PNG ou WEBP. Taille non limitee. La photo est enregistree avec l'inspecteur.</div>
             </div>
           </div>
         </div>
@@ -411,7 +532,8 @@ function apiPost(url, data){
 const CAT = {
   stagiaire:   {t:'Stagiaire',   c:'b-gold'},
   titulaire:   {t:'Titulaire',   c:'b-green'},
-  exceptionnel:{t:'Exceptionnel',c:'b-blue'}
+  exceptionnel:{t:'Exceptionnel',c:'b-blue'},
+  externe:     {t:'Externe',     c:'b-ext'}
 };
 
 let DOMAINES = [];     // [{iddomaine, nomdomaine}]
@@ -423,6 +545,7 @@ function initFilters(){
   $('#f_inspecteur').select2({theme:'bootstrap-5', placeholder:'Tous les inspecteurs', width:'100%', closeOnSelect:false});
   $('#f_domaine').select2({theme:'bootstrap-5', placeholder:'Tous les domaines', width:'100%', closeOnSelect:false});
   $('#f_direction').select2({theme:'bootstrap-5', placeholder:'Toutes les directions', width:'100%', closeOnSelect:false});
+  $('#f_categorie').select2({theme:'bootstrap-5', placeholder:'Toutes les categories', width:'100%', closeOnSelect:false});
 }
 function loadFilters(){
   return apiPost(API_INSP, {action:'filters'}).done(res => {
@@ -459,7 +582,9 @@ function habChip(h){
 }
 function fmtDate(s){ if(!s||String(s)==='0000-00-00') return '-'; const p=String(s).substring(0,10).split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):s; }
 
+let LAST_ROWS = [];
 function renderRows(data){
+  LAST_ROWS = data || [];
   const tb = $('#inspBody'); tb.empty();
   if(!data.length){ tb.append('<tr><td colspan="8" class="text-center text-muted py-4">Aucun inspecteur a afficher</td></tr>'); return; }
   data.forEach(i => {
@@ -498,7 +623,8 @@ function loadList(){
     action:'list',
     inspecteurs: $('#f_inspecteur').val() || [],
     domaines:    $('#f_domaine').val() || [],
-    directions:  $('#f_direction').val() || []
+    directions:  $('#f_direction').val() || [],
+    categories:  $('#f_categorie').val() || []
   };
   $('#resCount').text('Chargement...');
   apiPost(API_INSP, data)
@@ -510,8 +636,8 @@ function loadList(){
     })
     .fail(() => { $('#resCount').text(''); Swal.fire({icon:'error',title:'Connexion',text:'Impossible de joindre le serveur.',confirmButtonColor:'#23408F'}); });
 }
-$('#f_inspecteur, #f_domaine, #f_direction').on('change', function(){ loadList(); });
-$('#btnResetFilters').on('click', function(){ $('#f_inspecteur, #f_domaine, #f_direction').val(null).trigger('change.select2'); loadList(); });
+$('#f_inspecteur, #f_domaine, #f_direction, #f_categorie').on('change', function(){ loadList(); });
+$('#btnResetFilters').on('click', function(){ $('#f_inspecteur, #f_domaine, #f_direction, #f_categorie').val(null).trigger('change.select2'); loadList(); });
 
 /* ---------- Formulaire : direction + habilitations ---------- */
 function fillDirectionSelect(selected){
@@ -526,8 +652,9 @@ function domaineOptionsHtml(selected){
 }
 function addHabRow(h){
   h = h || {};
+  const hasDec = !!(h.idhabilitation && h.decision);
   const row = $(
-    '<div class="hab-row">'
+    '<div class="hab-row" data-hasdec="'+(hasDec?'1':'0')+'">'
     + '<div class="row g-2 align-items-end">'
     +   '<div class="col-md-4"><label class="form-label mb-1 small">Domaine</label><div class="d-flex gap-1"><div class="flex-grow-1"><select class="form-select form-select-sm hab-dom" style="width:100%">'+domaineOptionsHtml(h.iddomaine)+'</select></div><button type="button" class="btn btn-sm btn-success hab-adddom" title="Ajouter un domaine absent de la liste"><i class="bi bi-plus-lg"></i></button></div></div>'
     +   '<div class="col-md-3 hab-formal"><label class="form-label mb-1 small">N habilitation</label><input type="text" class="form-control form-control-sm hab-num" maxlength="50" value="'+esc(h.numero_habilitation||'')+'"></div>'
@@ -535,9 +662,9 @@ function addHabRow(h){
     +   '<div class="col-md-2 hab-formal"><label class="form-label mb-1 small">Expiration</label><input type="date" class="form-control form-control-sm hab-fin" value="'+esc((h.date_expiration||'').substring(0,10))+'"></div>'
     +   '<div class="col-md-1 d-grid"><button type="button" class="btn btn-sm btn-outline-danger hab-del" title="Retirer"><i class="bi bi-x-lg"></i></button></div>'
     +   '<div class="col-12"><input type="text" class="form-control form-control-sm hab-obs" placeholder="Observation (facultatif)" value="'+esc(h.observation||'')+'"></div>'
-    +   '<div class="col-12 hab-formal"><label class="form-label mb-1 small">Decision (PDF)</label><div class="d-flex gap-2 align-items-center"><input type="file" class="form-control form-control-sm hab-decision" accept="application/pdf">'
-    +     ((h.idhabilitation && h.decision) ? '<button type="button" class="btn btn-sm btn-outline-primary hab-viewdec" data-idh="'+esc(h.idhabilitation)+'" title="Voir la decision jointe"><i class="bi bi-eye me-1"></i>Voir</button>' : '')
-    +   '</div><div class="form-text">'+(h.decision ? 'Une decision est deja jointe. Choisir un fichier la remplace.' : 'PDF, 10 Mo maximum. Facultatif.')+'</div></div>'
+    +   '<div class="col-12 hab-decwrap"><label class="form-label mb-1 small">Decision (PDF) <span class="text-danger">*</span></label><div class="d-flex gap-2 align-items-center"><input type="file" class="form-control form-control-sm hab-decision" accept="application/pdf">'
+    +     (hasDec ? '<button type="button" class="btn btn-sm btn-outline-primary hab-viewdec" data-idh="'+esc(h.idhabilitation)+'" title="Voir la decision jointe"><i class="bi bi-eye me-1"></i>Voir</button>' : '')
+    +   '</div><div class="form-text">'+(hasDec ? 'Une decision est deja jointe. Choisir un fichier la remplace.' : 'Format PDF. <strong class="text-danger">Obligatoire pour toutes les categories.</strong>')+'</div></div>'
     + '</div></div>'
   );
   $('#habRows').append(row);
@@ -550,17 +677,94 @@ function applyCategoryUI(){
   if(cat === 'stagiaire'){
     $('#habRows').addClass('stagiaire');
     $('#dateWrap').hide();
-    $('#habHint').html('<i class="bi bi-info-circle me-1"></i>Categorie stagiaire : on enregistre seulement les domaines (sans date de nomination ni numero ni dates d\'habilitation).');
+    $('#habHint').html('<i class="bi bi-info-circle me-1"></i>Categorie stagiaire : on enregistre seulement les domaines (sans date de nomination ni numero ni dates d\'habilitation). <strong>La decision (PDF) reste obligatoire pour chaque domaine.</strong>');
   } else {
     $('#habRows').removeClass('stagiaire');
     $('#dateWrap').show();
-    $('#habHint').html('<i class="bi bi-info-circle me-1"></i>Categorie ' + cat + ' : numero et dates d\'habilitation obligatoires pour chaque domaine.');
+    $('#habHint').html('<i class="bi bi-info-circle me-1"></i>Categorie ' + cat + ' : numero et dates d\'habilitation obligatoires pour chaque domaine, ainsi que la decision (PDF).');
   }
 }
 $('#i_categorie').on('change', applyCategoryUI);
 $('#btnAddHab').on('click', function(){ addHabRow(); });
 
-/* ---------- Nouvel inspecteur ---------- */
+/* ---------- Inspecteur EXTERNE ---------- */
+function fillExterneDomaines(selectedIds){
+  const sel = $('#x_domaines');
+  if(sel.hasClass('select2-hidden-accessible')) sel.select2('destroy');
+  sel.empty();
+  (DOMAINES||[]).forEach(d => {
+    sel.append(new Option(d.nomdomaine, d.iddomaine));
+  });
+  sel.select2({theme:'bootstrap-5', dropdownParent:$('#externeModal'), placeholder:'Choisir un ou plusieurs domaines', width:'100%', closeOnSelect:false});
+  sel.val(selectedIds || []).trigger('change');
+}
+function openExterneForm(insp){
+  $('#externeForm')[0].reset();
+  $('#x_idinspecteur').val(insp ? insp.idinspecteur : '');
+  $('#externeTitle').text(insp ? 'Modifier l\'inspecteur externe' : 'Nouvel inspecteur externe');
+  const ensureDoms = (DOMAINES && DOMAINES.length)
+    ? $.Deferred().resolve().promise()
+    : apiPost(API_INSP, {action:'filters'}).done(r => { if(r.success) DOMAINES = r.domaines||[]; });
+  ensureDoms.always(function(){
+    let selDoms = [];
+    if(insp){
+      $('#x_nom').val(insp.nominspecteur||'');
+      $('#x_prenom').val(insp.preninspect||'');
+      $('#x_trigr').val(insp.trigr_inspecteur||'');
+      $('#x_numat').val(insp.numatinspecteur||'');
+      $('#x_tele').val(insp.teleinspecter||'');
+      $('#x_mail').val(insp.mailinspect||'');
+      selDoms = (insp._domaine_ids || []).map(String);
+    }
+    fillExterneDomaines(selDoms);
+    new bootstrap.Modal('#externeModal').show();
+  });
+}
+
+$('#externeForm').on('submit', function(e){
+  e.preventDefault();
+  const id  = $('#x_idinspecteur').val();
+  const nom = $('#x_nom').val().trim();
+  const pre = $('#x_prenom').val().trim();
+  const tri = $('#x_trigr').val().trim().toUpperCase();
+  const num = $('#x_numat').val().trim();
+  const tel = $('#x_tele').val().trim();
+  const mail= $('#x_mail').val().trim();
+  const doms= $('#x_domaines').val() || [];
+
+  if(!nom || !pre || !tri){
+    Swal.fire({icon:'warning',title:'Champs requis',text:'Nom, prenom et trigramme sont obligatoires.',confirmButtonColor:'#1E9C4B'}); return;
+  }
+  if(!doms.length){
+    Swal.fire({icon:'warning',title:'Domaine requis',text:'Affectez au moins un domaine a l\'inspecteur externe.',confirmButtonColor:'#1E9C4B'}); return;
+  }
+  if(num && !/^\d{1,4}$/.test(num)){
+    Swal.fire({icon:'warning',title:'Matricule invalide',text:'Le matricule doit etre numerique (4 chiffres max).',confirmButtonColor:'#1E9C4B'}); return;
+  }
+  if(mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)){
+    Swal.fire({icon:'warning',title:'Email invalide',confirmButtonColor:'#1E9C4B'}); return;
+  }
+
+  const payload = id
+    ? {action:'update', idinspecteur:id, categorie:'externe', trigr_inspecteur:tri, teleinspecter:tel,
+       codedirec:0, datenomine:'', nominspecteur:nom, preninspect:pre, numatinspecteur:num, mailinspect:mail, ext_domaine:doms}
+    : {action:'create_externe', nominspecteur:nom, preninspect:pre, trigr_inspecteur:tri,
+       numatinspecteur:num, teleinspecter:tel, mailinspect:mail, ext_domaine:doms};
+
+  $('#externeSubmit').prop('disabled', true);
+  apiPost(API_INSP, payload).done(res => {
+    if(res.success){
+      bootstrap.Modal.getInstance(document.getElementById('externeModal')).hide();
+      Swal.fire({icon:'success',title:res.message||'Enregistre',timer:1500,showConfirmButton:false});
+      SYNTHESE=null; loadList(); loadStats();
+    } else {
+      Swal.fire({icon:'error',title:'Erreur',text:res.message||'Echec',confirmButtonColor:'#1E9C4B'});
+    }
+  }).fail(()=>{ Swal.fire({icon:'error',title:'Erreur reseau',confirmButtonColor:'#1E9C4B'}); })
+    .always(()=>{ $('#externeSubmit').prop('disabled', false); });
+});
+
+/* ---------- Nouvel inspecteur (interne, suite) ---------- */
 function CAT_ROLE(r){ return r === 'chef_inspecteur' ? 'Chef inspecteur' : 'Inspecteur'; }
 
 function refreshUserSelect(selectByEmail){
@@ -582,8 +786,22 @@ function refreshUserSelect(selectByEmail){
 }
 
 $('#btnNew').on('click', function(){
+  new bootstrap.Modal('#typeChoiceModal').show();
+});
+// Choix interne : ouvre le formulaire complet actuel
+$('#choiceInterne').on('click', function(){
+  bootstrap.Modal.getInstance(document.getElementById('typeChoiceModal')).hide();
+  openInterneForm();
+});
+// Choix externe : ouvre le formulaire simplifie
+$('#choiceExterne').on('click', function(){
+  bootstrap.Modal.getInstance(document.getElementById('typeChoiceModal')).hide();
+  openExterneForm();
+});
+
+function openInterneForm(){
   refreshUserSelect().always(function(){
-    $('#inspModalTitle').text('Nouvel inspecteur');
+    $('#inspModalTitle').text('Nouvel inspecteur interne');
     $('#i_idinspecteur').val('');
     $('#userPick').show(); $('#userFixed').hide();
     $('#err_user').hide();
@@ -598,7 +816,7 @@ $('#btnNew').on('click', function(){
     applyCategoryUI();
     new bootstrap.Modal('#inspModal').show();
   });
-});
+}
 
 /* Auto-remplissage grise depuis l'utilisateur choisi */
 $('#i_iduser').on('change', function(){
@@ -613,6 +831,8 @@ $(document).on('click', '.act-edit', function(){
   apiPost(API_INSP, {action:'get', idinspecteur:id}).done(res => {
     if(!res.success){ Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); return; }
     const i = res.data;
+    // Inspecteur externe : formulaire simplifie
+    if(i.categorie === 'externe'){ openExterneForm(i); return; }
     $('#inspModalTitle').text('Modifier l\'inspecteur');
     $('#i_idinspecteur').val(i.idinspecteur);
     $('#userPick').hide(); $('#userFixed').show();
@@ -669,6 +889,45 @@ $('#inspForm').on('submit', function(e){
     decFiles.push((f && f.files[0]) ? f.files[0] : null);
   });
   if(hab_domaine.length === 0){ Swal.fire({icon:'warning',title:'Domaine',text:'Ajoutez au moins un domaine.',confirmButtonColor:'#23408F'}); return; }
+
+  // Decision (PDF) obligatoire pour CHAQUE domaine, quelle que soit la categorie.
+  // En edition, une decision deja jointe (data-hasdec) reste valable.
+  let decManquante = 0, premiereLigne = null;
+  $('#habRows .hab-row').each(function(idx){
+    const $r = $(this);
+    if(!$r.find('.hab-dom').val()) return;
+    const f    = $r.find('.hab-decision')[0];
+    const aFic = !!(f && f.files && f.files[0]);
+    const deja = $r.attr('data-hasdec') === '1';
+    if(!aFic && !deja){
+      decManquante++;
+      $r.find('.hab-decision').addClass('is-invalid');
+      if(!premiereLigne) premiereLigne = $r;
+    } else {
+      $r.find('.hab-decision').removeClass('is-invalid');
+    }
+  });
+  if(decManquante > 0){
+    Swal.fire({icon:'warning', title:'Decision obligatoire',
+      html:'La decision (PDF) est obligatoire pour chaque domaine.<br><strong>'+decManquante+' domaine(s)</strong> sans document joint.',
+      confirmButtonColor:'#23408F'});
+    if(premiereLigne && premiereLigne[0] && premiereLigne[0].scrollIntoView){ premiereLigne[0].scrollIntoView({block:'center'}); }
+    return;
+  }
+
+  // Verification du format cote client (aucune limite de taille ; le serveur revalide le type reel)
+  let ficInvalide = null;
+  $('#habRows .hab-row .hab-decision').each(function(){
+    const fl = this.files && this.files[0];
+    if(!fl) return;
+    const extOk  = /\.pdf$/i.test(fl.name);
+    const typeOk = (fl.type === 'application/pdf' || fl.type === '');
+    if(!extOk || !typeOk){ ficInvalide = 'Format invalide : seuls les fichiers PDF sont acceptes.'; return false; }
+  });
+  if(ficInvalide){
+    Swal.fire({icon:'error', title:'Decision (PDF)', text:ficInvalide, confirmButtonColor:'#23408F'});
+    return;
+  }
 
   const data = {
     action: isUpdate ? 'update' : 'create',
@@ -735,12 +994,125 @@ $('#inspForm').on('submit', function(e){
 });
 
 /* ---------- Statistiques (panneau repliable, choix memorise) ---------- */
+/* Modales de detail des KPI */
+let SYNTHESE=null;
+function withSynthese(cb){
+  if(SYNTHESE){ cb(SYNTHESE); return; }
+  apiPost(API_INSP, {action:'synthese'}).done(res => {
+    if(!res.success){ $('#kpiModalBody').html('<div class="alert alert-danger">'+esc(res.message||'Erreur')+'</div>'); return; }
+    SYNTHESE=res; cb(res);
+  }).fail(()=>{ $('#kpiModalBody').html('<div class="alert alert-danger">Echec de chargement.</div>'); });
+}
+function habEtat(dexp){
+  if(!dexp) return '<span class="b-tag b-muted">-</span>';
+  const days=Math.round((new Date(dexp)-new Date())/86400000);
+  if(days<0) return '<span class="b-tag" style="background:#f8d7da;color:#842029">Expiree</span>';
+  if(days<=90) return '<span class="b-tag" style="background:#fff3cd;color:#856404">'+days+' j</span>';
+  return '<span class="b-tag b-green">Valide</span>';
+}
+function openKpiCat(cat){
+  $('#kpiModalBody').html('<div class="text-center py-4"><span class="spinner-border text-primary"></span></div>');
+  new bootstrap.Modal('#kpiModal').show();
+  withSynthese(function(s){
+    const labels={stagiaire:'Stagiaires',titulaire:'Titulaires',exceptionnel:'Exceptionnels',externe:'Inspecteurs externes'};
+    $('#kpiModalTitle').text(labels[cat]||('Inspecteurs - '+cat));
+    const list=(s.par_categorie||[]).filter(x=>x.categorie===cat);
+    let h='';
+    if(cat==='externe'){ h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Inspecteurs d\'autres ANAC en renfort. Domaines affectes sans numero, dates ni decision.</div>'; }
+    if(!list.length){ h+='<div class="text-center text-muted py-4">Aucun inspecteur dans cette categorie.</div>'; }
+    else {
+      h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.84rem"><thead><tr style="background:#f5f7fa"><th>#</th><th>Inspecteur</th><th>Trigramme</th><th>Contact</th><th class="text-center">Domaines</th></tr></thead><tbody>';
+      list.forEach((x,i)=>{
+        const contact=(x.mailinspect?'<div><a href="mailto:'+esc(x.mailinspect)+'">'+esc(x.mailinspect)+'</a></div>':'')+(x.teleinspecter?'<div class="text-muted small">'+esc(x.teleinspecter)+'</div>':'');
+        h+='<tr><td class="text-muted">'+(i+1)+'</td><td style="font-weight:600">'+esc(((x.preninspect||'')+' '+(x.nominspecteur||'')).trim())+'</td>'
+          +'<td><span class="b-tag b-blue">'+esc(x.trigr_inspecteur||'-')+'</span></td>'
+          +'<td>'+(contact||'<span class="text-muted">-</span>')+'</td>'
+          +'<td class="text-center"><span class="b-tag b-green">'+(x.nb_hab||0)+'</span></td></tr>';
+      });
+      h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="5" style="font-weight:800;color:#23408F">Total : '+list.length+' inspecteur(s)</td></tr></tfoot></table>';
+    }
+    $('#kpiModalBody').html(h);
+  });
+}
+function openKpiHab(){
+  $('#kpiModalBody').html('<div class="text-center py-4"><span class="spinner-border text-primary"></span></div>');
+  new bootstrap.Modal('#kpiModal').show();
+  withSynthese(function(s){
+    $('#kpiModalTitle').text('Habilitations par inspecteur');
+    const list=s.habilitations||[];
+    let totalHab=0; list.forEach(x=>totalHab+=Number(x.nb_dom));
+    const nbInsp=list.length;
+    let h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Chaque inspecteur est regroupe sur une seule ligne, avec ses domaines listes en dessous. Ces <b>'+totalHab+'</b> habilitations concernent <b>'+nbInsp+'</b> inspecteur(s) distinct(s). La colonne Type distingue les inspecteurs ANAC (interne) et ceux d\'autres ANAC (externe).</div>';
+    if(!list.length){ h+='<div class="text-center text-muted py-4">Aucune habilitation.</div>'; }
+    else {
+      h+='<table class="table table-sm align-middle mb-0" style="font-size:.83rem"><thead><tr style="background:#f5f7fa">'
+        +'<th>#</th><th>Inspecteur</th><th>Type</th><th class="text-center">Nb dom.</th><th>Domaines habilites</th></tr></thead><tbody>';
+      list.forEach((x,idx)=>{
+        const estExt = (x.categorie==='externe');
+        const typeBadge = estExt
+          ? '<span class="b-tag b-ext">Externe</span>'
+          : '<span class="b-tag b-green">Interne</span>';
+        // Domaines ligne par ligne
+        let domsHtml = '';
+        (x.domaines||[]).forEach(d=>{
+          let meta = '';
+          if(!estExt){
+            const num = d.numero ? '<span class="text-muted">N '+esc(d.numero)+'</span>' : '';
+            const exp = d.date_expiration ? ' &middot; exp. '+fmtDate(d.date_expiration)+' '+habEtat(d.date_expiration) : '';
+            meta = (num||exp) ? '<span style="font-size:.76rem;color:#7b8aa0"> &nbsp;'+num+exp+'</span>' : '';
+          }
+          domsHtml += '<div style="padding:1px 0"><i class="bi bi-dot"></i><span class="b-tag b-blue" style="margin:1px">'+esc(d.nomdomaine)+'</span>'+meta+'</div>';
+        });
+        h+='<tr>'
+          +'<td class="text-muted">'+(idx+1)+'</td>'
+          +'<td style="font-weight:600">'+esc(((x.preninspect||'')+' '+(x.nominspecteur||'')).trim())
+          +(x.trigr_inspecteur?' <span class="text-muted small">('+esc(x.trigr_inspecteur)+')</span>':'')+'</td>'
+          +'<td>'+typeBadge+'</td>'
+          +'<td class="text-center"><span class="b-tag b-gold">'+x.nb_dom+'</span></td>'
+          +'<td>'+domsHtml+'</td>'
+          +'</tr>';
+      });
+      h+='</tbody><tfoot><tr style="border-top:2px solid #23408F">'
+        +'<td colspan="3" style="font-weight:800;color:#23408F">Total : '+nbInsp+' inspecteur(s)</td>'
+        +'<td class="text-center" style="font-weight:800;color:#23408F">'+totalHab+'</td>'
+        +'<td style="font-weight:700;color:#23408F">habilitation(s) au total</td></tr></tfoot></table>';
+    }
+    $('#kpiModalBody').html(h);
+  });
+}
+function openKpiDom(){
+  $('#kpiModalBody').html('<div class="text-center py-4"><span class="spinner-border text-primary"></span></div>');
+  new bootstrap.Modal('#kpiModal').show();
+  withSynthese(function(s){
+    $('#kpiModalTitle').text('Domaines couverts');
+    const list=s.domaines||[];
+    let h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Domaines sur lesquels au moins un inspecteur est habilite. La distinction interne / externe indique les inspecteurs ANAC et ceux venus d\'autres ANAC en renfort.</div>';
+    if(!list.length){ h+='<div class="text-center text-muted py-4">Aucun domaine couvert.</div>'; }
+    else {
+      h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.84rem"><thead><tr style="background:#f5f7fa"><th>Domaine</th><th>Libelle</th><th class="text-center">Internes</th><th class="text-center">Externes</th><th class="text-center">Total insp.</th><th class="text-center">Habilitations</th></tr></thead><tbody>';
+      list.forEach(x=>{
+        h+='<tr><td><span class="b-tag b-blue">'+esc(x.nomdomaine||'')+'</span></td><td>'+esc((x.libel_domaine||'').trim()||'-')+'</td>'
+          +'<td class="text-center"><span class="b-tag b-green">'+(x.nb_interne||0)+'</span></td>'
+          +'<td class="text-center">'+(Number(x.nb_externe)>0?'<span class="b-tag b-ext">'+x.nb_externe+'</span>':'<span class="text-muted">0</span>')+'</td>'
+          +'<td class="text-center"><span class="b-tag b-dark">'+x.nb_insp+'</span></td>'
+          +'<td class="text-center"><span class="b-tag b-gold">'+x.nb_hab+'</span></td></tr>';
+      });
+      h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="4" style="font-weight:800;color:#23408F">Total : '+list.length+' domaine(s)</td><td class="text-center" style="font-weight:800;color:#23408F"></td><td></td></tr></tfoot></table>';
+    }
+    $('#kpiModalBody').html(h);
+  });
+}
+$(document).on('click','.kpi-cat',function(){ openKpiCat($(this).data('cat')); });
+$(document).on('click','.kpi-hab',function(){ openKpiHab(); });
+$(document).on('click','.kpi-dom',function(){ openKpiDom(); });
+
 function loadStats(){
   apiPost(API_INSP, {action:'stats'}).done(res => {
     if(!res.success || !res.stats) return;
     const s = res.stats;
     $('#st_total').text(s.total);                 $('#st_stagiaires').text(s.stagiaires);
     $('#st_titulaires').text(s.titulaires);       $('#st_exceptionnels').text(s.exceptionnels);
+    $('#st_externes').text(s.externes||0);
     $('#st_habilitations').text(s.habilitations); $('#st_domaines').text(s.domaines_couverts);
   });
   // Stats expiration habilitations
@@ -806,7 +1178,60 @@ function showExpModal(type){
     $('#expModalBody').html(h);
   });
 }
-$('#btnExpirationAlert').on('click',function(){ showExpModal('expired'); });
+/* Le badge additionne les habilitations expirees ET celles qui expirent sous 3 mois.
+   La modale affiche donc les deux groupes, pour que le compteur corresponde au contenu. */
+function showExpAlert(){
+  $('#expModalTitle').html('<i class="bi bi-shield-exclamation me-2" style="color:#D32F2F"></i>Alertes habilitations');
+  $('#expModalBody').html('<div class="text-center py-4"><span class="spinner-border text-primary"></span></div>');
+  new bootstrap.Modal('#expModal').show();
+  const req1 = apiPost(API_INSP, {action:'exp_list', type:'expired'});
+  const req2 = apiPost(API_INSP, {action:'exp_list', type:'3m'});
+  $.when(req1, req2).always(function(r1, r2){
+    const d1 = (r1 && r1[0] && r1[0].success) ? (r1[0].data||[]) : [];
+    const d2 = (r2 && r2[0] && r2[0].success) ? (r2[0].data||[]) : [];
+    let h = '';
+    h += expSection('Habilitations expirees', d1, '#D32F2F');
+    h += expSection('Expirent dans moins de 3 mois', d2, '#E8890C');
+    if(!d1.length && !d2.length){
+      h = '<div class="text-center text-muted py-4"><i class="bi bi-check-circle text-success me-2"></i>Aucune habilitation a surveiller.</div>';
+    }
+    $('#expModalBody').html(h);
+  });
+}
+function expSection(titre, rows, couleur){
+  if(!rows.length) return '';
+  let h='<div class="mb-2 mt-1" style="font-weight:700;color:'+couleur+'">'
+    +'<i class="bi bi-dot"></i>'+esc(titre)+' <span class="badge" style="background:'+couleur+'">'+rows.length+'</span></div>'
+    +'<div class="table-responsive mb-3"><table class="table table-sm table-hover align-middle">'
+    +'<thead style="background:#23408F;color:#fff"><tr>'
+    +'<th style="padding:7px 9px;font-size:.7rem;text-transform:uppercase">Inspecteur</th>'
+    +'<th style="padding:7px 9px;font-size:.7rem;text-transform:uppercase">Domaine</th>'
+    +'<th style="padding:7px 9px;font-size:.7rem;text-transform:uppercase">N habilitation</th>'
+    +'<th style="padding:7px 9px;font-size:.7rem;text-transform:uppercase">Debut</th>'
+    +'<th style="padding:7px 9px;font-size:.7rem;text-transform:uppercase">Expiration</th>'
+    +'<th style="padding:7px 9px;font-size:.7rem;text-transform:uppercase">Restant</th>'
+    +'<th style="padding:7px 9px;font-size:.7rem;text-transform:uppercase">Decision</th>'
+    +'</tr></thead><tbody>';
+  rows.forEach(function(r){
+    const exp=r.date_expiration?new Date(r.date_expiration):null;
+    const days=exp?Math.round((exp-new Date())/86400000):null;
+    let restant='-', cls='';
+    if(days===null){ restant='-'; }
+    else if(days<0){ restant='<span class="badge" style="background:#f8d7da;color:#842029">Expiree depuis '+Math.abs(days)+' j</span>'; cls='table-danger'; }
+    else { restant='<span class="badge" style="background:#fff3cd;color:#856404">'+days+' j</span>'; cls='table-warning'; }
+    const pdfBtn=r.decision
+      ?'<button class="btn btn-xs btn-outline-primary" onclick="openPdf(AGAI_BASE+\'/api/inspecteurs?serve=decision&idhabilitation='+esc(r.idhabilitation)+'\',\'Decision\')"><i class="bi bi-file-earmark-pdf me-1"></i>Voir</button>'
+      :'<span class="text-muted small">-</span>';
+    h+='<tr class="'+cls+'"><td style="font-weight:600">'+esc(((r.preninspect||'')+' '+(r.nominspecteur||'')).trim())+'</td>'
+      +'<td><span class="hab-chip hab-ok" style="font-size:.8rem">'+esc(r.nomdomaine||'-')+'</span></td>'
+      +'<td style="font-family:monospace;font-size:.82rem">'+esc(r.numero_habilitation||'-')+'</td>'
+      +'<td style="font-size:.8rem">'+fmtDate(r.date_habilitation)+'</td>'
+      +'<td style="font-size:.8rem;font-weight:600">'+fmtDate(r.date_expiration)+'</td>'
+      +'<td>'+restant+'</td><td>'+pdfBtn+'</td></tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+$('#btnExpirationAlert').on('click',function(){ showExpAlert(); });
 function setStatsVisible(show){
   $('#statsPanel').toggle(show);
   $('#statsToggleLabel').text(show ? 'Masquer les statistiques' : 'Afficher les statistiques');
@@ -934,6 +1359,7 @@ $('#btnNewUser').on('click', function(){
     $('#nu_prenom,#nu_nom,#nu_matricule,#nu_email').val('');
     $('#nu_send1').prop('checked', true);
     $('#err_nu_email').hide(); $('#newUserSubmit').prop('disabled', false);
+    $('#nu_dup').remove();
     new bootstrap.Modal('#newUserModal').show();
   }).fail(()=> Swal.fire({icon:'error',title:'Acces',text:'Impossible de charger le personnel (action reservee aux administrateurs).',confirmButtonColor:'#23408F'}));
 });
@@ -941,6 +1367,24 @@ $('#nu_personnel').on('change', function(){
   const p = NU_PERS[$(this).val()];
   if(p){ $('#nu_prenom').val(p.prenag); $('#nu_nom').val(p.nomag); $('#nu_matricule').val(p.numat); $('#nu_email').val(p.email_anac||''); }
   else { $('#nu_prenom,#nu_nom,#nu_matricule,#nu_email').val(''); }
+  // Verifier si cet agent est deja enregistre comme inspecteur
+  $('#nu_dup').remove();
+  $('#newUserSubmit').prop('disabled', false);
+  if(p && p.numat){
+    apiPost(API_INSP, {action:'check_personnel_inspecteur', numat:p.numat}).done(r => {
+      if(r && r.exists){
+        $('#newUserSubmit').prop('disabled', true);
+        $('#nu_personnel').closest('.modal-body').prepend(
+          '<div id="nu_dup" class="alert alert-warning py-2 small mb-3"><i class="bi bi-exclamation-triangle-fill me-1"></i>'
+          +'<strong>Attention :</strong> cet agent (<strong>'+esc(r.nom||(p.prenag+' '+p.nomag))+'</strong>) est deja enregistre comme inspecteur'
+          +(r.categorie?' ('+esc(r.categorie)+')':'')+'. Impossible de le creer une seconde fois.</div>'
+        );
+        Swal.fire({icon:'warning',title:'Inspecteur existant',
+          html:'<strong>'+esc(r.nom||(p.prenag+' '+p.nomag))+'</strong> est deja enregistre comme inspecteur'+(r.categorie?' ('+esc(r.categorie)+')':'')+'.',
+          confirmButtonColor:'#23408F'});
+      }
+    });
+  }
   checkNuEmail();
 });
 
@@ -1016,6 +1460,127 @@ $(document).on('click', '.hab-viewdec', function(){
   const idh = $(this).data('idh');
   if(!idh) return;
   openPdf(AGAI_BASE + '/api/inspecteurs?serve=decision&idhabilitation=' + idh, 'Decision d\'habilitation');
+});
+
+/* ============================================================
+ *  EXPORTS : liste des inspecteurs (PDF / Excel)
+ *  Regroupement : Exceptionnels, puis Titulaires, puis Stagiaires.
+ * ============================================================ */
+const BANNIERE   = '<?php echo ASSETS_URL; ?>/images/banierenteanac.png';
+const ORDRE_CAT  = [
+  {cle:'exceptionnel', titre:'INSPECTEURS EXCEPTIONNELS'},
+  {cle:'titulaire',    titre:'INSPECTEURS TITULAIRES'},
+  {cle:'stagiaire',    titre:'INSPECTEURS STAGIAIRES'},
+  {cle:'externe',      titre:'INSPECTEURS EXTERNES (AUTRES ANAC)'}
+];
+
+function expDomaines(i){
+  if(i.habilitations && i.habilitations.length){
+    return i.habilitations.map(function(h){ return (h.nomdomaine||'').trim(); }).filter(Boolean).join(', ');
+  }
+  if(i.domaines_list && i.domaines_list.length){ return i.domaines_list.join(', '); }
+  return '-';
+}
+function expDateJour(){
+  const d=new Date();
+  const m=['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
+  return d.getDate()+' '+m[d.getMonth()]+' '+d.getFullYear();
+}
+
+/* Corps du document : un bloc par categorie */
+function expCorpsHTML(){
+  const rows = LAST_ROWS || [];
+  let html = '';
+  let total = 0;
+
+  ORDRE_CAT.forEach(function(c){
+    const lot = rows.filter(function(i){ return (i.categorie||'') === c.cle; })
+                    .sort(function(a,b){
+                      return String(a.nominspecteur||'').toLowerCase()
+                             .localeCompare(String(b.nominspecteur||'').toLowerCase(), 'fr');
+                    });
+    if(!lot.length) return;
+    total += lot.length;
+
+    html += '<div class="bloc">'
+      +  '<div class="bloc-t">'+esc(c.titre)+' <span class="bloc-n">'+lot.length+'</span></div>'
+      +  '<table class="tb"><thead><tr>'
+      +    '<th style="width:26px">N</th><th style="width:62px">Matricule</th><th>Nom et prenom</th>'
+      +    '<th style="width:52px">Trig.</th><th style="width:150px">Direction</th>'
+      +    '<th>Domaines habilites</th><th style="width:140px">Contact</th>'
+      +  '</tr></thead><tbody>';
+
+    lot.forEach(function(i, k){
+      const nom = ((i.preninspect||'')+' '+(i.nominspecteur||'')).trim();
+      const contact = [(i.teleinspecter||''), (i.mailinspect||'')].filter(Boolean).join('<br>') || '-';
+      html += '<tr>'
+        + '<td class="c">'+(k+1)+'</td>'
+        + '<td class="c mono">'+esc(i.numatinspecteur||'-')+'</td>'
+        + '<td class="b">'+esc(nom||'-')+'</td>'
+        + '<td class="c">'+esc(i.trigr_inspecteur||'-')+'</td>'
+        + '<td>'+esc(i.libdirec||'-')+'</td>'
+        + '<td>'+esc(expDomaines(i))+'</td>'
+        + '<td class="sm">'+contact+'</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table></div>';
+  });
+
+  if(!html){ html = '<div style="text-align:center;padding:20px;color:#7b8aa0">Aucun inspecteur a exporter.</div>'; }
+  return {html:html, total:total};
+}
+
+/* Styles communs aux deux exports (charte ANAC, police Candara) */
+const EXP_CSS =
+  '@page{size:A4 portrait;margin:10mm}'
+ +'body{font-family:Candara,"Segoe UI",Arial,sans-serif;color:#2C3E50;margin:0}'
+ +'.ban{width:100%;max-height:110px;object-fit:contain;display:block;margin-bottom:6px}'
+ +'.tt{text-align:center;color:#23408F;font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin:4px 0 2px}'
+ +'.st{text-align:center;color:#6b7a90;font-size:10px;margin-bottom:10px}'
+ +'.bloc{margin-bottom:14px;page-break-inside:auto}'
+ +'.bloc-t{background:#23408F;color:#fff;font-size:11px;font-weight:800;letter-spacing:.5px;padding:5px 10px;border-radius:5px 5px 0 0}'
+ +'.bloc-n{background:#F3C300;color:#3a2f00;border-radius:20px;padding:1px 8px;font-size:10px;margin-left:6px}'
+ +'.tb{width:100%;border-collapse:collapse;font-size:9.5px}'
+ +'.tb th{background:#eef3fb;color:#23408F;text-align:left;padding:4px 6px;border:1px solid #c7d2e6;font-size:8.5px;text-transform:uppercase;letter-spacing:.3px}'
+ +'.tb td{padding:4px 6px;border:1px solid #d6e0f2;vertical-align:top}'
+ +'.tb tbody tr:nth-child(even){background:#f7f9fc}'
+ +'.c{text-align:center}.b{font-weight:700}.mono{font-family:Consolas,monospace;color:#23408F}'
+ +'.sm{font-size:8.5px;color:#5b6b80}'
+ +'.pied{margin-top:10px;border-top:2px solid #1E9C4B;padding-top:5px;font-size:9px;color:#6b7a90;display:flex;justify-content:space-between}';
+
+/* ---------- Export PDF (impression navigateur) ---------- */
+$('#btnExpPdf').on('click', function(){
+  const c = expCorpsHTML();
+  const w = window.open('', '_blank', 'width=1000,height=800');
+  w.document.write(
+     '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Liste des inspecteurs</title>'
+    +'<style>'+EXP_CSS+'</style></head><body>'
+    +'<img class="ban" src="'+BANNIERE+'" alt="ANAC Gabon">'
+    +'<div class="tt">Liste des inspecteurs</div>'
+    +'<div class="st">Agence Nationale de l\'Aviation Civile du Gabon &nbsp;&middot;&nbsp; Edite le '+expDateJour()+'</div>'
+    +c.html
+    +'<div class="pied"><span>AGAI &middot; Systeme de suivi du programme de surveillance continue</span>'
+    +'<span><strong>'+c.total+'</strong> inspecteur(s)</span></div>'
+    +'<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>'
+    +'</body></html>'
+  );
+  w.document.close(); w.focus();
+});
+
+/* ---------- Export Excel ---------- */
+$('#btnExpXls').on('click', function(){
+  const c = expCorpsHTML();
+  const html =
+     '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8">'
+    +'<style>'+EXP_CSS+'</style></head><body>'
+    +'<div class="tt">LISTE DES INSPECTEURS - ANAC GABON</div>'
+    +'<div class="st">Edite le '+expDateJour()+' &middot; '+c.total+' inspecteur(s)</div>'
+    +c.html+'</body></html>';
+  const blob = new Blob(['\ufeff'+html], {type:'application/vnd.ms-excel'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Liste_inspecteurs_ANAC_' + new Date().toISOString().substring(0,10) + '.xls';
+  document.body.appendChild(a); a.click(); a.remove();
 });
 
 /* ---------- Demarrage ---------- */

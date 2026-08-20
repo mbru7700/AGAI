@@ -37,13 +37,20 @@ try {
 
         // ----------------------------------------------------------------
         case 'list':
+            // Perimetre AGAI uniquement : domaines marques gere_agai='AGAI' OU
+            // deja utilises dans AGAI (audit, habilitation, sous-domaine, reglement).
             $rows = $db->query(
-                "SELECT d.iddomaine, d.nomdomaine, d.libel_domaine,
+                "SELECT d.iddomaine, d.nomdomaine, d.libel_domaine, d.gere_agai,
                         (SELECT COUNT(*) FROM sous_domaine s WHERE s.iddomaine = d.iddomaine) AS nb_sd,
                         (SELECT COUNT(*) FROM reglement r   WHERE r.iddomaine = d.iddomaine) AS nb_reg,
                         (SELECT COUNT(*) FROM habilitation h WHERE h.iddomaine = d.iddomaine) AS nb_hab,
                         (SELECT COUNT(DISTINCT ae.idaudit) FROM audit_equipe ae WHERE ae.iddomaine = d.iddomaine) AS nb_aud
                  FROM domaine d
+                 WHERE d.gere_agai = 'AGAI'
+                    OR EXISTS (SELECT 1 FROM audit_equipe ae2 WHERE ae2.iddomaine = d.iddomaine)
+                    OR EXISTS (SELECT 1 FROM habilitation  h2 WHERE h2.iddomaine  = d.iddomaine)
+                    OR EXISTS (SELECT 1 FROM sous_domaine  s2 WHERE s2.iddomaine  = d.iddomaine)
+                    OR EXISTS (SELECT 1 FROM reglement     r2 WHERE r2.iddomaine  = d.iddomaine)
                  ORDER BY d.iddomaine DESC"
             )->fetchAll();
             $ok(['data' => $rows]);
@@ -51,17 +58,78 @@ try {
 
         // ----------------------------------------------------------------
         case 'stats':
+            // Toutes les stats sont calculees SUR LE PERIMETRE AGAI uniquement.
+            // Sous-requete du perimetre : les domaines "AGAI".
+            $perimDom =
+                "SELECT d.iddomaine FROM domaine d
+                 WHERE d.gere_agai = 'AGAI'
+                    OR EXISTS (SELECT 1 FROM audit_equipe ae WHERE ae.iddomaine = d.iddomaine)
+                    OR EXISTS (SELECT 1 FROM habilitation  h  WHERE h.iddomaine  = d.iddomaine)
+                    OR EXISTS (SELECT 1 FROM sous_domaine  s  WHERE s.iddomaine  = d.iddomaine)
+                    OR EXISTS (SELECT 1 FROM reglement     r  WHERE r.iddomaine  = d.iddomaine)";
             $st = $db->query(
                 "SELECT
-                    (SELECT COUNT(*) FROM domaine)                                                        AS total,
-                    (SELECT COUNT(*) FROM sous_domaine)                                                    AS sous,
-                    (SELECT COUNT(*) FROM reglement)                                                       AS regs,
-                    (SELECT COUNT(*) FROM habilitation)                                                    AS habs,
-                    (SELECT COUNT(DISTINCT iddomaine) FROM audit_equipe)                                   AS audits,
-                    (SELECT COUNT(DISTINCT idinspecteur) FROM habilitation)                                AS inspecteurs"
+                    (SELECT COUNT(*) FROM domaine d WHERE d.iddomaine IN ($perimDom)) AS total,
+                    (SELECT COUNT(*) FROM sous_domaine s WHERE s.iddomaine IN ($perimDom)) AS sous,
+                    (SELECT COUNT(*) FROM reglement r WHERE r.iddomaine IN ($perimDom)) AS regs,
+                    (SELECT COUNT(*) FROM habilitation h WHERE h.iddomaine IN ($perimDom)) AS habs,
+                    (SELECT COUNT(DISTINCT ae.iddomaine) FROM audit_equipe ae WHERE ae.iddomaine IN ($perimDom)) AS audits,
+                    (SELECT COUNT(DISTINCT h.idinspecteur) FROM habilitation h WHERE h.iddomaine IN ($perimDom)) AS inspecteurs"
             )->fetch();
             foreach ($st as $k => $v) { $st[$k] = (int) $v; }
             $ok(['stats' => $st]);
+            break;
+
+        // ----------------------------------------------------------------
+        // Synthese pour les modales des KPI (perimetre AGAI) :
+        //  - habilitations detaillees (domaine + inspecteur + dates)
+        //  - domaines audites (avec nb d'audits)
+        //  - inspecteurs habilites (regroupes, avec nb de domaines)
+        case 'synthese':
+            $perimDom =
+                "(d.gere_agai = 'AGAI'
+                  OR EXISTS (SELECT 1 FROM audit_equipe ae WHERE ae.iddomaine = d.iddomaine)
+                  OR EXISTS (SELECT 1 FROM habilitation  h2 WHERE h2.iddomaine = d.iddomaine)
+                  OR EXISTS (SELECT 1 FROM sous_domaine  s2 WHERE s2.iddomaine = d.iddomaine)
+                  OR EXISTS (SELECT 1 FROM reglement     r2 WHERE r2.iddomaine = d.iddomaine))";
+
+            // Habilitations detaillees
+            $habs = $db->query(
+                "SELECT d.iddomaine, d.nomdomaine, d.libel_domaine,
+                        h.numero_habilitation, h.date_habilitation, h.date_expiration,
+                        i.nominspecteur, i.preninspect, i.trigr_inspecteur
+                 FROM habilitation h
+                 JOIN domaine d    ON d.iddomaine    = h.iddomaine
+                 JOIN inspecteur i ON i.idinspecteur = h.idinspecteur
+                 WHERE $perimDom
+                 ORDER BY d.nomdomaine, h.date_expiration ASC"
+            )->fetchAll();
+
+            // Domaines audites (avec nombre d'audits distincts)
+            $domAud = $db->query(
+                "SELECT d.iddomaine, d.nomdomaine, d.libel_domaine,
+                        COUNT(DISTINCT ae.idaudit) AS nb_aud
+                 FROM domaine d
+                 JOIN audit_equipe ae ON ae.iddomaine = d.iddomaine
+                 WHERE $perimDom
+                 GROUP BY d.iddomaine
+                 ORDER BY nb_aud DESC, d.nomdomaine"
+            )->fetchAll();
+
+            // Inspecteurs habilites (regroupes) avec nombre de domaines et prochaine echeance
+            $insp = $db->query(
+                "SELECT i.idinspecteur, i.nominspecteur, i.preninspect, i.trigr_inspecteur,
+                        COUNT(DISTINCT h.iddomaine) AS nb_dom,
+                        MIN(h.date_expiration) AS prochaine_exp
+                 FROM habilitation h
+                 JOIN inspecteur i ON i.idinspecteur = h.idinspecteur
+                 JOIN domaine d    ON d.iddomaine    = h.iddomaine
+                 WHERE $perimDom
+                 GROUP BY i.idinspecteur
+                 ORDER BY i.nominspecteur, i.preninspect"
+            )->fetchAll();
+
+            $ok(['habilitations' => $habs, 'domaines_audites' => $domAud, 'inspecteurs' => $insp]);
             break;
 
         // ----------------------------------------------------------------
@@ -124,14 +192,28 @@ try {
             break;
 
         // ----------------------------------------------------------------
-        // Controle de doublon en direct (sur le nom du domaine), hors id courant
+        // Controle de doublon en direct. Si le domaine existe deja dans la
+        // table PARTAGEE, on renvoie ses donnees pour pre-remplir le formulaire
+        // et on indique s'il est deja dans le perimetre AGAI ou a "recuperer".
         case 'check_nom':
             $nom = clean_label($_POST['nomdomaine'] ?? '');
             $exc = (int) ($_POST['iddomaine'] ?? 0);
             if ($nom === '') { $ok(['exists' => false]); break; }
-            $st = $db->prepare("SELECT iddomaine FROM domaine WHERE LOWER(nomdomaine) = LOWER(?) AND iddomaine <> ?");
+            $st = $db->prepare(
+                "SELECT d.iddomaine, d.nomdomaine, d.libel_domaine, d.gere_agai,
+                        (EXISTS (SELECT 1 FROM audit_equipe ae WHERE ae.iddomaine = d.iddomaine)
+                         OR EXISTS (SELECT 1 FROM habilitation h WHERE h.iddomaine = d.iddomaine)
+                         OR EXISTS (SELECT 1 FROM sous_domaine s WHERE s.iddomaine = d.iddomaine)
+                         OR EXISTS (SELECT 1 FROM reglement r WHERE r.iddomaine = d.iddomaine)) AS utilise
+                 FROM domaine d
+                 WHERE LOWER(d.nomdomaine) = LOWER(?) AND d.iddomaine <> ?
+                 LIMIT 1"
+            );
             $st->execute([$nom, $exc]);
-            $ok(['exists' => (bool) $st->fetch()]);
+            $found = $st->fetch();
+            if (!$found) { $ok(['exists' => false]); break; }
+            $dansAgai = ($found['gere_agai'] === 'AGAI') || ((int) $found['utilise'] > 0);
+            $ok(['exists' => true, 'dans_agai' => $dansAgai, 'data' => $found]);
             break;
 
         // ----------------------------------------------------------------
@@ -147,25 +229,30 @@ try {
             // libel_domaine est NOT NULL en base : si vide, on reprend le nom
             if ($libel === '') { $libel = $nom; }
 
-            // Doublon de nom (insensible a la casse), hors enregistrement courant
+            // Doublon de nom (insensible a la casse), hors enregistrement courant.
+            // En update (y compris recuperation), l'id courant est exclu, donc pas
+            // de faux blocage. En create, si le nom existe, on refuse et le front
+            // proposera la recuperation.
             $stDup = $db->prepare("SELECT iddomaine FROM domaine WHERE LOWER(nomdomaine) = LOWER(?) AND iddomaine <> ?");
             $stDup->execute([$nom, $id]);
             if ($stDup->fetch()) { $fail('Un domaine portant ce nom existe deja.'); break; }
 
             if (!$isUpdate) {
-                $st = $db->prepare("INSERT INTO domaine (nomdomaine, libel_domaine) VALUES (?, ?)");
+                $st = $db->prepare("INSERT INTO domaine (nomdomaine, libel_domaine, gere_agai) VALUES (?, ?, 'AGAI')");
                 $st->execute([$nom, $libel]);
                 $newId = (int) $db->lastInsertId();
-                Audit::log('create', 'structures', 'Creation domaine #' . $newId . ' (' . $nom . ')');
+                Audit::log('create', 'structures', 'Creation domaine AGAI #' . $newId . ' (' . $nom . ')');
                 $ok(['message' => 'Domaine enregistre.', 'iddomaine' => $newId]);
             } else {
                 if ($id <= 0) { $fail('Domaine introuvable.'); break; }
                 $stG = $db->prepare("SELECT iddomaine FROM domaine WHERE iddomaine = ?");
                 $stG->execute([$id]);
                 if (!$stG->fetch()) { $fail('Domaine introuvable.'); break; }
-                $st = $db->prepare("UPDATE domaine SET nomdomaine = ?, libel_domaine = ? WHERE iddomaine = ?");
+                // gere_agai='AGAI' couvre la RECUPERATION d'un domaine cree par une
+                // autre application : des que le CI le valide, il entre dans AGAI.
+                $st = $db->prepare("UPDATE domaine SET nomdomaine = ?, libel_domaine = ?, gere_agai = 'AGAI' WHERE iddomaine = ?");
                 $st->execute([$nom, $libel, $id]);
-                Audit::log('update', 'structures', 'Modification domaine #' . $id . ' (' . $nom . ')');
+                Audit::log('update', 'structures', 'Modification domaine AGAI #' . $id . ' (' . $nom . ')');
                 $ok(['message' => 'Domaine mis a jour.', 'iddomaine' => $id]);
             }
             break;

@@ -43,6 +43,9 @@ table.tbl tbody tr:hover{background:#fafcff;}
 .dl{font-size:.67rem;text-transform:uppercase;color:#7b8aa0;font-weight:700;letter-spacing:.04em;margin-bottom:1px;}
 .dv{font-size:.88rem;color:#2C3E50;font-weight:600;border-bottom:1px solid #f1f4f9;padding-bottom:3px;}
 .item-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1px solid #eef1f6;margin-bottom:4px;font-size:.84rem;}
+.kpi-info{font-size:.72rem;color:#b0bccd;cursor:help;margin-left:2px;vertical-align:middle;}
+.kpi-info:hover{color:#23408F;}
+.kpi-note{background:#eef3fb;border:1px solid #d5e1f5;border-radius:8px;padding:8px 12px;font-size:.8rem;color:#3a4a63;margin-bottom:10px;}
 </style>
 
 <div class="page-head">
@@ -66,9 +69,9 @@ table.tbl tbody tr:hover{background:#fafcff;}
     <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-grid-3x3-gap-fill"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Domaines</div></div></div></div>
     <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-diagram-2-fill"></i></div><div><div class="stat-num" id="st_sous">0</div><div class="stat-lbl">Sous-domaines</div></div></div></div>
     <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-gold"><i class="bi bi-journal-text"></i></div><div><div class="stat-num" id="st_regs">0</div><div class="stat-lbl">Reglements</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-purple"><i class="bi bi-shield-check"></i></div><div><div class="stat-num" id="st_habs">0</div><div class="stat-lbl">Habilitations</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-dark"><i class="bi bi-clipboard-check"></i></div><div><div class="stat-num" id="st_audits">0</div><div class="stat-lbl">Audits associes</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-person-badge"></i></div><div><div class="stat-num" id="st_inspecteurs">0</div><div class="stat-lbl">Inspecteurs habilites</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-hab" style="cursor:pointer"><div class="stat-ic ic-purple"><i class="bi bi-shield-check"></i></div><div><div class="stat-num" id="st_habs">0</div><div class="stat-lbl">Habilitations actives <i class="bi bi-info-circle-fill kpi-info" title="Une habilitation = un inspecteur habilite sur UN domaine. Un inspecteur peut cumuler plusieurs habilitations (une par domaine). Ce chiffre compte donc les couples inspecteur x domaine, cliquez pour le detail."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-aud" style="cursor:pointer"><div class="stat-ic ic-dark"><i class="bi bi-clipboard-check"></i></div><div><div class="stat-num" id="st_audits">0</div><div class="stat-lbl">Domaines audites <i class="bi bi-info-circle-fill kpi-info" title="Nombre de domaines distincts sur lesquels au moins un audit a ete mene. Cliquez pour voir chaque domaine et son nombre d'audits."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-insp" style="cursor:pointer"><div class="stat-ic ic-blue"><i class="bi bi-person-badge"></i></div><div><div class="stat-num" id="st_inspecteurs">0</div><div class="stat-lbl">Inspecteurs habilites <i class="bi bi-info-circle-fill kpi-info" title="Nombre d'inspecteurs DISTINCTS ayant au moins une habilitation. Un inspecteur habilite sur plusieurs domaines n'est compte qu'une fois ici (contrairement aux habilitations actives). Cliquez pour le detail."></i></div></div></div></div>
   </div>
 </div>
 
@@ -125,7 +128,15 @@ table.tbl tbody tr:hover{background:#fafcff;}
         <div class="mb-3">
           <label class="form-label fw-bold">Code du domaine <span class="text-danger">*</span></label>
           <input type="text" class="form-control" id="d_nom" maxlength="10" placeholder="ex : OPS, AGA, PEL" style="text-transform:uppercase;font-weight:700;letter-spacing:.05em" required>
-          <div class="form-text" id="d_dup" style="display:none;color:#D32F2F"><i class="bi bi-exclamation-triangle me-1"></i>Un domaine portant ce code existe deja.</div>
+          <div class="form-text" id="d_dup" style="display:none">
+            <div style="background:#fff8e6;border:1px solid #f3d98a;border-radius:8px;padding:8px 12px;margin-top:6px">
+              <div style="color:#8a6d00;font-weight:600;font-size:.82rem"><i class="bi bi-exclamation-triangle-fill me-1"></i><span id="d_dup_msg">Un domaine portant ce code existe deja.</span></div>
+              <div style="margin-top:6px">
+                <button type="button" class="btn btn-sm btn-warning" id="d_recup"><i class="bi bi-box-arrow-in-down me-1"></i>Recuperer ce domaine</button>
+                <span class="text-muted" style="font-size:.75rem;margin-left:6px">Le libelle sera pre-rempli ; vous pourrez le modifier avant de valider.</span>
+              </div>
+            </div>
+          </div>
           <div class="form-text">Code court, unique (ex : OPS, AGA, PEL, AVSEC).</div>
         </div>
         <div class="mb-2">
@@ -139,6 +150,21 @@ table.tbl tbody tr:hover{background:#fafcff;}
         <button type="submit" class="btn btn-anac" id="domSubmit"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- MODALE : detail habilitations / audites / inspecteurs (KPI) -->
+<div class="modal fade" id="kpiModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-list-check me-2" style="color:#23408F"></i><span id="kpiModalTitle"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" id="kpiModalBody">
+        <div class="text-center py-4"><span class="spinner-border text-primary"></span></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -241,6 +267,85 @@ $('#filterDom').select2({theme:'bootstrap-5',placeholder:'Tous les domaines',all
 $('#filterDom,#filterUsage').on('change',render);
 
 /* ===== MODALE VOIR DETAIL ===== */
+/* ===== MODALES DETAIL DES KPI (habilitations / audites / inspecteurs) ===== */
+let SYNTHESE=null;
+function withSynthese(cb){
+  if(SYNTHESE){ cb(SYNTHESE); return; }
+  apiPost({action:'synthese'}).done(res => {
+    if(!res.success){ $('#kpiModalBody').html('<div class="alert alert-danger">'+esc(res.message||'Erreur')+'</div>'); return; }
+    SYNTHESE=res; cb(res);
+  }).fail(()=>{ $('#kpiModalBody').html('<div class="alert alert-danger">Echec de chargement.</div>'); });
+}
+function habBadge(dexp){
+  const exp=dexp?new Date(dexp):null;
+  const days=exp?Math.round((exp-new Date())/86400000):null;
+  if(days===null) return '<span class="b-tag b-muted">Sans date</span>';
+  if(days<0) return '<span class="b-tag" style="background:#f8d7da;color:#842029">Expiree</span>';
+  if(days<=90) return '<span class="b-tag" style="background:#fff3cd;color:#856404">'+days+' j</span>';
+  return '<span class="b-tag b-green">Valide</span>';
+}
+function openKpi(kind){
+  $('#kpiModalBody').html('<div class="text-center py-4"><span class="spinner-border text-primary"></span></div>');
+  new bootstrap.Modal('#kpiModal').show();
+  withSynthese(function(s){
+    let h='';
+    if(kind==='hab'){
+      $('#kpiModalTitle').text('Habilitations actives par domaine');
+      const list=s.habilitations||[];
+      if(!list.length){ h='<div class="text-center text-muted py-4">Aucune habilitation.</div>'; }
+      else {
+        const nbInsp=new Set(list.map(x=>x.trigr_inspecteur+'|'+x.nominspecteur)).size;
+        h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Chaque ligne est une habilitation (un inspecteur sur un domaine). Ces <b>'+list.length+'</b> habilitations concernent <b>'+nbInsp+'</b> inspecteur(s) distinct(s) : un inspecteur habilite sur plusieurs domaines apparait sur plusieurs lignes.</div>';
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.83rem"><thead><tr style="background:#f5f7fa">'
+         +'<th>Domaine</th><th>Inspecteur</th><th>N habilitation</th><th>Periode</th><th class="text-center">Etat</th></tr></thead><tbody>';
+        list.forEach(x=>{
+          h+='<tr><td><span class="dom-code">'+esc(x.nomdomaine||'')+'</span></td>'
+           +'<td><span style="font-weight:600">'+esc(((x.preninspect||'')+' '+(x.nominspecteur||'')).trim())+'</span> <span class="text-muted small">('+esc(x.trigr_inspecteur||'')+')</span></td>'
+           +'<td>'+esc(x.numero_habilitation||'-')+'</td>'
+           +'<td class="text-muted small">'+fmtDate(x.date_habilitation)+' au '+fmtDate(x.date_expiration)+'</td>'
+           +'<td class="text-center">'+habBadge(x.date_expiration)+'</td></tr>';
+        });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="5" style="font-weight:800;color:#23408F">Total : '+list.length+' habilitation(s)</td></tr></tfoot></table>';
+      }
+    } else if(kind==='aud'){
+      $('#kpiModalTitle').text('Domaines audites');
+      const list=s.domaines_audites||[];
+      if(!list.length){ h='<div class="text-center text-muted py-4">Aucun domaine audite.</div>'; }
+      else {
+        h='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.84rem"><thead><tr style="background:#f5f7fa">'
+         +'<th>Domaine</th><th>Libelle</th><th class="text-center">Nb audits</th></tr></thead><tbody>';
+        list.forEach(x=>{
+          h+='<tr><td><span class="dom-code">'+esc(x.nomdomaine||'')+'</span></td>'
+           +'<td>'+esc((x.libel_domaine||'').trim()||'-')+'</td>'
+           +'<td class="text-center"><span class="b-tag b-blue">'+x.nb_aud+'</span></td></tr>';
+        });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="3" style="font-weight:800;color:#23408F">Total : '+list.length+' domaine(s) audite(s)</td></tr></tfoot></table>';
+      }
+    } else {
+      $('#kpiModalTitle').text('Inspecteurs habilites');
+      const list=s.inspecteurs||[];
+      if(!list.length){ h='<div class="text-center text-muted py-4">Aucun inspecteur habilite.</div>'; }
+      else {
+        let totalHab=0; list.forEach(x=>totalHab+=Number(x.nb_dom));
+        h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Chaque ligne est un inspecteur distinct. La colonne <b>Domaines habilites</b> indique sur combien de domaines il est habilite. Le cumul de cette colonne (<b>'+totalHab+'</b>) correspond au nombre total d\'habilitations actives.</div>';
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.84rem"><thead><tr style="background:#f5f7fa">'
+         +'<th>Inspecteur</th><th>Trigramme</th><th class="text-center">Domaines habilites</th><th class="text-center">Prochaine echeance</th></tr></thead><tbody>';
+        list.forEach(x=>{
+          h+='<tr><td style="font-weight:600">'+esc(((x.preninspect||'')+' '+(x.nominspecteur||'')).trim())+'</td>'
+           +'<td><span class="b-tag b-purple">'+esc(x.trigr_inspecteur||'-')+'</span></td>'
+           +'<td class="text-center"><span class="b-tag b-blue">'+x.nb_dom+'</span></td>'
+           +'<td class="text-center">'+fmtDate(x.prochaine_exp)+' '+habBadge(x.prochaine_exp)+'</td></tr>';
+        });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="4" style="font-weight:800;color:#23408F">Total : '+list.length+' inspecteur(s) habilite(s)</td></tr></tfoot></table>';
+      }
+    }
+    $('#kpiModalBody').html(h);
+  });
+}
+$(document).on('click','.kpi-hab',function(){ openKpi('hab'); });
+$(document).on('click','.kpi-aud',function(){ openKpi('aud'); });
+$(document).on('click','.kpi-insp',function(){ openKpi('insp'); });
+
 $(document).on('click','.act-view',function(){
   const id=$(this).data('id');
   const row=ROWS.find(d=>String(d.iddomaine)===String(id));
@@ -317,6 +422,7 @@ $(document).on('click','.act-view',function(){
 /* ===== CRUD ===== */
 $('#btnNew').on('click',function(){
   $('#domModalTitle').text('Nouveau domaine'); $('#d_id').val(''); $('#d_nom').val(''); $('#d_libel').val(''); $('#d_dup').hide();
+  DUP_FOUND=null; setSubmitMode('create');
   new bootstrap.Modal('#domModal').show();
 });
 $(document).on('click','.act-edit',function(){
@@ -326,20 +432,54 @@ $(document).on('click','.act-edit',function(){
     const d=res.data;
     $('#domModalTitle').text('Modifier le domaine'); $('#d_id').val(d.iddomaine);
     $('#d_nom').val(d.nomdomaine); $('#d_libel').val(d.libel_domaine); $('#d_dup').hide();
+    DUP_FOUND=null; setSubmitMode('update');
     new bootstrap.Modal('#domModal').show();
   });
 });
-let dupTimer=null;
+let dupTimer=null, DUP_FOUND=null;
+function setSubmitMode(mode){
+  const btn=$('#domSubmit');
+  if(mode==='update'){ btn.html('<i class="bi bi-check2-circle me-1"></i>Valider'); btn.attr('data-mode','update'); }
+  else { btn.html('<i class="bi bi-check-lg me-1"></i>Enregistrer'); btn.attr('data-mode','create'); }
+}
 $('#d_nom').on('input',function(){
   clearTimeout(dupTimer); const nom=$(this).val().trim();
+  DUP_FOUND=null;
   if(!nom){ $('#d_dup').hide(); return; }
-  dupTimer=setTimeout(function(){ apiPost({action:'check_nom',nomdomaine:nom,iddomaine:$('#d_id').val()||0}).done(res=>{ $('#d_dup').toggle(!!(res.success&&res.exists)); }); },350);
+  if($('#d_id').val()){ $('#d_dup').hide(); return; } // en edition classique, pas de detection
+  dupTimer=setTimeout(function(){
+    apiPost({action:'check_nom',nomdomaine:nom,iddomaine:0}).done(res=>{
+      if(res.success && res.exists){
+        DUP_FOUND=res.data;
+        $('#d_dup_msg').text(res.dans_agai
+          ? 'Ce domaine est deja gere dans AGAI. Vous pouvez le recuperer pour le modifier.'
+          : 'Ce domaine existe deja dans le referentiel SIGANAC (autre application). Recuperez-le pour l\'integrer a AGAI.');
+        $('#d_dup').show();
+      } else { $('#d_dup').hide(); DUP_FOUND=null; setSubmitMode('create'); }
+    });
+  },350);
+});
+$('#d_recup').on('click',function(){
+  if(!DUP_FOUND) return;
+  const d=DUP_FOUND;
+  $('#d_id').val(d.iddomaine);
+  $('#d_nom').val(d.nomdomaine||'');
+  $('#d_libel').val((d.libel_domaine||'').trim());
+  $('#domModalTitle').text('Recuperer / modifier le domaine');
+  $('#d_dup').hide();
+  setSubmitMode('update');
+  Swal.fire({icon:'info',title:'Domaine recupere',text:'Verifiez et modifiez le libelle, puis cliquez sur Valider.',timer:2200,showConfirmButton:false,timerProgressBar:true});
 });
 $('#domForm').on('submit',function(e){
   e.preventDefault();
   const id=$('#d_id').val(), nom=$('#d_nom').val().trim();
   if(!nom){ Swal.fire({icon:'warning',title:'Code requis',text:'Indiquez le code du domaine (ex : OPS, AGA, PEL).',confirmButtonColor:'#23408F'}); return; }
-  const data={action:id?'update':'create',iddomaine:id,nomdomaine:nom.toUpperCase(),libel_domaine:$('#d_libel').val().trim()};
+  if(!id && DUP_FOUND){
+    Swal.fire({icon:'warning',title:'Domaine existant',text:'Ce domaine existe deja. Cliquez sur "Recuperer ce domaine" pour le modifier, ou changez le code.',confirmButtonColor:'#23408F'});
+    return;
+  }
+  const mode=$('#domSubmit').attr('data-mode')||(id?'update':'create');
+  const data={action:(mode==='update'||id)?'update':'create',iddomaine:id,nomdomaine:nom.toUpperCase(),libel_domaine:$('#d_libel').val().trim()};
   const btn=$('#domSubmit'), html=btn.html();
   btn.prop('disabled',true).html('<span class="spinner-border spinner-border-sm me-1"></span>...');
   apiPost(data).done(res => {
@@ -347,7 +487,7 @@ $('#domForm').on('submit',function(e){
     if(res.success){
       bootstrap.Modal.getInstance(document.getElementById('domModal')).hide();
       Swal.fire({icon:'success',title:'Enregistre',text:res.message,timer:1600,showConfirmButton:false,timerProgressBar:true});
-      loadList(); loadStats();
+      SYNTHESE=null; loadList(); loadStats();
     } else { Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); }
   }).fail(()=>{ btn.prop('disabled',false).html(html); Swal.fire({icon:'error',title:'Erreur',text:'Echec.',confirmButtonColor:'#23408F'}); });
 });
@@ -361,7 +501,7 @@ $(document).on('click','.act-del',function(){
   }).then(r => {
     if(!r.isConfirmed) return;
     apiPost({action:'delete',iddomaine:id}).done(res => {
-      if(res.success){ Swal.fire({icon:'success',timer:1400,showConfirmButton:false}); loadList(); loadStats(); }
+      if(res.success){ Swal.fire({icon:'success',timer:1400,showConfirmButton:false}); SYNTHESE=null; loadList(); loadStats(); }
       else { Swal.fire({icon:'error',title:'Impossible',text:res.message,confirmButtonColor:'#23408F'}); }
     });
   });

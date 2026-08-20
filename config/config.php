@@ -145,12 +145,18 @@ if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
     $protocol = 'https';
 }
 
+// $host GARDE le port (ex: 192.168.5.3:7700) : indispensable pour construire
+// des URLs correctes quand le serveur n'ecoute pas sur le port 80/443 par defaut.
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$host = str_replace([':80', ':443'], '', $host);
+$host = str_replace([':80', ':443'], '', $host); // ne retire QUE les ports standards
+
+// $hostNoPort NE GARDE PAS le port : utilise uniquement pour detecter si on est
+// en local (localhost / 127.0.0.1 / IP privee), peu importe le port utilise.
+$hostNoPort = preg_replace('/:\d+$/', '', $host);
 
 // Liste des adresses locales
 $localHosts = ['localhost', '127.0.0.1', '::1'];
-$isLocal = in_array($host, $localHosts) || preg_match('/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/', $host) === 1;
+$isLocal = in_array($hostNoPort, $localHosts) || preg_match('/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/', $hostNoPort) === 1;
 
 // ============================================
 // 6. CONSTRUCTION DES URLS
@@ -158,7 +164,7 @@ $isLocal = in_array($host, $localHosts) || preg_match('/^\d{1,3}\.\d{1,3}\.\d{1,
 
 $projectFolder = '/AGAI';
 
-// Construction de l'URL de base
+// Construction de l'URL de base (avec le port s'il y en a un, ex: :7700)
 if ($isLocal) {
     $baseUrl = $protocol . '://' . $host . $projectFolder;
 } else {
@@ -246,17 +252,30 @@ define('DB_OPTIONS', [
     PDO::ATTR_PERSISTENT => false,
     PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . DB_CHARSET,
 ]);
-
+    
 // ============================================
 // 11. SÉCURITÉ
 // ============================================
 
 define('SECURITY_SALT', env('SECURITY_SALT', 'AGAI_SECURE_SALT_2026_ANAC_GABON'));
 define('MAX_LOGIN_ATTEMPTS', (int) env('MAX_LOGIN_ATTEMPTS', 5));
+// Seuil de blocage par ADRESSE IP (protection brute-force / enumeration comptes)
+define('MAX_LOGIN_ATTEMPTS_IP', (int) env('MAX_LOGIN_ATTEMPTS_IP', 20));
 define('LOCKOUT_TIME', (int) env('LOCKOUT_TIME', 900));
 define('SESSION_TIMEOUT', (int) env('SESSION_TIMEOUT', 3600));
 define('TWO_FA_ENABLED', env('TWO_FA_ENABLED', true));
 define('CSRF_TOKEN_NAME', 'csrf_token');
+
+// ------------------------------------------------------------
+// ROTATION / RETENTION DES JOURNAUX
+// ------------------------------------------------------------
+// Journaux fichiers (logs/app.log, logs/errors.log) et table login_attempts
+define('LOG_RETENTION_DAYS', (int) env('LOG_RETENTION_DAYS', 30));
+// Taille (Mo) au-dela de laquelle un fichier de log est force a pivoter
+define('LOG_MAX_SIZE_MB', (int) env('LOG_MAX_SIZE_MB', 5));
+// Retention plus longue pour la table audit_logs (traçabilite/conformite) :
+// archivage (CSV compresse) avant purge, jamais de suppression sans archive
+define('AUDIT_LOG_RETENTION_DAYS', (int) env('AUDIT_LOG_RETENTION_DAYS', 730));
 
 // ============================================
 // 12. EMAIL
@@ -322,7 +341,7 @@ if (!function_exists('redirect')) {
 // 15. CRÉATION DES DOSSIERS
 // ============================================
 
-$directories = [LOG_PATH, UPLOAD_PATH];
+$directories = [LOG_PATH, UPLOAD_PATH, STORAGE_PATH, LOG_PATH . '/archive', STORAGE_PATH . '/archives'];
 foreach ($directories as $dir) {
     if (!is_dir($dir)) {
         @mkdir($dir, 0755, true);
@@ -362,7 +381,28 @@ if (APP_DEBUG) {
 }
 
 // ============================================
-// 18. FIN DE LA CONFIGURATION
+// 18. ROTATION AUTOMATIQUE DES JOURNAUX (filet de securite)
+// ------------------------------------------------------------
+// Le mecanisme principal est la tache planifiee cron/maintenance_logs.php
+// (cron Linux en production / Planificateur de taches Windows en local XAMPP).
+// Ce declenchement probabiliste et non bloquant garantit que les fichiers
+// app.log / errors.log ne grossissent pas indefiniment meme si la tache
+// planifiee n'a pas encore ete configuree sur le serveur.
+// La purge de login_attempts et l'archivage de audit_logs (operations BDD
+// plus couteuses) restent reserves au cron et au bouton de maintenance manuel
+// (page "Tentatives de connexion", reserve aux administrateurs).
+// ============================================
+
+if (random_int(1, 100) <= 2) {
+    try {
+        LogRotator::rotateFileLogs();
+    } catch (Throwable $e) {
+        error_log('Rotation automatique (filet de securite) : ' . $e->getMessage());
+    }
+}
+
+// ============================================
+// 19. FIN DE LA CONFIGURATION
 // ============================================
 
 // Fin du fichier

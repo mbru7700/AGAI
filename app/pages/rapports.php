@@ -14,7 +14,7 @@ $active    = 'rapports';
 $pageIcon  = 'bi-file-earmark-text';
 $sousTitre = $isOper
     ? 'Consultez les rapports d\'actes de supervision vous concernant.'
-    : 'Joignez le rapport IX-GEN-R3-FI-009 et saisissez les conclusions des activites realisees.';
+    : 'Établissez le rapport IX-GEN-R3-F-I-009 en le saisissant en ligne ou en joignant un fichier.';
 require_once INCLUDES_PATH . '/layout_head.php';
 ?>
 <style>
@@ -39,6 +39,28 @@ table.tbl tbody tr:hover{background:#fafcff;}
 /* Boutons */
 .btn-joindre-rap{background:linear-gradient(135deg,#1E9C4B,#157a3a);color:#fff;border:none;border-radius:8px;padding:5px 11px;font-size:.78rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;cursor:pointer;transition:all .15s;}
 .btn-joindre-rap:hover{background:linear-gradient(135deg,#157a3a,#0e5228);transform:translateY(-1px);}
+.rap-choix-tile{border:2px solid #e2e8f0;border-radius:14px;padding:20px 14px;text-align:center;cursor:pointer;transition:all .18s;height:100%;display:flex;flex-direction:column;align-items:center;gap:8px}
+.rap-choix-tile:hover{border-color:#23408F;background:#f7f9fc;transform:translateY(-3px);box-shadow:0 8px 20px rgba(35,64,143,.12)}
+.rap-choix-tile:focus{outline:3px solid rgba(35,64,143,.3)}
+.rap-choix-tile.tile-locked{opacity:.45;cursor:not-allowed;filter:grayscale(1);pointer-events:auto}
+.rap-choix-tile.tile-locked:hover{border-color:#e2e8f0;background:#fff;transform:none;box-shadow:none}
+.badge-approuve{display:inline-flex;align-items:center;gap:4px;background:#e7f6ee;color:#1E7A3E;border:1px solid #bfe6cc;border-radius:20px;padding:3px 10px;font-size:.76rem;font-weight:700}
+.rct-ico{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem}
+.rct-title{font-weight:800;color:#2C3E50;font-size:1rem}
+.rct-desc{font-size:.78rem;color:#6b7a90;line-height:1.3}
+/* Editeur du rapport */
+.rap-sec{background:#fff;border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.rap-sec-h{font-weight:800;color:#23408F;font-size:.95rem;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #eef3fb}
+.rap-sec-sub{font-weight:600;color:#2C3E50;margin:10px 0 6px}
+.rap-checks{display:flex;flex-wrap:wrap;gap:8px 16px}
+.rap-check{font-size:.82rem;color:#6b7a90;display:inline-flex;align-items:center;gap:4px}
+.rap-check.on{color:#23408F;font-weight:700}
+.rap-check.on i{color:#1E9C4B}
+.rap-note{margin-top:10px;font-size:.78rem;color:#6b7a90;background:#f7f9fc;border-left:3px solid #23408F;padding:6px 10px;border-radius:6px}
+.rap-lbl{font-weight:600;color:#2C3E50;font-size:.84rem;margin-bottom:3px}
+.rap-info-todo{background:#fff8e6;border:1px solid #f3e2a8;border-radius:10px;padding:12px 14px;font-size:.84rem;color:#8a6d00}
+.btn-voir-chk{background:linear-gradient(135deg,#1E9C4B,#157a3a);color:#fff;border:none;border-radius:8px;padding:5px 9px;font-size:.78rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;cursor:pointer;transition:all .15s;text-decoration:none;}
+.btn-voir-chk:hover{background:linear-gradient(135deg,#157a3a,#0f5c2b);color:#fff;transform:translateY(-1px);}
 .btn-remplacer-rap{background:linear-gradient(135deg,#b58a00,#9a7500);color:#fff;border:none;border-radius:8px;padding:5px 11px;font-size:.78rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;cursor:pointer;transition:all .15s;}
 .btn-remplacer-rap:hover{background:linear-gradient(135deg,#9a7500,#7d5f00);transform:translateY(-1px);}
 .btn-voir-rap{background:#eef1f6;color:#23408F;border:1px solid #d0d7e3;border-radius:8px;padding:5px 10px;font-size:.77rem;font-weight:600;display:inline-flex;align-items:center;gap:4px;cursor:pointer;text-decoration:none;}
@@ -88,18 +110,20 @@ table.tbl tbody tr:hover{background:#fafcff;}
     <button class="btn btn-sm btn-outline-secondary ms-auto" id="btnToggleGuide" style="font-size:.75rem"><span id="guideLbl">Masquer</span></button>
   </div>
   <div id="guideBody">
-    <div class="howto-step"><div class="step-num">1</div><div><strong>Eligibilite.</strong> Seuls les audits avec lettre de notification jointe apparaissent. Completez d'abord le module Notifications.</div></div>
-    <div class="howto-step"><div class="step-num">2</div><div><strong>Joindre le rapport.</strong> Cliquez sur "Joindre" (vert), selectionnez le fichier PDF ou Word, saisissez la date de realisation et completez la section criteres.</div></div>
-    <div class="howto-step"><div class="step-num">3</div><div><strong>Section criteres.</strong> Saisissez NCE, NCS, NCNS, NCNE, NCNA. Le total NCR et les taux de conformite se calculent automatiquement.</div></div>
-    <div class="howto-step"><div class="step-num">4</div><div><strong>Automatisations.</strong> Le statut passe a Effectue, la date de delivrance est enregistree, le delai d'execution est calcule.</div></div>
+    <div class="howto-step"><div class="step-num">1</div><div><strong>Éligibilité.</strong> Seuls les audits dont la lettre de notification est jointe apparaissent. Complétez d'abord le module Notifications si un audit manque.</div></div>
+    <div class="howto-step"><div class="step-num">2</div><div><strong>Choix de la méthode (irréversible).</strong> Cliquez sur "Rapport", puis choisissez <strong>Saisir en ligne</strong> (remplir le formulaire dans l'application) ou <strong>Joindre un fichier</strong> (téléverser un PDF/Word déjà rédigé). Une fois un choix fait pour un audit, l'autre option est verrouillée : les inspecteurs doivent s'accorder au préalable.</div></div>
+    <div class="howto-step"><div class="step-num">3</div><div><strong>Critères par domaine.</strong> Chaque inspecteur saisit les critères (NCE, NCS, NCNS, NCNE, NCNA) <strong>de son propre domaine</strong>. L'en-tête du rapport (destinataires, référentiels, périmètre...) est commune : chacun peut la compléter. Le total NCR et les taux se calculent automatiquement.</div></div>
+    <div class="howto-step"><div class="step-num">4</div><div><strong>Automatisations.</strong> À la première sauvegarde, le statut de l'audit passe à <strong>Effectué</strong>, la date de réalisation est enregistrée et le délai d'exécution est calculé. Les NCNS alimentent l'ouverture des fiches de non-conformité.</div></div>
+    <div class="howto-step"><div class="step-num">5</div><div><strong>Approbation du chef inspecteur.</strong> Quand le rapport est complet, le <strong>chef inspecteur</strong> l'approuve via le bouton dédié. Une fois approuvé, le rapport est verrouillé : plus aucune modification n'est possible, seule la consultation du PDF reste disponible.</div></div>
   </div>
 </div>
 <?php endif; ?>
 
 <!-- Toggle dashboard -->
 <div class="d-flex justify-content-between align-items-center mb-2">
-  <button class="btn btn-sm btn-outline-secondary" id="btnToggleDash">
-    <i class="bi bi-graph-up me-1"></i><span id="dashLbl">Afficher le tableau de bord</span>
+  <button class="btn btn-sm" id="btnToggleDash" style="background:linear-gradient(135deg,#23408F,#1b3576);color:#fff;font-weight:600;box-shadow:0 1px 3px rgba(35,64,143,.25)">
+    <i class="bi bi-graph-up-arrow me-1"></i><span id="dashLbl">Afficher les statistiques</span>
+    <i class="bi bi-chevron-down ms-1" id="dashChevron" style="transition:transform .2s"></i>
   </button>
   <span class="small text-muted" id="resCount"></span>
 </div>
@@ -185,17 +209,19 @@ table.tbl tbody tr:hover{background:#fafcff;}
   </div>
 
   <!-- Graphiques ligne 3 : NCE/NCS/NCNS/NCNE/NCNA -->
-  <div class="row g-3 mb-3">
+  <div class="row g-3 mb-4">
     <div class="col-md-7">
-      <div class="chart-box" style="height:250px">
+      <!-- Hauteur augmentee : les libellés de l'axe des abscisses etaient masques
+           par la rangee de cartes situee juste en dessous. -->
+      <div class="chart-box" style="height:340px;padding-bottom:26px">
         <div class="chart-title"><i class="bi bi-bar-chart-steps me-1"></i>Repartition des criteres - Diagramme en batons (NCE/NCS/NCNS/NCNE/NCNA)</div>
-        <canvas id="chartCriteresBar"></canvas>
+        <div style="height:calc(100% - 34px)"><canvas id="chartCriteresBar"></canvas></div>
       </div>
     </div>
     <div class="col-md-5">
-      <div class="chart-box" style="height:250px">
+      <div class="chart-box" style="height:340px;padding-bottom:26px">
         <div class="chart-title"><i class="bi bi-pie-chart me-1"></i>Repartition des criteres - Camembert (%) NCE/NCS/NCNS/NCNE/NCNA</div>
-        <canvas id="chartCriteresPie"></canvas>
+        <div style="height:calc(100% - 34px)"><canvas id="chartCriteresPie"></canvas></div>
       </div>
     </div>
   </div>
@@ -225,11 +251,61 @@ table.tbl tbody tr:hover{background:#fafcff;}
     <thead><tr>
       <th>N Audit</th><th>Nature</th><th>Operateur</th><th>RA</th>
       <th>Date prev.</th><th>Date real.</th><th>Delai</th><th>Statut</th>
-      <th>NCR</th><th title="Taux de conformite">Conf. %</th><th>Rapport</th>
-      <th style="text-align:right">Actions</th>
+      <th title="Detail des criteres et taux" style="min-width:190px">Criteres (NCE/NCS/NCNS/NCNE/NCNA)</th><th>Rapport</th>
+      <th style="text-align:right" class="col-actions">Actions</th>
     </tr></thead>
-    <tbody id="tbody"><tr><td colspan="12" class="empty"><span class="spinner-border spinner-border-sm me-2"></span>Chargement...</td></tr></tbody>
+    <tbody id="tbody"><tr><td colspan="11" class="empty"><span class="spinner-border spinner-border-sm me-2"></span>Chargement...</td></tr></tbody>
   </table>
+</div>
+
+<!-- MODALE : Choix du mode de rapport (Joindre un fichier / Saisir en ligne) -->
+<div class="modal fade" id="rapChoixModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background:linear-gradient(135deg,#23408F,#1b3576)">
+        <h5 class="modal-title text-white"><i class="bi bi-file-earmark-text me-2" style="color:#F3C300"></i>Rapport d'acte de supervision</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p class="text-muted mb-4" style="font-size:.9rem">Comment souhaitez-vous etablir le rapport pour l'audit <b id="rapChoixNum" style="color:#23408F"></b> ?</p>
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="rap-choix-tile" id="rapChoixSaisir" role="button" tabindex="0">
+              <div class="rct-ico" style="background:#e8f0fe"><i class="bi bi-pencil-square" style="color:#23408F"></i></div>
+              <div class="rct-title">Saisir en ligne</div>
+              <div class="rct-desc">Remplir le formulaire directement dans l'application, avec mise en forme.</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="rap-choix-tile" id="rapChoixJoindre" role="button" tabindex="0">
+              <div class="rct-ico" style="background:#eafaf0"><i class="bi bi-paperclip" style="color:#1E9C4B"></i></div>
+              <div class="rct-title">Joindre un fichier</div>
+              <div class="rct-desc">Televerser un rapport deja redige (PDF ou Word).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALE EDITEUR RAPPORT (saisie en ligne) -->
+<div class="modal fade" id="rapEditModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header" style="background:linear-gradient(135deg,#23408F,#1b3576)">
+        <h5 class="modal-title text-white"><i class="bi bi-file-earmark-text me-2" style="color:#F3C300"></i>Rapport d'acte de supervision <span id="re_num" class="ms-2" style="font-weight:600;opacity:.85"></span></h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="re_body" style="background:#f5f7fa">
+        <div class="text-center text-muted p-4"><span class="spinner-border spinner-border-sm me-2"></span>Chargement...</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Fermer</button>
+        <button type="button" class="btn btn-anac" id="re_save"><i class="bi bi-save me-1"></i>Enregistrer</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- MODALE : Joindre le rapport -->
@@ -249,11 +325,59 @@ table.tbl tbody tr:hover{background:#fafcff;}
         <div class="mb-3 p-2" style="background:#e8f0fe;border-radius:8px;font-size:.82rem;color:#23408F">
           <i class="bi bi-bookmark-fill me-1"></i><strong>Formulaire IX-GEN-R3-FI-009</strong> - Rapport d'acte de supervision
         </div>
-        <!-- Fichier -->
-        <div class="mb-3">
-          <label class="form-label fw-bold">Fichier rapport (PDF ou Word) <span class="text-danger">*</span></label>
-          <input type="file" class="form-control" id="rap_fichier" name="fichier_rapport" accept=".pdf,.doc,.docx" required>
-          <div class="form-text"><i class="bi bi-info-circle me-1 text-success"></i>PDF, DOC ou DOCX - Pas de limite de taille.</div>
+        <!-- DOCUMENTS A JOINDRE -->
+        <div style="border:1px solid #23408F;border-radius:10px;overflow:hidden;margin-bottom:16px">
+          <div style="background:#23408F;color:#fff;padding:8px 14px;font-weight:700;font-size:.85rem">
+            <i class="bi bi-paperclip me-2" style="color:#F3C300"></i>Documents a joindre
+          </div>
+          <div style="padding:14px">
+
+            <div class="mb-2 p-2" style="background:#eef3fb;border-left:4px solid #23408F;border-radius:8px;font-size:.79rem;color:#33507f">
+              <i class="bi bi-lightbulb-fill me-1" style="color:#23408F"></i>
+              Deux documents distincts sont attendus : le <strong>rapport d'acte de supervision</strong>,
+              signe par le Directeur General de l'ANAC, et les <strong>listes de verification</strong>,
+              signees par chaque inspecteur de l'equipe.
+            </div>
+
+            <!-- 1. Rapport -->
+            <div class="mb-3 p-3" style="border:1px solid #e2e8f0;border-radius:10px;background:#fff">
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span style="background:#23408F;color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.74rem;font-weight:800">1</span>
+                <label class="form-label fw-bold mb-0">Rapport d'acte de supervision <span class="text-danger">*</span></label>
+              </div>
+              <div style="font-size:.76rem;color:#6b7a90;margin:0 0 7px 30px">
+                Document signe par le <strong>Directeur General de l'ANAC</strong>.
+              </div>
+              <input type="file" class="form-control" id="rap_fichier" name="fichier_rapport" accept=".pdf,.doc,.docx" required>
+              <div class="form-text"><i class="bi bi-info-circle me-1 text-success"></i>PDF, DOC ou DOCX - Pas de limite de taille.</div>
+            </div>
+
+            <!-- 2. Listes de verification -->
+            <div class="p-3" style="border:1px solid #e2e8f0;border-radius:10px;background:#fff">
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <span style="background:#1E9C4B;color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.74rem;font-weight:800">2</span>
+                <label class="form-label fw-bold mb-0">Listes de verification signees (checklists)</label>
+              </div>
+              <div style="font-size:.76rem;color:#6b7a90;margin:0 0 7px 30px">
+                En tant que responsable d'audit, rassemblez les listes de verification
+                <strong>signees par chaque inspecteur</strong> ayant participe a l'acte,
+                scannez-les en <strong>un seul document</strong> et deposez-le ici.
+              </div>
+              <input type="file" class="form-control" id="rap_checklist" name="fichier_checklist" accept="application/pdf">
+              <div class="form-text">
+                <i class="bi bi-shield-check me-1 text-success"></i>
+                <strong>PDF uniquement</strong>, ce sont des documents signes - Pas de limite de taille.
+                Un nouveau depot remplace le precedent.
+              </div>
+              <div id="rap_checklist_actuel" class="mt-2" style="display:none">
+                <span class="badge" style="background:#e8f5ec;color:#157a3a;font-weight:600">
+                  <i class="bi bi-check-circle me-1"></i>Un document est deja joint</span>
+                <button type="button" class="btn btn-sm btn-outline-primary ms-1" id="btnVoirChecklist">
+                  <i class="bi bi-eye me-1"></i>Consulter</button>
+              </div>
+            </div>
+
+          </div>
         </div>
         <!-- Date realisation -->
         <div class="mb-3">
@@ -306,12 +430,12 @@ table.tbl tbody tr:hover{background:#fafcff;}
               <div class="taux-item taux-conf">
                 <div style="font-size:.78rem;font-weight:700;color:#1E9C4B;margin-bottom:4px">Taux de conformite</div>
                 <div id="tc_val" style="font-size:1.5rem;font-weight:800;color:#1E9C4B">- %</div>
-                <div style="font-size:.72rem;color:#555">NCS / (NCS + NCNS) x 100</div>
+                <div style="font-size:.72rem;color:#555">( NCS / (NCS + NCNS) ) x 100</div>
               </div>
               <div class="taux-item taux-nonconf">
                 <div style="font-size:.78rem;font-weight:700;color:#D32F2F;margin-bottom:4px">Taux de non-conformite</div>
                 <div id="tnc_val" style="font-size:1.5rem;font-weight:800;color:#D32F2F">- %</div>
-                <div style="font-size:.72rem;color:#555">NCNS / (NCS + NCNS) x 100</div>
+                <div style="font-size:.72rem;color:#555">( NCNS / (NCS + NCNS) ) x 100</div>
               </div>
             </div>
           </div>
@@ -358,12 +482,23 @@ const CSRF   = '<?php echo Security::escape($csrf); ?>';
 const API    = AGAI_BASE + '/api/rapports';
 const IS_CI  = <?php echo $isCI ? 'true' : 'false'; ?>;
 const IS_OPER= <?php echo $isOper ? 'true' : 'false'; ?>;
+<?php if ($isOper): ?>
+// Masquer la colonne Actions pour le role operateur (lecture seule)
+document.write('<style>.col-actions{display:none !important;}</style>');
+<?php endif; ?>
 let ALL=[], ALL_R=[], chartBarOrga=null, chartPie=null, chartAnnee=null, chartType=null;
 
 function apiPost(data){ return $.post(API, Object.assign({csrf_token:CSRF}, data), null, 'json'); }
 function fmtDate(s){ if(!s||s==='0000-00-00'||s===null) return '-'; const p=String(s).substring(0,10).split('-'); return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:s; }
 const TYPES={audit:'Audit',inspection_programmee:'Insp. prog.',inspection_non_programmee:'Insp. non prog.',demonstration:'Demo',test:'Test',investigation:'Investigation'};
 const STATUT={1:{t:'Planifie',c:'s1'},3:{t:'Effectue',c:'s3'},2:{t:'Reporte',c:''},4:{t:'Suspendu',c:''}};
+
+/* ===== RAPPORT : referentiels d'affichage ===== */
+// Libelles complets des types d'acte et cadres (pour les cases a cocher du rapport)
+const TYPES_FULL={audit:'Audit',inspection_programmee:'Inspection programmee',inspection_non_programmee:'Inspection non programmee',demonstration:'Demonstration',test:'Test',investigation:'Investigation'};
+const CADRES_LBL={certification:'Certification',homologation:'Homologation',reconnaissance:'Reconnaissance',renouvellement:'Renouvellement',surveillance_continue:'Surveillance continue',traitement_evenement:'Traitement d\'un evenement',fermeture_provisoire:'Fermeture provisoire',fermeture_definitive:'Fermeture definitive',delivrance_autorisation:'Delivrance d\'une autorisation'};
+// Liste deroulante des codes d'ampliation ANAC (fournie par le CI)
+const AMPLIATION_ANAC=['DG','DG-DD','DG-DC','DG-CE','DG-DZ','DG-DA','DG-YY','DG-IX','DG-XD','DG-XA','DG-XZ','IX-OPS','IX-AIR','IX-AVS','IX-FAC','IX-ANS','IX-AGA','IX-PEL','IX-OCV','IX-MDA','DG-QM','DG-QD','DG-QA','DG-QZ','QM-QUA','QM-SEC','DG-CD','DG-CZ','CD-COM','CD-REP','CD-DOB','DG-PE','DG-ED','DG-EZ','DG-IQ','DD-COU','DD-DR','DG-RD','DG-RZ','DR-DN','DR-DS','DR-DE','DR-DO','DE-ED','DE-EZ','DE-EL','EL-PEL','EL-FOR','DE-EM','DE-EX','EX-OPS','EX-MDA','DE','DNA','DN-AD','DN-AZ','NA-ATS','NA-CNS','NA-AIS','NA-PAN','NA-SAR-MET','DN','DN-ND','DN-NZ','DN-NN','NN-AIR','NN-IMA','DN-NM','DU','DU-UD','DU-UZ','DU-US','DU-UF','DA','DA-AD','DA-AZ','DA-AP','AP-EGA','AP-GPB','AP-EIS','DA-AG','DA-AE','DJ','DJ-JD','DJ-JZ','DJ-JR','DJ-JS','DJ-JJ','DTA','DT-TD','DT-TZ','DRH','DH-HD','DH-HZ','DF','DF-FD','DF-FZ','DF-FA','FA-ADM','FA-MGX','DF-FH','FH-GRH','FH-ADP','DF-FC','FC-FIN','FC-CPT'];
 
 /* ===== GUIDE ===== */
 let guideVisible=true;
@@ -373,10 +508,15 @@ $('#btnToggleGuide').on('click',function(){ guideVisible=!guideVisible; $('#guid
 let dashVisible=false;
 function setDash(show){
   dashVisible=show; $('#dashPanel').toggle(show);
-  $('#dashLbl').text(show?'Masquer le tableau de bord':'Afficher le tableau de bord');
+  $('#dashLbl').text(show?'Masquer les statistiques':'Afficher les statistiques');
+  $('#dashChevron').css('transform', show?'rotate(180deg)':'rotate(0deg)');
   try{localStorage.setItem('agai_dash_rapports',show?'1':'0');}catch(e){}
   if(show&&ALL_R.length) renderDash(getFiltered_R());
 }
+
+/* Le bouton n'etait relie a aucun gestionnaire : le tableau de bord ne pouvait
+   ni s'ouvrir ni se fermer, quel que soit le role. */
+$('#btnToggleDash').on('click', function(){ setDash(!dashVisible); });
 
 /* ===== CALCUL DASHBOARD ===== */
 function computeDash(list){
@@ -625,6 +765,17 @@ function loadStats(){
   apiPost({action:'stats'}).done(function(res){
     if(!res.success) return;
     ALL_R = res.allR || [];
+    // Aide au diagnostic : des rapports peuvent etre joints sans criteres NCE/NCS/NCNS
+    // renseignes ; le tableau de bord est alors vide alors que la liste est fournie.
+    if(dashVisible && !ALL_R.length){
+      $('#dashPanel .dash-empty-note').remove();
+      $('#dashPanel').prepend(
+        '<div class="alert dash-empty-note" style="background:#fff8e1;border-left:4px solid #F3C300;border-radius:8px;font-size:.85rem">'
+        +'<i class="bi bi-info-circle-fill me-1" style="color:#9a7d00"></i>'
+        +'Aucun rapport ne comporte encore de criteres evalues (NCE / NCS / NCNS). '
+        +'Les indicateurs et graphiques se calculent a partir de ces criteres : renseignez-les depuis la fiche d\'un rapport.</div>'
+      );
+    } else { $('#dashPanel .dash-empty-note').remove(); }
     // Mettre a jour les KPI principaux depuis les stats serveur
     const s=res.stats||{};
     $('#k_total').text(s.total||0);    // Tous rapports joints
@@ -671,36 +822,113 @@ function tcBadge(tc){
   const bg=v>=80?'#d1fae5':v>=60?'#e8f0fe':v>=40?'#fef3c7':'#fee2e2';
   return '<span style="background:'+bg+';color:'+c+';border-radius:20px;padding:2px 8px;font-size:.76rem;font-weight:700">'+v+'%</span>';
 }
-function rapTag(a){ const has=a.rapport_audit&&String(a.rapport_audit).trim();
-  return has?'<span class="tag-ok"><i class="bi bi-file-earmark-check"></i>Joint</span>'+(a.date_delivrance_rapport?'<div class="text-muted small mt-1">'+fmtDate(a.date_delivrance_rapport)+'</div>':'')
-            :'<span class="tag-non"><i class="bi bi-hourglass-split"></i>En attente</span>'; }
+/* Colonne fusionnee : detail des criteres (NCE/NCS/NCNS/NCNE/NCNA) + taux.
+   Les 5 valeurs sont presentees en pastilles, suivies des deux taux calcules. */
+function criteresCell(a){
+  const nce=Number(a.nce||0), ncs=Number(a.ncs||0), ncns=Number(a.ncns||0),
+        ncne=Number(a.ncne||0), ncna=Number(a.ncna||0), ncr=Number(a.ncr||0);
+  if(ncr===0 && nce===0 && ncs===0 && ncns===0){
+    return '<span class="text-muted small">Non renseigne</span>';
+  }
+  // Taux : on privilegie les valeurs stockees, sinon recalcul NCS/(NCS+NCNS).
+  const base=ncs+ncns;
+  let tc = (a.taux_conformite!=null && a.taux_conformite!=='') ? parseFloat(a.taux_conformite) : (base>0?(ncs/base*100):null);
+  let tnc= (a.taux_non_conformite!=null && a.taux_non_conformite!=='') ? parseFloat(a.taux_non_conformite) : (base>0?(ncns/base*100):null);
+  const pill=function(lbl,val,color,bg){
+    return '<span title="'+lbl+'" style="display:inline-block;background:'+bg+';color:'+color+';border-radius:5px;padding:1px 6px;font-size:.7rem;font-weight:700;margin:1px">'+lbl+' '+val+'</span>';
+  };
+  let h='<div style="display:flex;flex-wrap:wrap;gap:1px;margin-bottom:3px">'
+    +pill('NCE',nce,'#23408F','#e8f0fe')
+    +pill('NCS',ncs,'#1E9C4B','#d1fae5')
+    +pill('NCNS',ncns,'#D32F2F','#fee2e2')
+    +pill('NCNE',ncne,'#b58a00','#fef3c7')
+    +pill('NCNA',ncna,'#6b7a90','#eef1f6')
+    +'</div>';
+  h+='<div style="font-size:.68rem;color:#5b6b85">'
+    +'NCR : <b>'+ncr+'</b> &nbsp;|&nbsp; '
+    +'Conf. : '+(tc!=null?('<b style="color:#1E9C4B">'+tc.toFixed(1)+'%</b>'):'-')+' &nbsp; '
+    +'Non-conf. : '+(tnc!=null?('<b style="color:#D32F2F">'+tnc.toFixed(1)+'%</b>'):'-')
+    +'</div>';
+  return h;
+}
+function rapTag(a){
+  const has=a.rapport_audit&&String(a.rapport_audit).trim();
+  const saisi=(a.rapport_methode||'')==='saisie';
+  if(has){
+    return '<span class="tag-ok"><i class="bi bi-file-earmark-check"></i>Joint</span>'+(a.date_delivrance_rapport?'<div class="text-muted small mt-1">'+fmtDate(a.date_delivrance_rapport)+'</div>':'');
+  }
+  if(saisi){
+    // Rapport saisi en ligne : lien direct vers l'apercu PDF
+    return '<a href="'+AGAI_BASE+'/rapport-pdf?audit='+encodeURIComponent(a.idaudit)+'" target="_blank" class="tag-ok" style="text-decoration:none" title="Voir le rapport (PDF)"><i class="bi bi-file-earmark-text"></i>Saisi</a>'
+      +(a.date_realisation?'<div class="text-muted small mt-1">'+fmtDate(a.date_realisation)+'</div>':'');
+  }
+  return '<span class="tag-non"><i class="bi bi-hourglass-split"></i>En attente</span>';
+}
 function actionsHtml(a){
   const has=a.rapport_audit&&String(a.rapport_audit).trim();
-  const estRA=String(a.est_ra)==='1', peutJoindre=IS_CI||estRA;
+  const methode=(a.rapport_methode||'');            // '', 'saisie' ou 'joindre'
+  const approuve=String(a.rapport_approuve||'0')==='1';
   let h='';
   if(has){
-    const url=AGAI_BASE+'/api/rapports?serve=1&idaudit='+esc(a.idaudit);
-    h+='<a href="javascript:void(0)" class="btn-voir-rap me-1 btn-pdf-rap" data-audit="'+esc(a.idaudit)+'" data-num="'+esc(a.num_audit)+'"><i class="bi bi-eye"></i></a>';
-    h+='<a href="'+url+'&dl=1" class="btn-voir-rap me-1" title="Telecharger"><i class="bi bi-download"></i></a>';
+    h+='<a href="javascript:void(0)" class="btn-voir-rap me-1 btn-pdf-rap" data-audit="'+esc(a.idaudit)+'" data-num="'+esc(a.num_audit)+'" title="Consulter le rapport signe par le DG"><i class="bi bi-file-earmark-text"></i></a>';
   }
-  if(peutJoindre){
-    h+=has
-      ?'<button class="btn-remplacer-rap btn-upload-rap" data-id="'+esc(a.idaudit)+'" data-num="'+esc(a.num_audit)+'" data-orga="'+esc(a.nomorga)+'" title="Remplacer"><i class="bi bi-arrow-repeat"></i>Remplacer</button>'
-      :'<button class="btn-joindre-rap btn-upload-rap" data-id="'+esc(a.idaudit)+'" data-num="'+esc(a.num_audit)+'" data-orga="'+esc(a.nomorga)+'" title="Joindre"><i class="bi bi-file-earmark-plus"></i>Joindre</button>';
-  } else if(!has) h+='<span class="tag-ra"><i class="bi bi-lock"></i>RA uniquement</span>';
+  if(a.checklist_signee && String(a.checklist_signee).trim()){
+    h+='<a href="javascript:void(0)" class="btn-voir-chk me-1 btn-chk-rap" data-audit="'+esc(a.idaudit)+'" data-num="'+esc(a.num_audit)+'" title="Consulter les listes de verification signees"><i class="bi bi-list-check"></i></a>';
+  }
+  if(approuve){
+    // Rapport approuve par le CI : plus de modification possible.
+    // Seuls restent l'apercu (PDF) et un badge d'approbation.
+    h+='<span class="badge-approuve me-1" title="Rapport approuve par le chef inspecteur"><i class="bi bi-patch-check-fill"></i> Approuve</span>';
+  } else {
+    // Bouton "Rapport" : la modale propose Saisir / Joindre.
+    // La methode deja utilisee verrouille l'autre option (choix irreversible).
+    h+='<button class="'+(has?'btn-remplacer-rap':'btn-joindre-rap')+' btn-choix-rap me-1" data-id="'+esc(a.idaudit)+'" data-num="'+esc(a.num_audit)+'" data-orga="'+esc(a.nomorga)+'" data-has="'+(has?'1':'0')+'" data-methode="'+esc(methode)+'" title="Etablir ou joindre le rapport d\'acte de supervision">'
+      +'<i class="bi bi-file-earmark-text"></i>Rapport</button>';
+    // Bouton "Approuver" reserve au CI/admin, visible seulement si un rapport existe (saisie ou joint)
+    if(IS_CI && (has || methode==='saisie')){
+      h+='<button class="btn-approuver-rap me-1" data-id="'+esc(a.idaudit)+'" data-num="'+esc(a.num_audit)+'" title="Approuver definitivement le rapport (verrouillage)" style="background:#1E9C4B;color:#fff;border:none;border-radius:8px;padding:4px 9px;font-size:.78rem;font-weight:600;display:inline-flex;align-items:center;gap:4px;cursor:pointer">'
+        +'<i class="bi bi-patch-check"></i>Approuver</button>';
+    }
+  }
+  // Bouton PDF (Imprimer le rapport PDF) : visible UNIQUEMENT si l'option
+  // "Saisir" a ete choisie. Si le rapport a ete joint, ce bouton disparait.
+  if(methode==='saisie'){
+    h+='<button class="btn-pdf-online" data-id="'+esc(a.idaudit)+'" title="Imprimer le rapport saisi (PDF)" style="background:#D32F2F;color:#fff;border:none;border-radius:8px;padding:4px 9px;font-size:.78rem;font-weight:600;display:inline-flex;align-items:center;gap:4px;cursor:pointer">'
+      +'<i class="bi bi-file-earmark-pdf"></i>PDF</button>';
+  }
   return '<div style="text-align:right;white-space:nowrap;display:flex;align-items:center;gap:3px;justify-content:flex-end">'+h+'</div>';
 }
+let MODE_REMPLACE = false;   // true : les documents deviennent facultatifs
+
+/* Delai d'execution : valeur signee en jours.
+   Negatif = realise en avance, positif = en retard, zero = a la date prevue. */
+function fmtDelai(v){
+  if(v===null || v===undefined || v==='') return '<span class="text-muted">-</span>';
+  const j = parseInt(v,10);
+  if(isNaN(j)) return '<span style="font-size:.75rem;color:#7b8aa0">'+esc(String(v))+'</span>';
+  if(j === 0) return '<span style="font-size:.74rem;font-weight:700;color:#1E9C4B">Dans les temps</span>';
+  if(j < 0)   return '<span style="font-size:.74rem;font-weight:700;color:#1E9C4B" title="Realise avant la date prevue">'+Math.abs(j)+' j d\'avance</span>';
+  return '<span style="font-size:.74rem;font-weight:700;color:#D32F2F" title="Realise apres la date prevue">'+j+' j de retard</span>';
+}
+
 function render(){
   const list=getFiltered();
-  $('#resCount').html('<i class="bi bi-file-earmark-text me-1"></i>'+list.length+' audit(s)');
+  $('#resCount').html('<i class="bi bi-file-earmark-text me-1"></i>'+list.length+' audit(s)'
+    + '<span style="margin-left:14px;font-size:.74rem;color:#6b7a90">'
+    +   '<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px">'
+    +     '<span style="width:11px;height:11px;border-radius:3px;background:linear-gradient(135deg,#23408F,#1b3576);display:inline-block"></span>Rapport signe (DG)</span>'
+    +   '<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px">'
+    +     '<span style="width:11px;height:11px;border-radius:3px;background:linear-gradient(135deg,#1E9C4B,#157a3a);display:inline-block"></span>Listes de verification signees</span>'
+    +   '<span style="display:inline-flex;align-items:center;gap:4px">'
+    +     '<span style="width:11px;height:11px;border-radius:3px;background:linear-gradient(135deg,#b58a00,#9a7500);display:inline-block"></span>Remplacer / corriger</span>'
+    + '</span>');
   if(!list.length){
-    $('#tbody').html('<tr><td colspan="12" class="empty"><i class="bi bi-inbox me-2"></i>Aucun audit eligible.'+(ALL.length?'<br><small class="text-muted">Modifiez les filtres.</small>':'<br><small class="text-muted">Les audits apparaissent apres que la lettre de notification ait ete jointe.</small>')+'</td></tr>');
+    $('#tbody').html('<tr><td colspan="11" class="empty"><i class="bi bi-inbox me-2"></i>Aucun audit eligible.'+(ALL.length?'<br><small class="text-muted">Modifiez les filtres.</small>':'<br><small class="text-muted">Les audits apparaissent apres que la lettre de notification ait ete jointe.</small>')+'</td></tr>');
     return;
   }
   $('#tbody').html(list.map(function(a){
     const st=STATUT[a.statut]||{t:'-',c:''};
-    const del=a.delai_execution?('<span style="font-size:.75rem;color:#7b8aa0">'+esc(a.delai_execution)+'</span>'):'<span class="text-muted">-</span>';
-    const ncrCell=a.ncr>0?('<span style="font-weight:700;color:#23408F">'+a.ncr+'</span>'):'<span class="text-muted">-</span>';
+    const del=fmtDelai(a.delai_execution);
     return '<tr>'
       +'<td><b style="color:#23408F;font-size:.87rem">'+esc(a.num_audit||'')+'</b></td>'
       +'<td style="font-size:.82rem">'+esc(TYPES[a.type_activite]||'')+'</td>'
@@ -710,18 +938,17 @@ function render(){
       +'<td style="font-size:.82rem">'+fmtDate(a.date_realisation)+'</td>'
       +'<td>'+del+'</td>'
       +'<td><span class="s-badge '+(st.c||'')+'">'+esc(st.t)+'</span></td>'
-      +'<td style="text-align:center">'+ncrCell+'</td>'
-      +'<td style="text-align:center">'+tcBadge(a.taux_conformite)+'</td>'
+      +'<td>'+criteresCell(a)+'</td>'
       +'<td>'+rapTag(a)+'</td>'
-      +'<td>'+actionsHtml(a)+'</td>'
+      +'<td class="col-actions">'+actionsHtml(a)+'</td>'
       +'</tr>';
   }).join(''));
 }
 function loadList(){
   apiPost({action:'list'}).done(function(res){
-    if(!res.success){ $('#tbody').html('<tr><td colspan="12" class="empty">'+esc(res.message||'Erreur')+'</td></tr>'); return; }
+    if(!res.success){ $('#tbody').html('<tr><td colspan="11" class="empty">'+esc(res.message||'Erreur')+'</td></tr>'); return; }
     ALL=res.data||[]; fillTableFilters(); render();
-  }).fail(function(){ $('#tbody').html('<tr><td colspan="12" class="empty">Echec.</td></tr>'); });
+  }).fail(function(){ $('#tbody').html('<tr><td colspan="11" class="empty">Echec.</td></tr>'); });
 }
 
 /* ===== CALCUL CRITERES DANS MODALE ===== */
@@ -738,32 +965,327 @@ function recalcCriteres(){
 }
 $(document).on('input','.crit-input',recalcCriteres);
 
+// Bouton PDF (liste) : ouvre la vue impression du rapport
+$(document).on('click','.btn-pdf-online',function(){
+  const id=$(this).attr('data-id');
+  window.open(AGAI_BASE + '/rapport-pdf?audit=' + encodeURIComponent(id), '_blank');
+});
+
+/* ===== MODALE CHOIX (Joindre / Saisir) ===== */
+let RAP_CHOIX = {id:'', num:'', orga:'', has:false};
+$(document).on('click','.btn-choix-rap',function(){
+  // .attr() plutot que .data() : evite le cache jQuery qui pouvait renvoyer
+  // une valeur d'une ligne precedente.
+  RAP_CHOIX = {
+    id:$(this).attr('data-id'), num:$(this).attr('data-num'),
+    orga:$(this).attr('data-orga'), has:String($(this).attr('data-has'))==='1',
+    methode:$(this).attr('data-methode')||''
+  };
+  $('#rapChoixNum').text(RAP_CHOIX.num||'');
+
+  // Verrouillage du choix : si une methode a deja ete utilisee pour cet audit,
+  // l'autre option est grisee et un message rouge l'explique (choix irreversible).
+  const $tSaisir=$('#rapChoixSaisir'), $tJoindre=$('#rapChoixJoindre');
+  $tSaisir.removeClass('tile-locked'); $tJoindre.removeClass('tile-locked');
+  $('#rapChoixLockMsg').remove();
+  if(RAP_CHOIX.methode==='saisie'){
+    $tJoindre.addClass('tile-locked');
+    $('#rapChoixModal .modal-body').append('<div id="rapChoixLockMsg" class="mt-2 p-2" style="background:#fdecea;border:1px solid #f5c6cb;border-radius:8px;color:#D32F2F;font-size:.82rem"><i class="bi bi-lock-fill me-1"></i>Cet audit a ete etabli en <b>saisie en ligne</b>. L\'option Joindre est desormais indisponible (choix irreversible).</div>');
+  } else if(RAP_CHOIX.methode==='joindre'){
+    $tSaisir.addClass('tile-locked');
+    $('#rapChoixModal .modal-body').append('<div id="rapChoixLockMsg" class="mt-2 p-2" style="background:#fdecea;border:1px solid #f5c6cb;border-radius:8px;color:#D32F2F;font-size:.82rem"><i class="bi bi-lock-fill me-1"></i>Cet audit a ete etabli par <b>rapport joint</b>. L\'option Saisir en ligne est desormais indisponible (choix irreversible).</div>');
+  }
+
+  new bootstrap.Modal('#rapChoixModal').show();
+});
+// Choix : Joindre un fichier -> ouvre le formulaire d'upload existant
+$('#rapChoixJoindre').on('click',function(){
+  if($(this).hasClass('tile-locked')){
+    Swal.fire({icon:'info',title:'Option indisponible',text:'Cet audit a ete etabli en saisie en ligne. Vous ne pouvez plus joindre un rapport.',confirmButtonColor:'#23408F'});
+    return;
+  }
+  bootstrap.Modal.getInstance(document.getElementById('rapChoixModal')).hide();
+  const c = RAP_CHOIX;
+  setTimeout(function(){ openUploadRap(c.id, c.num, c.orga, c.has); }, 300);
+});
+// Choix : Saisir en ligne -> page dediee (comme la revue documentaire)
+$('#rapChoixSaisir').on('click',function(){
+  if($(this).hasClass('tile-locked')){
+    Swal.fire({icon:'info',title:'Option indisponible',text:'Cet audit a ete etabli par rapport joint. Vous ne pouvez plus le saisir en ligne.',confirmButtonColor:'#23408F'});
+    return;
+  }
+  bootstrap.Modal.getInstance(document.getElementById('rapChoixModal')).hide();
+  window.location = AGAI_BASE + '/rapport-saisie?audit=' + encodeURIComponent(RAP_CHOIX.id);
+});
+$('#rapChoixSaisir,#rapChoixJoindre').on('keypress',function(e){ if(e.which===13||e.which===32){ e.preventDefault(); $(this).trigger('click'); } });
+
+// ===== APPROBATION DU RAPPORT (reservee CI/admin) =====
+$(document).on('click','.btn-approuver-rap',function(){
+  const id=$(this).attr('data-id'), num=$(this).attr('data-num')||'';
+  Swal.fire({
+    icon:'warning',
+    title:'Approuver le rapport ?',
+    html:'<div style="text-align:left;font-size:.9rem">Vous allez <b>approuver definitivement</b> le rapport de l\'audit <b>'+esc(num)+'</b>.<br><br>'
+        +'<span style="color:#D32F2F"><i class="bi bi-exclamation-triangle-fill me-1"></i>Cette action est irreversible.</span> '
+        +'Une fois approuve, plus aucune saisie ni modification ne sera possible. Seul l\'apercu PDF restera accessible.</div>',
+    showCancelButton:true,
+    confirmButtonText:'<i class="bi bi-patch-check me-1"></i>Approuver',
+    cancelButtonText:'Annuler',
+    confirmButtonColor:'#1E9C4B',
+    cancelButtonColor:'#6b7a90'
+  }).then(function(res){
+    if(!res.isConfirmed) return;
+    apiPost({action:'approuver_rapport', idaudit:id})
+      .done(function(r){
+        if(r && r.success){
+          Swal.fire({icon:'success',title:'Rapport approuve',timer:1400,showConfirmButton:false});
+          loadList(); if(typeof loadStats==='function'){ loadStats(); }
+        } else {
+          Swal.fire({icon:'error',title:'Erreur',text:(r&&r.message)||'Echec de l\'approbation.',confirmButtonColor:'#D32F2F'});
+        }
+      })
+      .fail(function(){ Swal.fire({icon:'error',title:'Erreur',text:'Echec de l\'approbation.',confirmButtonColor:'#D32F2F'}); });
+  });
+});
+
+/* ===== EDITEUR DU RAPPORT (saisie en ligne) ===== */
+let RAP_EDIT_AUDIT = null;   // audit courant
+let RAP_EDIT_DATA  = null;   // donnees du rapport (entete) chargees
+
+function openRapEditor(idaudit, num, orga){
+  $('#re_num').text(num ? ('- '+num) : '');
+  $('#re_body').html('<div class="text-center text-muted p-4"><span class="spinner-border spinner-border-sm me-2"></span>Chargement du rapport...</div>');
+  new bootstrap.Modal('#rapEditModal').show();
+  // On recupere l'audit (depuis ALL) + les donnees deja saisies via l'API
+  const aud = ALL.find(function(x){ return String(x.idaudit)===String(idaudit); });
+  RAP_EDIT_AUDIT = aud || {idaudit:idaudit, num_audit:num, nomorga:orga};
+  apiPost({action:'get_rapport', idaudit:idaudit}).done(function(res){
+    RAP_EDIT_DATA = (res && res.success) ? (res.rapport||{}) : {};
+    const meta = (res && res.success) ? (res.meta||{}) : {};
+    buildRapForm(RAP_EDIT_AUDIT, RAP_EDIT_DATA, meta);
+  }).fail(function(){
+    // L'endpoint n'a peut-etre pas encore l'action : on construit quand meme le socle
+    RAP_EDIT_DATA = {};
+    buildRapForm(RAP_EDIT_AUDIT, {}, {});
+  });
+}
+
+/* Construit le formulaire du rapport (socle : en-tetes auto + champs de base) */
+function buildRapForm(aud, rap, meta){
+  rap = rap||{}; meta = meta||{};
+  const typeActe = aud.type_activite||'';
+  const cadre    = aud.cadre||'';
+  const operateur= aud.nomorga||meta.nomorga||'';
+  const activite = meta.activite_operateur||aud.type_activite_operateur||'';
+  const dateReal = aud.date_realisation||aud.date_previsionnelle||'';
+  const periodeDefaut = rap.periode_texte || (dateReal? ('le '+fmtDate(dateReal)) : '');
+
+  // Cases a cocher : type d'acte
+  let typeChecks='';
+  Object.keys(TYPES_FULL).forEach(function(k){
+    const on=(k===typeActe);
+    typeChecks+='<span class="rap-check '+(on?'on':'')+'"><i class="bi '+(on?'bi-check-square-fill':'bi-square')+'"></i> '+esc(TYPES_FULL[k])+'</span>';
+  });
+  // Cases a cocher : cadre
+  let cadreChecks='';
+  Object.keys(CADRES_LBL).forEach(function(k){
+    const on=(k===cadre);
+    cadreChecks+='<span class="rap-check '+(on?'on':'')+'"><i class="bi '+(on?'bi-check-square-fill':'bi-square')+'"></i> '+esc(CADRES_LBL[k])+'</span>';
+  });
+
+  // Ampliation ANAC : lignes ajoutables (liste deroulante)
+  const amplExist = (rap.ampliation_anac||'').split('\n').map(function(s){return s.trim();}).filter(Boolean);
+  const amplLines = amplExist.length? amplExist : [''];
+
+  const html =
+   '<div class="rap-sec">'
+   +  '<div class="rap-sec-h"><i class="bi bi-flag-fill me-1"></i>Nature de l\'acte</div>'
+   +  '<div class="rap-checks">'+typeChecks+'</div>'
+   +  '<div class="rap-sec-sub">Dans le cadre :</div>'
+   +  '<div class="rap-checks">'+cadreChecks+'</div>'
+   +  '<div class="rap-note"><i class="bi bi-info-circle me-1"></i>La nature et le cadre sont repris automatiquement de l\'audit (declenchement PSC).</div>'
+   +'</div>'
+
+   +'<div class="rap-sec">'
+   +  '<div class="row g-3">'
+   +    '<div class="col-md-6"><label class="rap-lbl">Periode</label>'
+   +      '<input type="text" class="form-control" id="re_periode" maxlength="255" value="'+esc(periodeDefaut)+'" placeholder="le 25 au 26 Aout 2025">'
+   +      '<div class="form-text">Modifiable. Par defaut : date de realisation de l\'audit.</div></div>'
+   +    '<div class="col-md-6"><label class="rap-lbl">Operateur</label>'
+   +      '<input type="text" class="form-control" value="'+esc(operateur)+'" readonly style="background:#eef3fb"></div>'
+   +    '<div class="col-md-6"><label class="rap-lbl">Activite de l\'operateur</label>'
+   +      '<input type="text" class="form-control" value="'+esc(activite)+'" readonly style="background:#eef3fb"></div>'
+   +  '</div>'
+   +'</div>'
+
+   +'<div class="rap-sec">'
+   +  '<div class="rap-sec-h"><i class="bi bi-people me-1"></i>Redaction et validation</div>'
+   +  '<div class="row g-3">'
+   +    '<div class="col-md-4"><label class="rap-lbl">Redacteur</label><select id="re_redacteur" class="form-select">'+inspOptionsRap(meta, rap.id_redacteur)+'</select></div>'
+   +    '<div class="col-md-4"><label class="rap-lbl">Verificateur</label><select id="re_verificateur" class="form-select">'+inspOptionsRap(meta, rap.id_verificateur)+'</select></div>'
+   +    '<div class="col-md-4"><label class="rap-lbl">Validation</label><input type="text" class="form-control" id="re_validation" value="'+esc(meta.ci_nom||rap.validation_nom||'Chef Inspecteur')+'" readonly style="background:#eef3fb"></div>'
+   +    '<div class="col-md-6"><label class="rap-lbl">Fonction</label><input type="text" class="form-control" id="re_fonction" maxlength="255" value="'+esc(rap.fonction_libre||'')+'" placeholder="Saisir la fonction"></div>'
+   +  '</div>'
+   +'</div>'
+
+   +'<div class="rap-sec">'
+   +  '<div class="rap-sec-h"><i class="bi bi-envelope me-1"></i>Destinataires et ampliation</div>'
+   +  '<div class="row g-3">'
+   +    '<div class="col-md-6"><label class="rap-lbl">Destinataire(s)</label>'
+   +      '<textarea class="form-control" id="re_destinataires" rows="4" placeholder="Saisir les destinataires (une entree par ligne)">'+esc(rap.destinataires||'')+'</textarea></div>'
+   +    '<div class="col-md-6"><label class="rap-lbl">Ampliation ANAC</label>'
+   +      '<div id="re_amplList">'+amplLines.map(amplRowHtml).join('')+'</div>'
+   +      '<button type="button" class="btn btn-sm btn-outline-primary mt-1" id="re_amplAdd"><i class="bi bi-plus-lg me-1"></i>Ajouter une ligne</button></div>'
+   +  '</div>'
+   +'</div>'
+
+   +'<div class="rap-sec">'
+   +  '<div class="rap-sec-h"><i class="bi bi-bullseye me-1"></i>Objectifs et perimetre</div>'
+   +  rapTextarea('re_objectifs','Objectif(s) vise(s)', rap.objectifs)
+   +  rapTextarea('re_sites','Le(s) site(s) geographique(s)', rap.sites_geographiques || (meta.nomsite? meta.nomsite : ''))
+   +  rapTextarea('re_unites','Le(s) unite(s) organisationnelle(s)', rap.unites_organisation)
+   +  rapTextarea('re_activites','Activites / processus / produits a prendre en consideration', rap.activites_processus)
+   +  rapTextarea('re_referentiels','Referentiel(s) opposables a l\'exploitant', rap.referentiels)
+   +'</div>'
+
+   +'<div class="rap-sec">'
+   +  '<div class="rap-sec-h"><i class="bi bi-clipboard-check me-1"></i>Deroulement</div>'
+   +  rapTextarea('re_responsables','Responsables rencontres (Operateur)', rap.responsables_operateur)
+   +  rapTextarea('re_plan','Plan effectivement realise', rap.plan_realise)
+   +'</div>'
+
+   +'<div class="rap-info-todo"><i class="bi bi-hourglass-split me-1"></i>Les sections <b>Criteres par domaine</b>, <b>graphiques</b>, <b>releve des non-conformites</b> et <b>conclusion automatique</b> seront ajoutees prochainement.</div>';
+
+  $('#re_body').html(html);
+}
+
+/* Une ligne d'ampliation : liste deroulante des codes ANAC + suppression */
+function amplRowHtml(val){
+  let opts='<option value="">-- Choisir --</option>';
+  AMPLIATION_ANAC.forEach(function(c){ opts+='<option value="'+esc(c)+'"'+(String(c)===String(val)?' selected':'')+'>'+esc(c)+'</option>'; });
+  return '<div class="input-group input-group-sm mb-1 ampl-row"><select class="form-select ampl-sel">'+opts+'</select>'
+    +'<button type="button" class="btn btn-outline-danger ampl-del"><i class="bi bi-x-lg"></i></button></div>';
+}
+$(document).on('click','#re_amplAdd',function(){ $('#re_amplList').append(amplRowHtml('')); });
+$(document).on('click','.ampl-del',function(){ if($('#re_amplList .ampl-row').length>1){ $(this).closest('.ampl-row').remove(); } else { $(this).closest('.ampl-row').find('.ampl-sel').val(''); } });
+
+/* Liste deroulante des inspecteurs planifies sur l'audit (pour redacteur / verificateur) */
+function inspOptionsRap(meta, selected){
+  const list = (meta && meta.inspecteurs) ? meta.inspecteurs : [];
+  let opts='<option value="">-- Choisir --</option>';
+  list.forEach(function(i){
+    const nom=(i.nom||'').trim()||('Inspecteur '+i.idinspecteur);
+    opts+='<option value="'+esc(i.idinspecteur)+'"'+(String(i.idinspecteur)===String(selected)?' selected':'')+'>'+esc(nom)+(i.trigr?(' ('+esc(i.trigr)+')'):'')+'</option>';
+  });
+  return opts;
+}
+
+/* Bloc textarea de section (contenu simple pour le socle ; l'editeur riche
+   viendra a la session suivante, sur le modele de la revue documentaire) */
+function rapTextarea(id, label, val){
+  return '<div class="mb-3"><label class="rap-lbl">'+esc(label)+'</label>'
+    +'<textarea class="form-control rap-rich" id="'+id+'" rows="3">'+esc(stripHtml(val||''))+'</textarea></div>';
+}
+function stripHtml(s){ return String(s||'').replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').trim(); }
+
+/* Enregistrement du rapport saisi */
+$('#re_save').on('click',function(){
+  if(!RAP_EDIT_AUDIT) return;
+  const ampl=[]; $('#re_amplList .ampl-sel').each(function(){ const v=$(this).val(); if(v) ampl.push(v); });
+  const payload={
+    action:'save_rapport',
+    idaudit:RAP_EDIT_AUDIT.idaudit,
+    periode_texte:$('#re_periode').val()||'',
+    id_redacteur:$('#re_redacteur').val()||'',
+    id_verificateur:$('#re_verificateur').val()||'',
+    fonction_libre:$('#re_fonction').val()||'',
+    destinataires:$('#re_destinataires').val()||'',
+    ampliation_anac:ampl.join('\n'),
+    objectifs:$('#re_objectifs').val()||'',
+    sites_geographiques:$('#re_sites').val()||'',
+    unites_organisation:$('#re_unites').val()||'',
+    activites_processus:$('#re_activites').val()||'',
+    referentiels:$('#re_referentiels').val()||'',
+    responsables_operateur:$('#re_responsables').val()||'',
+    plan_realise:$('#re_plan').val()||''
+  };
+  const btn=$('#re_save'); const html=btn.html();
+  btn.prop('disabled',true).html('<span class="spinner-border spinner-border-sm me-1"></span>...');
+  apiPost(payload).done(function(res){
+    btn.prop('disabled',false).html(html);
+    if(res&&res.success){
+      Swal.fire({icon:'success',title:'Rapport enregistre',timer:1200,showConfirmButton:false});
+      bootstrap.Modal.getInstance(document.getElementById('rapEditModal')).hide();
+      loadList();
+    } else {
+      Swal.fire({icon:'error',title:'Erreur',text:(res&&res.message)||'Echec de l\'enregistrement.',confirmButtonColor:'#23408F'});
+    }
+  }).fail(function(){
+    btn.prop('disabled',false).html(html);
+    Swal.fire({icon:'warning',title:'Action indisponible',text:'L\'enregistrement du rapport en ligne necessite la mise a jour de l\'API (action save_rapport). Cette partie sera activee a la prochaine etape.',confirmButtonColor:'#23408F'});
+  });
+});
+
 /* ===== MODALE UPLOAD ===== */
-$(document).on('click','.btn-upload-rap',function(){
-  const id=$(this).data('id'), num=$(this).data('num'), orga=$(this).data('orga');
-  const remplace=$(this).hasClass('btn-remplacer-rap');
+function openUploadRap(id, num, orga, remplace){
+  MODE_REMPLACE = remplace;
+  $('#rap_fichier').prop('required', !remplace);
   $('#rapModalTitle').html((remplace?'<i class="bi bi-arrow-repeat me-1"></i>Remplacer':'<i class="bi bi-file-earmark-plus me-1"></i>Joindre')+' le rapport');
   $('#rap_idaudit').val(id); $('#rap_audit_info').text('Audit : '+num); $('#rap_orga_info').text('Operateur : '+orga);
-  $('#rap_fichier').val(''); $('#rap_date_real').val(new Date().toISOString().substring(0,10));
-  // Recuperer criteres existants si remplace
+  $('#rap_fichier').val(''); $('#rap_checklist').val('');
+  $('#rap_date_real').val(new Date().toISOString().substring(0,10));
+  const aud = ALL.find(function(x){ return String(x.idaudit)===String(id); });
+  if(aud && aud.checklist_signee){
+    $('#rap_checklist_actuel').show().data('id', id);
+  } else {
+    $('#rap_checklist_actuel').hide();
+  }
   if(remplace){
     const a=ALL.find(function(x){ return String(x.idaudit)===String(id); });
     if(a){ $('#c_nce').val(a.nce||0); $('#c_ncs').val(a.ncs||0); $('#c_ncns').val(a.ncns||0); $('#c_ncne').val(a.ncne||0); $('#c_ncna').val(a.ncna||0); }
   } else { ['c_nce','c_ncs','c_ncns','c_ncne','c_ncna'].forEach(function(id){$('#'+id).val(0);}); }
   recalcCriteres();
   new bootstrap.Modal('#rapModal').show();
+}
+$(document).on('click','.btn-upload-rap',function(){
+  const id=$(this).data('id'), num=$(this).data('num'), orga=$(this).data('orga');
+  openUploadRap(id, num, orga, $(this).hasClass('btn-remplacer-rap'));
+});
+
+/* Consultation des listes de verification deja deposees */
+$(document).on('click','#btnVoirChecklist',function(){
+  const id=$('#rap_checklist_actuel').data('id') || $('#rap_idaudit').val();
+  if(!id) return;
+  window.open(API+'?serve=1&doc=checklist&idaudit='+encodeURIComponent(id), '_blank');
 });
 
 $('#rapForm').on('submit',function(e){
   e.preventDefault();
   const idaudit=$('#rap_idaudit').val(), dateReal=$('#rap_date_real').val();
-  if(!$('#rap_fichier')[0].files.length){ Swal.fire({icon:'warning',title:'Fichier requis',confirmButtonColor:'#1E9C4B'}); return; }
+  // Au premier depot le rapport est obligatoire ; ensuite tout est facultatif :
+  // on peut corriger les criteres sans redeposer de document.
+  if(!MODE_REMPLACE && !$('#rap_fichier')[0].files.length){
+    Swal.fire({icon:'warning',title:'Rapport requis',
+      text:'Le rapport d\'acte de supervision est obligatoire au premier depot.',
+      confirmButtonColor:'#1E9C4B'});
+    return;
+  }
   if(!dateReal){ Swal.fire({icon:'warning',title:'Date requise',confirmButtonColor:'#1E9C4B'}); return; }
   const btn=$('#rap_submit'), btnHtml=btn.html();
   btn.prop('disabled',true).html('<span class="spinner-border spinner-border-sm me-1"></span>Enregistrement...');
+  // Les listes de verification sont des documents signes : PDF exclusivement
+  const fChk = $('#rap_checklist')[0].files[0] || null;
+  if(fChk && !/\.pdf$/i.test(fChk.name)){
+    Swal.fire({icon:'error',title:'Format invalide',
+      text:'Les listes de verification signees doivent etre fournies en un seul fichier PDF.',
+      confirmButtonColor:'#D32F2F'});
+    return;
+  }
   const fd=new FormData();
   fd.append('csrf_token',CSRF); fd.append('action','upload'); fd.append('idaudit',idaudit);
-  fd.append('date_realisation',dateReal); fd.append('fichier_rapport',$('#rap_fichier')[0].files[0]);
+  fd.append('date_realisation',dateReal);
+  if($('#rap_fichier')[0].files.length){ fd.append('fichier_rapport',$('#rap_fichier')[0].files[0]); }
+  if(fChk){ fd.append('fichier_checklist', fChk); }
   fd.append('nce',$('#c_nce').val()||0); fd.append('ncs',$('#c_ncs').val()||0);
   fd.append('ncns',$('#c_ncns').val()||0); fd.append('ncne',$('#c_ncne').val()||0); fd.append('ncna',$('#c_ncna').val()||0);
   $.ajax({url:API,type:'POST',data:fd,processData:false,contentType:false,dataType:'json'})
@@ -785,7 +1307,18 @@ $('#rapForm').on('submit',function(e){
 $(document).on('click','.btn-pdf-rap',function(){
   const idaudit=$(this).data('audit'), num=$(this).data('num')||'';
   const url=AGAI_BASE+'/api/rapports?serve=1&idaudit='+idaudit;
-  $('#pdfTitle').text('Rapport - '+num); $('#pdfFrame').attr('src',url);
+  $('#pdfTitle').html('<span style="color:#23408F">Rapport d\'acte de supervision</span> - '+esc(num));
+  $('#pdfFrame').attr('src',url);
+  $('#pdfDl').attr('href',url+'&dl=1');
+  $('#pdfPrint').off('click').on('click',function(){ document.getElementById('pdfFrame').contentWindow.print(); });
+  new bootstrap.Modal('#pdfModal').show();
+});
+/* Listes de verification signees : meme lecteur, en-tete differencie */
+$(document).on('click','.btn-chk-rap',function(){
+  const idaudit=$(this).data('audit'), num=$(this).data('num')||'';
+  const url=AGAI_BASE+'/api/rapports?serve=1&doc=checklist&idaudit='+idaudit;
+  $('#pdfTitle').html('<span style="color:#1E9C4B">Listes de verification signees</span> - '+esc(num));
+  $('#pdfFrame').attr('src',url);
   $('#pdfDl').attr('href',url+'&dl=1');
   $('#pdfPrint').off('click').on('click',function(){ document.getElementById('pdfFrame').contentWindow.print(); });
   new bootstrap.Modal('#pdfModal').show();
@@ -794,5 +1327,7 @@ $('#pdfModal').on('hidden.bs.modal',function(){ $('#pdfFrame').attr('src',''); }
 
 /* ===== DEMARRAGE ===== */
 loadList(); loadStats();
-(function(){ try{ if(localStorage.getItem('agai_dash_rapports')==='1') setDash(true); }catch(e){} })();
+/* Le tableau de bord est TOUJOURS replie au chargement : le tableau des rapports
+   s'affiche directement, sans scroll. L'utilisateur l'ouvre a la demande. */
+(function(){ setDash(false); })();
 </script>

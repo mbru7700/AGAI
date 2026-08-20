@@ -1,6 +1,6 @@
 <?php
 /**
- * Module : Types d'organisme - Donnees de structures
+ * Module : Types d'activite (operateur) - Donnees de structures
  * Design uniforme inspecteurs / operateurs / domaines / sous-domaines :
  * - KPI + panneau stats masquable
  * - En-tetes tableau bleu ANAC, ordre decroissant
@@ -10,7 +10,7 @@
 if (!defined('SITE_URL')) { require_once dirname(__DIR__, 2) . '/config/config.php'; }
 Rbac::guardPage('typesorganisme');
 $csrf      = Security::generateCSRF();
-$pageTitle = 'Types d\'organisme';
+$pageTitle = 'Types d\'activite (operateur)';
 $active    = 'typesorganisme';
 $pageIcon  = 'bi-tags';
 require_once INCLUDES_PATH . '/layout_head.php';
@@ -31,6 +31,9 @@ table.tbl tbody tr:hover{background:#fafcff;}
 .empty{padding:36px;text-align:center;color:#9aa7bd;}
 /* Badges */
 .b-tag{display:inline-block;padding:.18rem .55rem;border-radius:20px;font-size:.72rem;font-weight:700;white-space:nowrap;margin:.1rem;}
+.kpi-info{font-size:.72rem;color:#b0bccd;cursor:help;margin-left:2px;vertical-align:middle;}
+.kpi-info:hover{color:#23408F;}
+.kpi-note{background:#eef3fb;border:1px solid #d5e1f5;border-radius:8px;padding:8px 12px;font-size:.8rem;color:#3a4a63;margin-bottom:10px;}
 .b-blue{background:#e8f0fe;color:#23408F;} .b-green{background:#d1e7dd;color:#0a5c36;}
 .b-gold{background:#fff3cd;color:#856404;} .b-muted{background:#f1f4f9;color:#7b8aa0;}
 .b-red{background:#f8d7da;color:#842029;} .b-purple{background:#f0e6ff;color:#5a189a;}
@@ -47,7 +50,7 @@ table.tbl tbody tr:hover{background:#fafcff;}
 
 <div class="page-head">
   <div>
-    <h1><i class="bi bi-tags me-2" style="color:var(--anac-primary)"></i>Types d'organisme</h1>
+    <h1><i class="bi bi-tags me-2" style="color:var(--anac-primary)"></i>Types d'activite (operateur)</h1>
     <div class="sub">Classification des operateurs soumis a la surveillance continue de l'ANAC Gabon.</div>
   </div>
   <button class="btn btn-anac" id="btnNew"><i class="bi bi-plus-lg me-2"></i>Nouveau type</button>
@@ -63,12 +66,12 @@ table.tbl tbody tr:hover{background:#fafcff;}
 <!-- Panneau stats masquable -->
 <div id="statsPanel" class="mb-3" style="display:none">
   <div class="row g-3">
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-tags-fill"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Types d'organisme</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-buildings-fill"></i></div><div><div class="stat-num" id="st_orgs">0</div><div class="stat-lbl">Operateurs classes</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-gold"><i class="bi bi-clipboard-check-fill"></i></div><div><div class="stat-num" id="st_audits">0</div><div class="stat-lbl">Audits associes</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-purple"><i class="bi bi-shield-check-fill"></i></div><div><div class="stat-num" id="st_habs">0</div><div class="stat-lbl">Habilitations liees</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-dark"><i class="bi bi-grid-1x2-fill"></i></div><div><div class="stat-num" id="st_avec">0</div><div class="stat-lbl">Types utilises</div></div></div></div>
-    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-red"><i class="bi bi-slash-circle-fill"></i></div><div><div class="stat-num" id="st_sans">0</div><div class="stat-lbl">Types non utilises</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-blue"><i class="bi bi-tags-fill"></i></div><div><div class="stat-num" id="st_total">0</div><div class="stat-lbl">Types d'activite (operateur)</div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card"><div class="stat-ic ic-green"><i class="bi bi-buildings-fill"></i></div><div><div class="stat-num" id="st_orgs">0</div><div class="stat-lbl">Operateurs classes <i class="bi bi-info-circle-fill kpi-info" title="Nombre d'operateurs AGAI ayant un type d'activite (operateur) renseigne (perimetre AGAI uniquement, pas le referentiel partage SIGANAC)."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-aud" style="cursor:pointer"><div class="stat-ic ic-gold"><i class="bi bi-clipboard-check-fill"></i></div><div><div class="stat-num" id="st_audits">0</div><div class="stat-lbl">Audits associes <i class="bi bi-info-circle-fill kpi-info" title="Nombre total d'audits menes aupres des operateurs AGAI, tous types confondus. Cliquez pour voir la repartition par type d'activite (operateur)."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-hab" style="cursor:pointer"><div class="stat-ic ic-purple"><i class="bi bi-shield-check-fill"></i></div><div><div class="stat-num" id="st_habs">0</div><div class="stat-lbl">Habilitations liees <i class="bi bi-info-circle-fill kpi-info" title="Habilitations des inspecteurs intervenant sur les audits des operateurs AGAI. Cliquez pour voir le detail par type d'activite (operateur)."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-avec" style="cursor:pointer"><div class="stat-ic ic-dark"><i class="bi bi-grid-1x2-fill"></i></div><div><div class="stat-num" id="st_avec">0</div><div class="stat-lbl">Types utilises <i class="bi bi-info-circle-fill kpi-info" title="Types d'activite (operateur) ayant au moins un operateur AGAI rattache. Cliquez pour la liste."></i></div></div></div></div>
+    <div class="col-6 col-md-2"><div class="stat-card kpi-sans" style="cursor:pointer"><div class="stat-ic ic-red"><i class="bi bi-slash-circle-fill"></i></div><div><div class="stat-num" id="st_sans">0</div><div class="stat-lbl">Types non utilises <i class="bi bi-info-circle-fill kpi-info" title="Types d'activite (operateur) definis mais sans aucun operateur AGAI rattache. Cliquez pour la liste."></i></div></div></div></div>
   </div>
 </div>
 
@@ -118,7 +121,7 @@ table.tbl tbody tr:hover{background:#fafcff;}
   <div class="modal-dialog modal-dialog-centered">
     <form class="modal-content" id="typeForm" autocomplete="off">
       <div class="modal-header">
-        <h5 class="modal-title" id="typeModalTitle">Nouveau type d'organisme</h5>
+        <h5 class="modal-title" id="typeModalTitle">Nouveau type d'activite (operateur)</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
@@ -140,6 +143,21 @@ table.tbl tbody tr:hover{background:#fafcff;}
         </button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- MODALE : detail des KPI (audits / habilitations / types utilises / non utilises) -->
+<div class="modal fade" id="kpiModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h5 class="modal-title"><i class="bi bi-list-check me-2" style="color:#23408F"></i><span id="kpiModalTitle"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" id="kpiModalBody">
+        <div class="text-center py-4"><span class="spinner-border text-primary"></span></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -263,6 +281,70 @@ $('#btnReset').on('click', function(){
 });
 
 /* ===== MODALE VOIR DETAIL ===== */
+/* ===== MODALES DETAIL DES KPI ===== */
+let SYNTHESE=null;
+function withSynthese(cb){
+  if(SYNTHESE){ cb(SYNTHESE); return; }
+  apiPost({action:'synthese'}).done(res => {
+    if(!res.success){ $('#kpiModalBody').html('<div class="alert alert-danger">'+esc(res.message||'Erreur')+'</div>'); return; }
+    SYNTHESE=res; cb(res);
+  }).fail(()=>{ $('#kpiModalBody').html('<div class="alert alert-danger">Echec de chargement.</div>'); });
+}
+function tblFoot(cols,label,val){ return '<tfoot><tr style="border-top:2px solid #23408F"><td colspan="'+(cols-1)+'" style="font-weight:800;color:#23408F">'+label+'</td><td class="text-center" style="font-weight:800;color:#23408F">'+val+'</td></tr></tfoot>'; }
+function openKpi(kind){
+  $('#kpiModalBody').html('<div class="text-center py-4"><span class="spinner-border text-primary"></span></div>');
+  new bootstrap.Modal('#kpiModal').show();
+  withSynthese(function(s){
+    let h='';
+    if(kind==='aud'){
+      $('#kpiModalTitle').text('Audits associes par type d\'activite (operateur)');
+      const list=s.audits||[]; let tot=0; list.forEach(x=>tot+=Number(x.nb_aud));
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Repartition des audits menes aupres des operateurs AGAI, selon leur type. Le total correspond au KPI "Audits associes".</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Aucun audit.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.85rem"><thead><tr style="background:#f5f7fa"><th>Type d\'activite (operateur)</th><th class="text-center">Nb audits</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td style="font-weight:600">'+esc(x.nomtypeorg||'-')+'</td><td class="text-center"><span class="b-tag b-gold">'+x.nb_aud+'</span></td></tr>'; });
+        h+='</tbody>'+tblFoot(2,'TOTAL',tot)+'</table>';
+      }
+    } else if(kind==='hab'){
+      $('#kpiModalTitle').text('Habilitations liees par type d\'activite (operateur)');
+      const list=s.habilitations||[]; let tot=0; list.forEach(x=>tot+=Number(x.nb_hab));
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Habilitations des inspecteurs intervenant sur les audits des operateurs AGAI, regroupees par type d\'activite (operateur). Une meme habilitation peut apparaitre sous plusieurs types si l\'inspecteur audite des operateurs de types differents ; la somme par type peut donc depasser le total distinct affiche dans le KPI.</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Aucune habilitation liee.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.85rem"><thead><tr style="background:#f5f7fa"><th>Type d\'activite (operateur)</th><th class="text-center">Habilitations</th><th class="text-center">Inspecteurs</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td style="font-weight:600">'+esc(x.nomtypeorg||'-')+'</td><td class="text-center"><span class="b-tag b-purple">'+x.nb_hab+'</span></td><td class="text-center"><span class="b-tag b-blue">'+x.nb_insp+'</span></td></tr>'; });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td style="font-weight:800;color:#23408F">TOTAL</td><td class="text-center" style="font-weight:800;color:#23408F">'+tot+'</td><td></td></tr></tfoot></table>';
+      }
+    } else if(kind==='avec'){
+      $('#kpiModalTitle').text('Types d\'operateur utilises');
+      const list=s.utilises||[];
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Types ayant au moins un operateur AGAI rattache, avec le nombre d\'operateurs et d\'audits.</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Aucun type utilise.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.85rem"><thead><tr style="background:#f5f7fa"><th>Type d\'activite (operateur)</th><th class="text-center">Operateurs</th><th class="text-center">Audits</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td style="font-weight:600">'+esc(x.nomtypeorg||'-')+'</td><td class="text-center"><span class="b-tag b-green">'+x.nb_org+'</span></td><td class="text-center"><span class="b-tag b-gold">'+x.nb_aud+'</span></td></tr>'; });
+        h+='</tbody>'+tblFoot(3,'Total : '+list.length+' type(s) utilise(s)','')+'</table>';
+      }
+    } else {
+      $('#kpiModalTitle').text('Types d\'operateur non utilises');
+      const list=s.non_utilises||[];
+      h='<div class="kpi-note"><i class="bi bi-info-circle me-1"></i>Types definis dans le referentiel mais sans aucun operateur AGAI rattache. Ils restent disponibles pour de futurs classements.</div>';
+      if(!list.length){ h+='<div class="text-center text-muted py-4">Tous les types sont utilises.</div>'; }
+      else {
+        h+='<table class="table table-sm table-hover align-middle mb-0" style="font-size:.85rem"><thead><tr style="background:#f5f7fa"><th>Type d\'activite (operateur)</th><th class="text-center">Enregistre le</th></tr></thead><tbody>';
+        list.forEach(x=>{ h+='<tr><td style="font-weight:600">'+esc(x.nomtypeorg||'-')+'</td><td class="text-center text-muted">'+fmtDate(x.datesaizi)+'</td></tr>'; });
+        h+='</tbody><tfoot><tr style="border-top:2px solid #23408F"><td colspan="2" style="font-weight:800;color:#23408F">Total : '+list.length+' type(s) non utilise(s)</td></tr></tfoot></table>';
+      }
+    }
+    $('#kpiModalBody').html(h);
+  });
+}
+$(document).on('click','.kpi-aud',function(){ openKpi('aud'); });
+$(document).on('click','.kpi-hab',function(){ openKpi('hab'); });
+$(document).on('click','.kpi-avec',function(){ openKpi('avec'); });
+$(document).on('click','.kpi-sans',function(){ openKpi('sans'); });
+
 $(document).on('click', '.act-view', function(){
   const id = $(this).data('id');
   const row = ROWS.find(t => String(t.idtypeorga) === String(id));
@@ -287,7 +369,7 @@ $(document).on('click', '.act-view', function(){
       +'</div></div></div>';
 
     // Operateurs
-    html += '<div class="det-card"><div class="det-card-head"><i class="bi bi-buildings me-2"></i>Operateurs de ce type ('+orgs.length+')</div><div class="det-card-body">';
+    html += '<div class="det-card"><div class="det-card-head"><i class="bi bi-buildings me-2"></i>Operateurs AGAI de ce type ('+orgs.length+')</div><div class="det-card-body">';
     if(!orgs.length){
       html += '<div class="text-muted small text-center py-2"><i class="bi bi-info-circle me-1"></i>Aucun operateur classe sous ce type.</div>';
     } else {
@@ -331,7 +413,7 @@ $(document).on('click', '.act-view', function(){
 
 /* ===== CRUD ===== */
 $('#btnNew').on('click', function(){
-  $('#typeModalTitle').text("Nouveau type d'organisme");
+  $('#typeModalTitle').text("Nouveau type d'activite (operateur)");
   $('#t_id').val(''); $('#t_nom').val(''); $('#t_dup').hide();
   new bootstrap.Modal('#typeModal').show();
   setTimeout(()=>$('#t_nom').focus(), 300);
@@ -342,7 +424,7 @@ $(document).on('click', '.act-edit', function(){
   apiPost({action:'get', idtypeorga:id}).done(res => {
     if(!res.success){ Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); return; }
     const t = res.data;
-    $('#typeModalTitle').text("Modifier le type d'organisme");
+    $('#typeModalTitle').text("Modifier le type d'activite (operateur)");
     $('#t_id').val(t.idtypeorga); $('#t_nom').val(t.nomtypeorg); $('#t_dup').hide();
     new bootstrap.Modal('#typeModal').show();
     setTimeout(()=>$('#t_nom').select(), 300);
@@ -372,7 +454,7 @@ $('#typeForm').on('submit', function(e){
     if(res.success){
       bootstrap.Modal.getInstance(document.getElementById('typeModal')).hide();
       Swal.fire({icon:'success',title:'Enregistre',text:res.message,timer:1600,showConfirmButton:false,timerProgressBar:true});
-      loadList(); loadStats();
+      SYNTHESE=null; loadList(); loadStats();
     } else { Swal.fire({icon:'error',title:'Erreur',text:res.message,confirmButtonColor:'#23408F'}); }
   }).fail(()=>{ btn.prop('disabled',false).html(html); Swal.fire({icon:'error',text:'Echec.',confirmButtonColor:'#23408F'}); });
 });
@@ -387,7 +469,7 @@ $(document).on('click', '.act-del', function(){
   }).then(r => {
     if(!r.isConfirmed) return;
     apiPost({action:'delete', idtypeorga:id}).done(res => {
-      if(res.success){ Swal.fire({icon:'success',timer:1400,showConfirmButton:false}); loadList(); loadStats(); }
+      if(res.success){ Swal.fire({icon:'success',timer:1400,showConfirmButton:false}); SYNTHESE=null; loadList(); loadStats(); }
       else { Swal.fire({icon:'error',title:'Impossible',text:res.message,confirmButtonColor:'#23408F'}); }
     });
   });

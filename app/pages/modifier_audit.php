@@ -101,12 +101,16 @@ require_once INCLUDES_PATH . '/layout_head.php';
         <select class="form-select" id="m_statut" required>
           <option value="1">Planifiee</option>
           <option value="2">Reportee</option>
-          <option value="3">Effectuee</option>
+          <option value="3" disabled style="color:#adb5bd">Effectuee (via le rapport d'acte de supervision)</option>
           <option value="4">Suspendue</option>
           <option value="5">A surveiller</option>
           <option value="6">Annulee</option>
           <option value="7">Inopinee</option>
         </select>
+        <div class="form-text" style="font-size:.74rem">
+          <i class="bi bi-info-circle me-1"></i>Le statut <strong>Effectuee</strong> ne se met pas ici :
+          il decoule de la remise du rapport d'acte de supervision.
+        </div>
       </div>
       <div class="col-md-4">
         <label class="form-label">Activite de l'operateur</label>
@@ -295,6 +299,9 @@ function fillForm(){
   $('#m_num').val(a.num_audit||'');
   $('#m_type').val(a.type_activite||'');
   $('#m_cadre').val(a.cadre||'');
+  // Un acte deja effectue conserve son statut : l'option est reactivee pour rester affichable,
+  // mais elle demeure inaccessible tant que l'acte n'est pas passe a Effectuee par le rapport.
+  if(String(a.statut) === '3'){ $('#m_statut option[value="3"]').prop('disabled', false); }
   $('#m_statut').val(String(a.statut||1));
   // Activite operateur : priorite idtypeorga, sinon text
   if(a.idtypeorga){ $('#m_typeorga').val(String(a.idtypeorga)); }
